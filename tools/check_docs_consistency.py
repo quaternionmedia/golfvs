@@ -57,14 +57,7 @@ PROPOSAL = re.compile(r"^- `\[PROPOSED\]`")
 # Documents that are cited but deliberately absent, each with the decision that
 # has to be taken before the entry can go. This is a debt list, not a mute
 # switch: an entry here is a promise that a human is going to resolve it.
-GRANDFATHERED_DOCS = {
-    "ONBOARDING.md": (
-        "cited by DESIGN.md 2.6 and DECISIONS.md, never written. HANDOFF.md "
-        "records it as a half-purged failed attempt. Remove this entry when "
-        "the six first-run proposals are ratified (write the document) or "
-        "rejected (purge the citations)."
-    ),
-}
+GRANDFATHERED_DOCS: dict[str, str] = {}
 
 
 def fail(msg: str) -> None:

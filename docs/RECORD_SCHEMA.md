@@ -84,9 +84,9 @@ A client that loads a record **recomputes** `after` by replaying `before` plus `
 This is what lets a relay be a mailbox rather than a referee, and what makes a tampered record pointless:
 there is nothing to gain by editing `after`, because nobody reads it.
 
-`after.hash` covers the canonical serialisation of `after.ball` and `after.events`. The exact hash input is
-fixed at M1 alongside the first real fixture. Until then, fixtures carry an all-zero hash, which means
-*not yet computed by a simulation*.
+`after.hash` covers the canonical serialisation of `after.ball` and `after.events` (ADR-013), as implemented
+by `Canonical.hash_of`. Fixtures that carry an all-zero hash mean *not yet computed by a simulation*, and the
+replay test skips them.
 
 ### 2.3 Size
 
@@ -167,13 +167,19 @@ set is the record of what the simulation used to do.
 
 ## 6. Questions to settle before the M1 freeze
 
+**Two of the four are closed.** ADR-012 fixes float serialisation and ADR-013 fixes the hash input;
+`records/canonical.gd` implements both and `tests/records/test_canonical.gd` asserts them.
+
 1. **`stroke_no` off-by-one.** DESIGN.md §11.1 shows `"stroke_no": 2` beside a notation line reading `3.`.
    This file defines `stroke_no` as the 1-based ordinal of the stroke the record describes, and the fixture
    follows that reading. Confirm it, or correct §11.1.
 2. **Share full `after`, or only `after.hash`?** (DESIGN.md §10.2) Dropping `after.ball` and `after.events`
    from *shared* records roughly halves the wire size and costs nothing, since `after` is recomputed anyway.
    The cost is that a Replay browser can no longer list a shared record without replaying it first.
-3. **Exact hash input.** Canonical JSON of `after.ball` plus `after.events`, or a struct hash over the
-   simulation's final state? The first is portable and diffable; the second catches drift the first cannot see.
-4. **Float serialisation.** Records must round-trip bit-for-bit across platforms. Fix the decimal precision
-   (or move to hex floats) before the first fixture is recorded, not after.
+3. ~~**Exact hash input.**~~ **Closed by ADR-013:** SHA-256 over the canonical encoding of `after.ball` and
+   `after.events`, and nothing else. The struct-hash alternative was rejected because hashing the inputs makes
+   the digest move for reasons that are not the stroke's outcome, and a fork could then never be compared
+   against its parent.
+4. ~~**Float serialisation.**~~ **Closed by ADR-012:** quantize on write — positions to 0.1 mm, normalised
+   scalars and unit-vector components to six decimals — so the number the simulation consumes *is* the number
+   on disk. Hex floats were unnecessary once nothing depended on a round trip.

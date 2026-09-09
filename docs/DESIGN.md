@@ -78,32 +78,37 @@ Because the sim is deterministic (§6.1), a stroke is fully described by its inp
 
 ### 2.6 First run
 A first-time player is taught the stroke, the curve, the defender read and the putt in **one par-4 hole,
-under sixty seconds, without a single word**. Full spec in `docs/ONBOARDING.md`.
+under sixty seconds, without a single word**.
 
 This is ADR-004 followed through. That decision made the defenders silent — "no VO, no text bubbles" — for
 "no VO budget, no localization surface". Onboarding is the one screen that would otherwise reintroduce the
 entire localization surface on day one, so it gets the same treatment.
 
-Teaching falls through four layers, cheapest first: **the world** (geometry that makes the right shot the
+Teaching falls through three layers, cheapest first: **the world** (geometry that makes the right shot the
 only shot) → **the ribbon** (§2.1's preview, coloured for blocked/clear) → **the ghost** (a looping gesture
-demo) → **the glyph** (one emoji, pinned to the thing it is about). A glyph is the last resort, not the
-medium; most of the intro hole shows none.
+demo, pinned to the ball's position on screen). There is no fourth layer, and no symbolic one:
+`ADR-014` rejected the eight-glyph vocabulary after the hole was built without it and taught fine.
 
-The whole symbolic language of the game is **eight glyphs** — 👆 ⛳ ✅ ❌ 👀 ⭐ 🔁 ⏭ — under three rules: one
-on screen at a time, pinned to a world position rather than floating in the UI, and ❌ never means "you
-failed" (failure is unmarked; a missed stroke gets 🔁). Pillar 6 as a UI rule.
+What carries meaning instead is drawn and animated by the engine: ripple rings travelling outward from a
+point on the ground, a gold column and rings at the cup, a ghost hand performing the gesture where the
+player has to perform it, a trajectory stub that is cyan when the line is clear and amber when it is not,
+and a scorecard of filled and empty rings. Nothing is typed, so nothing needs translating and nothing
+depends on a vendor's emoji set rendering the same on two devices.
 
-The intro hole, "The Handshake", teaches one concept per stroke: **power**, then **curve**, then **the
-defender** (whose answer is the curve they just learned — Pillar 1 as level design), then **the putt**. Par
-is 4 and a median first-timer takes 4, so the first scorecard a player ever sees reads *par*.
+The intro hole, "The Handshake", is a par 4 that teaches **power**, then **curve**, then **the putt** — one
+idea per *lesson*, chosen from where the ball actually lies rather than from a step counter, so the tutorial
+cannot fall out of step and cannot be failed. Par is one stroke longer than the lesson count, so the median
+first-timer's two-putt still reads *par* on the first scorecard they ever see.
+
+The hole's defender is an **archer who shoots only balls that are leaving the course** (`ADR-015`). A
+beginner's characteristic disaster is spraying it off the map; the archer pins those where they were hit, so
+the tutorial hole cannot lose a ball. It is the same principle as the lesson picker, applied to the golf
+instead of to the teaching.
 
 **Decisions**
-- `[PROPOSED]` Zero words in the first-run experience; ADR-004's reasoning extended from defenders to onboarding.
-- `[PROPOSED]` The eight-glyph vocabulary and its three grammar rules; a ninth glyph is a scope change.
-- `[PROPOSED]` The four-layer teaching hierarchy: world → ribbon → ghost → glyph.
-- `[PROPOSED]` "The Handshake" as the intro hole: par 4, four beats, one new concept per stroke, ending on a made putt.
-- `[PROPOSED]` Glyphs authored as in-house sprites, not a bundled emoji font (~10 MB, vendor-specific rendering).
-- `[PROPOSED]` No blocking modals, no confirmation dialogs, and a one-tap ⏭ on every screen — a confirm dialog would need words.
+- `[RATIFIED ADR-014]` Zero words in the first-run experience; ADR-004's reasoning extended from defenders to onboarding.
+- `[RATIFIED ADR-014]` No glyph vocabulary. Teaching is world → ribbon → ghost, three layers, all drawn.
+- `[RATIFIED ADR-015]` "The Handshake" as the intro hole: par 4, three lessons chosen from the lie, ending on a made putt, guarded by an archer that only stops balls going out of bounds.
 
 ---
 
@@ -255,7 +260,7 @@ golfvs/                      # working repo name; see OPEN: title
 │  ├─ DESIGN.md              # this document; sections carry status tags
 │  ├─ DECISIONS.md           # ADR log — one entry per ratified decision, with rationale
 │  ├─ HANDOFF.md             # session handoff packet; the only cross-session memory
-│  ├─ ART_PIPELINE.md · RECORD_SCHEMA.md · ONBOARDING.md · CONTRIBUTING.md
+│  ├─ ART_PIPELINE.md · RECORD_SCHEMA.md · CONTRIBUTING.md
 ├─ addons/                   # gdUnit4, outline shader
 ├─ core/                     # GameState, EventBus, ShotIntent, BallController
 ├─ records/                  # Stroke/Round/MatchRecord, RecordStore, notation
