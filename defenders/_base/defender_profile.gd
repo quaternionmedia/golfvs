@@ -60,6 +60,22 @@ enum Action {
 ## be long enough to see and no longer.
 @export var tell_lead := 0.45
 
+## The pause between noticing a shot and being able to answer it, at tier
+## reaction 1.0.
+##
+## A defender that acts on the frame it becomes able to is a tripwire. People
+## are not: there is a beat between seeing and moving, it is roughly a quarter of
+## a second, and it is most of what makes a human opponent feel like one. It is
+## also what a good player learns to exploit -- a fast flat shot beats a slow
+## defender, and that is a skill rather than a dice roll.
+##
+## Deterministic: the jitter around it is drawn from the stroke seed, so the same
+## record replays with the same hesitation.
+@export var reaction_time := 0.26
+## How much the pause varies, as a fraction. Enough to stop it reading as a
+## metronome.
+@export var reaction_jitter := 0.3
+
 ## No tier may shorten a tell below this. A warning too short to read is not a
 ## warning, and "readable chaos" is Pillar 2.
 const MIN_TELL := 0.35
@@ -90,6 +106,15 @@ func event_missed() -> String:
 ## The tell, shortened by reaction but never below MIN_TELL.
 func tell_for(tier: DifficultyTier) -> float:
 	return maxf(MIN_TELL, tell_lead / maxf(0.01, tier.reaction))
+
+
+## How long this defender takes to register a shot, for a given stroke.
+##
+## `roll` is a 0..1 value the caller draws from the stroke's seed, so two
+## replays of one record hesitate identically.
+func reaction_for(tier: DifficultyTier, roll: float) -> float:
+	var base := reaction_time / maxf(0.01, tier.reaction)
+	return maxf(0.0, base * (1.0 + (roll * 2.0 - 1.0) * reaction_jitter))
 
 
 func reach(tier: DifficultyTier) -> float:
@@ -175,5 +200,9 @@ static func archer(at: Vector3, centre: Vector3, extent: Vector2) -> DefenderPro
 	# 0.9 s tell was found to be broken).
 	profile.tell_lead = 0.4
 	profile.cooldown = 1.2
+	# Quicker than the roster average, and it has to be: it is watching an entire
+	# boundary rather than a patch of sky, and a ball crossing the line does not
+	# wait. Still a beat, though, and a low flat shank can still beat it.
+	profile.reaction_time = 0.22
 	profile.base_accuracy = 1.0
 	return profile

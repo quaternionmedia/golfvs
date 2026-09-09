@@ -69,7 +69,7 @@ func saves_this_shot() -> bool:
 ## see the archer commit before the arrow goes, rather than have the ball stop
 ## dead with no warning.
 func watch(at: Vector3) -> void:
-	if _acted or _cooldown_left > 0.0:
+	if _acted or _cooldown_left > 0.0 or not has_reacted():
 		return
 	alerted = true
 	_act_point = at
@@ -83,7 +83,10 @@ func watch(at: Vector3) -> void:
 ## Pillar 2 asks that the player always know why a shot stopped, and a ball that
 ## stops the instant it crosses a line, with an arrow in it, says that clearly.
 func intercept(at: Vector3) -> bool:
-	if _acted or _cooldown_left > 0.0:
+	# Not yet: the shot has been struck but not registered. A ball fast and flat
+	# enough to cross the line inside that window is gone, and should be -- a
+	# defender that cannot be beaten for speed is not a defender.
+	if _acted or _cooldown_left > 0.0 or not has_reacted():
 		return false
 	_acted = true
 	alerted = false

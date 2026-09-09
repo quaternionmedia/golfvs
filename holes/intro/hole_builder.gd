@@ -40,6 +40,13 @@ const EDGE := Color("21d4ff")
 ## The fill of a play surface: a shade up from the deck and slightly cool, so
 ## the corridor reads as a panel laid on the floor rather than a hole in it.
 const SURFACE := Color("2c353b")
+## The wider in-play area outside the mown corridor. Between the deck and the
+## fairway in value, so the hole reads as three tiers -- floor, in play, mown --
+## rather than as a strip stranded in a void.
+const SURFACE_ROUGH := Color("262e33")
+## Its grid and outline. Dimmer than the fairway: still in play, still measured,
+## but not where you meant to be.
+const EDGE_ROUGH := Color("2f7f97")
 ## The putting surface. The scorecard's DONE colour.
 const PUTTING := Color("8dffa1")
 ## Sand, and the boundary. The ribbon's BLOCKED amber: this costs you.
@@ -189,15 +196,16 @@ static func wire_box(parent: Node3D, size: Vector3, color: Color, at: Vector3,
 ##
 ## Returns the root, so a caller can still rotate the whole thing — the apron
 ## does. The fill sits a hair below the lines so they are never z-fought.
-static func slab(parent: Node3D, size: Vector3, color: Color, at: Vector3) -> Node3D:
+static func slab(parent: Node3D, size: Vector3, color: Color, at: Vector3,
+		spacing := 2.8, fill := SURFACE, grid_colour := GRID, grid_energy := 1.1) -> Node3D:
 	var root := Node3D.new()
 	root.position = at
 	parent.add_child(root)
 	var box := BoxMesh.new()
 	box.size = size
-	_mesh(root, box, flat(SURFACE), Vector3.ZERO)
+	_mesh(root, box, flat(fill), Vector3.ZERO)
 	var top := Vector3(0.0, size.y * 0.5 + 0.01, 0.0)
-	grid(root, Vector2(size.x, size.z), 2.8, GRID, top, 1.1)
+	grid(root, Vector2(size.x, size.z), spacing, grid_colour, top, grid_energy)
 	outline_rect(root, Vector2(size.x, size.z), color, top)
 	return root
 

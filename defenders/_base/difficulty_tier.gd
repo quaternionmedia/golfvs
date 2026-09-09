@@ -12,9 +12,13 @@ extends Resource
 ## a designer tuning skeet and a designer tuning curling are turning the same
 ## three knobs, and a fairness argument made once holds for both.
 
-## How much of the tell the defender spends deciding. Above 1.0 it commits
-## later, which leaves the player less time to read it -- so this shortens the
-## warning, and never removes it. DefenderProfile.MIN_TELL is the floor.
+## How quickly the defender registers a shot and commits to answering it.
+##
+## Two things scale on it. It divides the profile's reaction time -- the pause
+## between noticing a ball and being able to act on it -- and it shortens the
+## tell, so a keener defender both thinks faster and warns for less time.
+## DefenderProfile.MIN_TELL is the floor on the second; nothing removes the
+## first, because a defender with no reaction time is a trigger, not an opponent.
 @export var reaction := 1.0
 
 ## Multiplies the profile's base chance of connecting once it has acted.

@@ -21,6 +21,16 @@ const CUP_POS := Vector3(11.0, 0.0, -77.0)
 const CORRIDOR_HALF := 9.0
 const CORRIDOR_NEAR_Z := 2.0
 const CORRIDOR_FAR_Z := -80.0
+
+## How much bare deck is left between the in-play surface and the boundary.
+##
+## The playable area now reaches out to the red line instead of stopping at the
+## edge of the mown strip. A corridor stranded in a wide empty box read as the
+## hole being smaller than the rules said it was: everything inside the boundary
+## has always been playable, and the archer has always only fired at balls
+## leaving it, but only the strip was drawn. The margin is what keeps the
+## boundary legible as a line rather than as the edge of a panel.
+const PLAY_INSET := 2.0
 ## Placed so the flag is visible from the tee but hidden from the landing zone.
 ## That asymmetry is the whole lesson: the player sees where they are going,
 ## walks up to the ball, and finds the straight line gone. The answer is the
@@ -72,22 +82,23 @@ const HOLE_ID := "intro/01"
 const ARCHER_STAND := Vector3(
 	SPIRE_POS.x, SPIRE_POS.y + SPIRE_SIZE.y * 0.5, SPIRE_POS.z)
 
-## How close to the edge the ball gets before the archer draws. Enough warning
-## to read, short enough that it is not drawing at every shot into the rough.
-const GUARD_MARGIN := 5.0
+## How close to the edge the ball gets before the archer notices. Widened along
+## with the reaction delay: a defender that has to think before it acts needs to
+## start thinking earlier, or it is not slower, it is simply beaten.
+const GUARD_MARGIN := 11.0
 const BOUNDS_CENTRE := Vector3(6.0, 0.0, -40.0)
 const BOUNDS_EXTENT := Vector2(28.0, 52.0)
 
-## The arrow, as a physical object: 24 g at 58 m/s.
+## The arrow, as a physical object: 26 g at 82 m/s.
 ##
 ## The ball is no longer teleported and stopped. It is *hit*: the arrow's
 ## momentum is added to whatever the ball already had, and what happens next is
 ## the solver's answer rather than an assignment. Against a 45 g ball that is a
-## velocity change of about 31 m/s -- the same order as the ball's own speed,
-## which is why an arrow can plausibly arrest a golf ball at all, and why these
-## two numbers are the ones worth tuning.
-const ARROW_MASS := 0.024
-const ARROW_SPEED := 58.0
+## velocity change of about 47 m/s -- comfortably past the ball's own top speed,
+## so the arrow does not merely arrest the shot, it reverses and buries it.
+## These two numbers are where the weight of the hit lives.
+const ARROW_MASS := 0.026
+const ARROW_SPEED := 82.0
 
 ## How the arrow meets the ball: mostly downward, partly against the flight.
 ##
@@ -96,21 +107,27 @@ const ARROW_SPEED := 58.0
 ## from behind, and its momentum opposes the flight. The downward share is what
 ## pins: it drives the ball into the deck, which is the difference between being
 ## shot down and being nudged off line.
-const ARROW_AGAINST_FLIGHT := 0.66
-const ARROW_DOWNWARD := 0.75
+##
+## Weighted toward the flight rather than the floor. Burying the ball straight
+## down spends the whole blow in one frame and it barely moves; sending it back
+## along its own line spends it as travel, so the hit reads as a hit -- and it
+## carries the ball back toward the middle of the course, which makes the save
+## safer rather than more marginal.
+const ARROW_AGAINST_FLIGHT := 0.88
+const ARROW_DOWNWARD := 0.48
 
 ## Drag on a ball with an arrow through it, until the next stroke. The shaft is
 ## what stops it, rather than an assignment to zero -- so the ball skids,
 ## tumbles and settles instead of halting on the spot.
-const PINNED_DAMP := 4.2
+const PINNED_DAMP := 2.1
 
 ## How close to the edge the archer lets the ball get before loosing. Struck a
 ## little early rather than exactly on the line: a hit that transfers real
 ## momentum needs somewhere for the ball to go afterwards, and one struck
 ## precisely on the boundary has nowhere.
-const STRIKE_MARGIN := 2.0
+const STRIKE_MARGIN := 3.0
 ## Camera kick on a connection, in metres. Decays over about a third of a second.
-const SHAKE_ON_HIT := 0.5
+const SHAKE_ON_HIT := 0.95
 
 ## Sampling step for the arc the defenders read. Finer than the 0.075 s the
 ## ribbon uses, because it decides *when* a shot is fired at.
@@ -192,7 +209,14 @@ func _build_terrain() -> void:
 	ground_shape.position = Vector3(0.0, -0.5, -40.0)
 	ground.add_child(ground_shape)
 
-	# The corridor, the apron and the tee, as outlined panels on the deck. The
+	# The in-play area, out to just inside the boundary. Dimmer grid, wider
+	# spacing: still measured ground, but not where you meant to be.
+	HoleBuilder.slab(self,
+		Vector3((BOUNDS_EXTENT.x - PLAY_INSET) * 2.0, 0.05, (BOUNDS_EXTENT.y - PLAY_INSET) * 2.0),
+		HoleBuilder.EDGE_ROUGH, Vector3(BOUNDS_CENTRE.x, 0.01, BOUNDS_CENTRE.z),
+		7.0, HoleBuilder.SURFACE_ROUGH, HoleBuilder.EDGE_ROUGH, 0.75)
+
+	# The corridor, the apron and the tee, as outlined panels on top of it. The
 	# mown stripes are gone: a grid says "measured ground" without pretending to
 	# be a lawn, and it does the same job of giving the corridor a sense of
 	# distance.
@@ -478,7 +502,7 @@ func _on_defender_acted(defender: Node3D) -> void:
 			ball.linear_velocity += incoming * (ARROW_MASS * ARROW_SPEED / ball.mass)
 			# Tumble about the shaft. A ball that changes direction without
 			# starting to spin reads as a prop being moved.
-			ball.angular_velocity += incoming.cross(Vector3.UP) * 34.0
+			ball.angular_velocity += incoming.cross(Vector3.UP) * 58.0
 			_pinned = true
 		_:
 			# KNOCK_DOWN: horizontal motion stops and gravity does the rest.
@@ -578,6 +602,8 @@ func _lie_at(at: Vector3) -> String:
 		return "tee"
 	if absf(at.x) <= CORRIDOR_HALF and at.z <= CORRIDOR_NEAR_Z and at.z >= CORRIDOR_FAR_Z:
 		return "fairway"
+	# Everything else inside the boundary is rough, and now drawn as such. The
+	# "ob" case above has already been taken, so reaching here means in play.
 	return "rough"
 
 

@@ -116,14 +116,15 @@ func test_the_arrow_carries_enough_momentum_to_arrest_a_golf_ball() -> void:
 	# the same order -- so the hole's launch speed and the arrow cannot be tuned
 	# independently. Raise MAX_SPEED without raising the arrow and the archer
 	# quietly stops arresting anything; lower it and every save fires the ball
-	# into the deck like a nail.
+	# into the deck like a nail. The upper bound is deliberately past 1.0: the
+	# blow is meant to reverse the ball, not merely stop it.
 	#
 	# This project has already shipped one bug of exactly this shape, between
 	# the hole's length and MAX_SPEED, so the relationship gets an assertion
 	# rather than a comment.
 	var hole := _hole()
 	var delta_v: float = hole.ARROW_MASS * hole.ARROW_SPEED / hole.BALL_MASS
-	assert_float(delta_v).is_between(BallFlight.MAX_SPEED * 0.8, BallFlight.MAX_SPEED * 1.6)
+	assert_float(delta_v).is_between(BallFlight.MAX_SPEED * 0.9, BallFlight.MAX_SPEED * 2.1)
 
 
 func test_a_struck_ball_is_hit_rather_than_switched_off() -> void:
@@ -136,6 +137,7 @@ func test_a_struck_ball_is_hit_rather_than_switched_off() -> void:
 	var before: Vector3 = hole.ball.global_position
 
 	var defender: Node3D = hole._defenders[0]
+	_let_it_react(defender.brain)
 	defender.brain.intercept(hole.ball.global_position)
 	hole._on_defender_acted(defender)
 
@@ -154,6 +156,17 @@ func test_the_shaft_keeps_dragging_until_the_next_stroke() -> void:
 	# struck ball runs on as though nothing had hit it.
 	var hole := _hole()
 	var defender: Node3D = hole._defenders[0]
+	_let_it_react(defender.brain)
 	defender.brain.intercept(hole.ball.global_position)
 	hole._on_defender_acted(defender)
 	assert_bool(hole._pinned).is_true()
+
+
+## Steps a defender past its reaction delay. Nothing can act before it has
+## registered the shot, so a test that skips this is testing a defender that
+## does not exist.
+func _let_it_react(brain: DefenderBrain) -> void:
+	for i in 200:
+		if brain.has_reacted():
+			return
+		brain.advance(0.02)

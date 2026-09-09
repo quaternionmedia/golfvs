@@ -54,6 +54,10 @@ var _stroke_seed := 0
 ## holds its tell instead of dropping back to idle.
 var alerted := false
 
+## How long this defender takes to register the shot before it can answer it.
+## Drawn once per stroke from the seed, so a replay hesitates identically.
+var _reaction := 0.0
+
 
 func configure(profile_: DefenderProfile, tier_: DifficultyTier, id_: String) -> void:
 	profile = profile_
@@ -73,6 +77,12 @@ func read_shot(arc: PackedVector3Array, dt: float, stroke_seed: int) -> void:
 	_will_connect = false
 	alerted = false
 	_stroke_seed = stroke_seed
+
+	# The pause between seeing and moving, drawn before anything else so that it
+	# applies to both the predicted interception and the live one.
+	var clock := RandomNumberGenerator.new()
+	clock.seed = hash("%d:%s:reaction" % [stroke_seed, id])
+	_reaction = profile.reaction_for(tier, clock.randf())
 	_set_state(State.COOLDOWN if _cooldown_left > 0.0 else State.IDLE)
 
 	if _cooldown_left > 0.0 or arc.size() < 2:
@@ -89,10 +99,12 @@ func read_shot(arc: PackedVector3Array, dt: float, stroke_seed: int) -> void:
 
 	var point := arc[index]
 	var when := float(index) * dt
-	# A defender that would have to act before its own tell could finish has
-	# been beaten by a fast, flat shot. It does not get to act late, and it
-	# does not get to shorten the warning -- it simply misses this one.
-	if when < profile.tell_for(tier):
+	# A defender that would have to act before it has registered the shot and
+	# finished its tell has been beaten by a fast, flat one. It does not get to
+	# act late, it does not get to shorten the warning, and it does not get to
+	# skip thinking -- it simply misses this one. Being beatable for speed is the
+	# skill the whole arrangement is there to reward.
+	if when < profile.tell_for(tier) + _reaction:
 		return
 
 	_act_at = when
@@ -168,6 +180,16 @@ func rest() -> void:
 	_will_connect = false
 	alerted = false
 	_set_state(State.COOLDOWN if _cooldown_left > 0.0 else State.IDLE)
+
+
+## True once this defender has had time to register the shot. Nothing may act
+## before it, which is what stops a defender being a tripwire.
+func has_reacted() -> bool:
+	return _elapsed >= _reaction
+
+
+func reaction_delay() -> float:
+	return _reaction
 
 
 func will_connect() -> bool:
