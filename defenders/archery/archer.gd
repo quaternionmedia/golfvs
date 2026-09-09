@@ -50,6 +50,10 @@ var ink := THREAD
 ## mind. It is also the only thing they have to judge the shot by.
 var _tracked := false
 var _on_target := false
+## Whether the dashed line to the target is wanted. It is the AI's tell and the
+## live guard's warning; a person aiming by hand has the aim ribbon instead, and
+## two lines saying the same thing is one line too many.
+var _threaded := true
 
 var _bow: Node3D
 var _nock: Marker3D
@@ -168,13 +172,23 @@ func advance(delta: float) -> bool:
 func track(at: Vector3, reachable := true) -> void:
 	_watching = at
 	_tracked = true
+	_threaded = true
 	_on_target = reachable
+
+
+## Point the bow, and draw it, for somebody aiming by hand. No thread: the arc
+## they are aiming along is already drawn, by the same ribbon the golfer uses.
+func aim_at(at: Vector3) -> void:
+	_watching = at
+	_tracked = true
+	_threaded = false
 
 
 func rest() -> void:
 	brain.rest()
 	_watching = Vector3.ZERO
 	_tracked = false
+	_threaded = true
 	_on_target = false
 
 
@@ -221,7 +235,7 @@ func _process(delta: float) -> void:
 	# bow is drawn says how long is left before the arrow goes.
 	_nock.position.z = 0.62 * SCALE * _draw
 
-	_thread.visible = _draw > 0.02 and _watching != Vector3.ZERO
+	_thread.visible = _threaded and _draw > 0.02 and _watching != Vector3.ZERO
 	if _thread.visible:
 		var on := _on_target or not _tracked
 		var mat: StandardMaterial3D = _thread.material_override
@@ -232,6 +246,40 @@ func _process(delta: float) -> void:
 			0.05 if on else 0.02, 7.0 if on else 14.0)
 
 	_advance_arrow(delta)
+
+
+## Where the string is, in world space. The range looses arrows from here, so the
+## shot starts at the bow rather than at the archer's feet.
+func nock_at() -> Vector3:
+	return _nock.global_position
+
+
+## An arrow in flight, drawn where the range says it is.
+##
+## The AI's arrow is a *tracer* and the long comment below says why: its pin is
+## applied on the tick the archer acts, so a projectile would arrive after the
+## ball had already stopped, and cause after effect reads as a glitch.
+##
+## A hand-played arrow inverts that reasoning exactly. The player let go, and
+## nothing has happened yet -- the travel *is* the anticipation, and the ball
+## stopping when the arrow reaches it is cause and then effect in the right
+## order. So this one really flies, and it is the only reason leading the target
+## is a skill rather than a press.
+func fly(from: Vector3, at: Vector3) -> void:
+	_streak = -1.0
+	_trail.visible = false
+	_arrow.visible = true
+	_arrow.global_position = at
+	var heading := at - from
+	if heading.length_squared() > 1.0e-6:
+		_arrow.global_basis = Basis.looking_at(heading.normalized(), Vector3.UP)
+	var mat: StandardMaterial3D = _arrow.material_override
+	mat.albedo_color = ink
+
+
+## The arrow is spent. Leaves the tracer alone -- it has its own fade.
+func stow() -> void:
+	_arrow.visible = false
 
 
 ## The shot, drawn as a tracer rather than as a travelling projectile.
@@ -246,7 +294,8 @@ func _process(delta: float) -> void:
 ## not watching something cross the gap.
 func _advance_arrow(delta: float) -> void:
 	if _streak < 0.0:
-		_arrow.visible = false
+		# `fly()` owns the mesh while a hand-played arrow is up; the tracer only
+		# reclaims it once it has a streak of its own to draw.
 		_trail.visible = false
 		return
 	_streak += delta

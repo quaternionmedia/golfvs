@@ -111,11 +111,13 @@ rows stay a fingertip tall regardless, because subtle is a claim about ink and n
 hit.
 
 You can also play the other end of it (`ADR-020`). A switch in the opposite corner to the club selector
-puts the player on defence: the game golfs, and the archer standing beyond the pin becomes theirs to time. Both
-sides get the same camera and the same overlay, because the claim the switch is making is that they are looking
-at the same thing. The golfer has a tell now — a backswing, during which the ball is genuinely held — because
-§3 asks every defender to telegraph and never said the same of the golfer, which left a defender reading a
-shot from a ball that had already gone.
+puts the player on defence: the game golfs, and the archer standing beyond the pin becomes theirs. It is
+played third person over the archer, with **the same pull-aim-release drag as the stroke** (`ADR-021`) — the
+drag draws a bow instead of swinging a club, the same ribbon previews where the arrow goes, and the arrow
+travels, so leading the ball is the skill. Neither side gets a god view; that, and not a shared camera, is
+what makes the two halves fair to each other. The golfer has a tell now — a backswing, during which the ball
+is genuinely held — because §3 asks every defender to telegraph and never said the same of the golfer, which
+left a defender reading a shot from a ball that had already gone.
 
 The camera is the free orbit of `ADR-001`, and it is an offset rather than a mode: the range still frames the
 shot — behind the ball on the line to the pin, trailing the flight, wide on the archer as it draws — and two

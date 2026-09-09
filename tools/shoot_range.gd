@@ -111,9 +111,10 @@ func _shoot_swing() -> void:
 	await _save("9-backswing")
 
 
-## Defending: the archer stands halfway to the pin, the bow is drawn, and the
-## thread follows the ball. That thread is the whole interface for the other
-## side -- it is where the arrow goes if the player presses now.
+## Defending: over the archer's shoulder, bow drawn, with the golfer's own aim
+## ribbon showing where the arrow goes. The point of the shot is that it is the
+## same picture as the stroke -- a figure, a pull, and an honest preview -- taken
+## from the other end of the hole.
 func _shoot_defending() -> void:
 	_range.set_process(true)
 	_range.pin = 2
@@ -121,13 +122,18 @@ func _shoot_defending() -> void:
 	_range.set_defending(true)
 	_menu._side.defending = true
 	_range._enter_aim()
-	_range._on_fired(Vector3(0.05, 0.0, -1.0).normalized(), 0.92, 0.0)
+	_range._play_the_games_shot()
 
 	# Far enough into the flight that the ball is up in the archer's air.
-	for i in 95:
+	for i in 78:
 		await get_tree().physics_frame
+	# And the bow drawn at it, which is what the player would be looking at.
+	var lead: Vector3 = _range.ball.global_position - _range._contender.nock_at()
+	lead.y = 0.0
+	_range._on_aim_updated(lead.normalized(), 0.8, 0.0)
 	_range.set_process(false)
 	await _save("10-defending")
+	_range._ribbon.hide_arc()
 	_range.set_defending(false)
 	_menu._side.defending = false
 

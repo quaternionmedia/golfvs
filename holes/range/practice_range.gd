@@ -77,6 +77,27 @@ const CONTEST_ZONE := 11.0
 ## Clear of the mat, whatever the arithmetic says. See `defender_stand()`.
 const TEE_CLEARANCE := 2.0
 
+## The bow, in the same three numbers a club is: the speed band a full draw
+## spans, and the angle it leaves at. It goes through `BallFlight` exactly as a
+## stroke does, which is not a shortcut -- it is the point. Both sides pull,
+## release, and watch a thing they aimed travel under the same gravity, so the
+## defence is learnable by anybody who has already learned the stroke.
+##
+## Fast and nearly flat: an arrow crossing forty metres drops about a metre and a
+## half, enough that a long lead has to be aimed above the ball and not through
+## it, and nowhere near enough to lob.
+const BOW_MIN_SPEED := 34.0
+const BOW_MAX_SPEED := 62.0
+const BOW_LAUNCH_DEG := 9.0
+## How near the arrow has to pass. Generous against a 0.18 m ball, because the
+## blind spot is already modelled -- `can_reach` still has to agree, so the
+## tolerance here is about the thickness of an arrow and not about the difficulty
+## of the shot.
+const ARROW_HIT := 1.6
+## An arrow that hits nothing is gone. Longer than any flight it could catch, so
+## the miss is always the player's and never the clock's.
+const ARROW_LIFE := 3.0
+
 ## Where the marshal stands. On a tower off to the side, high enough to see the
 ## whole range and impossible to miss from the mat -- the same reasoning that
 ## put the archer on the spire, minus the spire.
@@ -187,10 +208,22 @@ var _swing_t := -1.0
 ## play the same range, against the same shooter, in the same view -- switching
 ## changes which end of the swing you are on and nothing else at all.
 var _defending := false
+## The hand-played arrow, mid-flight. Advanced on the physics tick with the ball,
+## because the two have to be compared on the same clock or leading the target is
+## a lie.
+var _arrow_live := false
+var _arrow_at := Vector3.ZERO
+var _arrow_vel := Vector3.ZERO
+var _arrow_from := Vector3.ZERO
+var _arrow_age := 0.0
+
 ## Seconds until the game's golfer plays. It addresses the ball for a moment
 ## first, because a defender who is not given a still frame before the backswing
 ## has been given the shot and not the read.
 var _ai_beat := 0.0
+## True only while `_play_the_games_shot` is inside `_on_fired`. Both sides come
+## through that one door and it has to know which is knocking.
+var _ai_is_playing := false
 
 var _still_for := 0.0
 var _aiming := false
@@ -438,7 +471,10 @@ func set_defending(value: bool) -> void:
 	if _defending == value:
 		return
 	_defending = value
-	_gesture.enabled = not _defending and state == State.AIM
+	_gesture.enabled = true
+	_ribbon.hide_arc()
+	_spin.hide_dial()
+	_stow_the_arrow()
 	_ai_beat = AI_ADDRESS
 	side_changed.emit(_defending)
 
@@ -461,29 +497,75 @@ func _play_the_games_shot() -> void:
 	if not _aiming:
 		return
 	_ai_beat = AI_ADDRESS
+	# `_on_fired` is the one door both sides come through, so the game's golfer
+	# has to say which of them it is on the way in.
+	_ai_is_playing = true
 	var intent := AIGolfer.choose(
 		ball.global_position, pin_position(), 0.0, Callable(),
 		club().is_putter, 0.78, _seed_for_stroke(strokes + 1), club())
 	stroke_began.emit()
 	_on_fired(intent.direction, intent.power, intent.curve)
+	_ai_is_playing = false
 
 
-## The player, defending: a press looses the arrow at wherever the ball
-## actually is.
-##
-## Not at where it is predicted to be, and not at where it was when the press
-## started -- at its live position, on the tick the press arrives. That is what
-## makes the mode a test of timing rather than of aiming, and it is the same
-## thing `accuracy_at` has always measured for the AI.
-func _unhandled_input(event: InputEvent) -> void:
-	if not _defending or _contender == null:
+## The bow, drawn. Reuses the golfer's own preview: §2.1 makes the ribbon
+## "accurate on an empty hole and blind to defenders", and an arrow's arc is
+## exactly as honest a thing to draw as a ball's.
+func _aim_the_bow(heading: Vector3, power: float) -> void:
+	if _contender == null or power <= 0.0:
+		_ribbon.hide_arc()
 		return
-	var pressed := (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed) 		or (event is InputEventMouseButton 			and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT 			and (event as InputEventMouseButton).pressed)
-	if not pressed or state != State.FLIGHT:
+	var from := _contender.nock_at()
+	_ribbon.show_arc(from, _arrow_velocity(heading, power), Vector3.ZERO, 0.0, false)
+	_contender.aim_at(from + heading * 14.0 + Vector3.UP * 2.0)
+
+
+## Let go. One arrow per stroke, and the cooldown starts here rather than when it
+## arrives -- a bow you have already loosed is empty whatever the arrow is doing.
+func _loose(heading: Vector3, power: float) -> void:
+	_ribbon.hide_arc()
+	if _contender == null or not _contender.brain.commit_by_hand():
 		return
-	get_viewport().set_input_as_handled()
-	if _contender.brain.act_now(ball.global_position):
-		_on_defender_acted(_contender)
+	_arrow_from = _contender.nock_at()
+	_arrow_at = _arrow_from
+	_arrow_vel = _arrow_velocity(heading, power)
+	_arrow_age = 0.0
+	_arrow_live = true
+	_contender.fly(_arrow_from, _arrow_at)
+
+
+## The same launch model the stroke uses, with the bow's numbers instead of a
+## club's. `ClubProfile.make` rather than a member of `ClubProfile.all()`: the
+## bow is a launch profile and not a club, and the selector must never offer it.
+func _arrow_velocity(heading: Vector3, power: float) -> Vector3:
+	return BallFlight.launch_velocity(heading, power, false,
+		ClubProfile.make("bow", BOW_MIN_SPEED, BOW_MAX_SPEED, BOW_LAUNCH_DEG, 0.0))
+
+
+## Fly the arrow, on the ball's own tick. Whether it connects is decided here and
+## nowhere else: near enough to the ball, and inside the zone the archer actually
+## covers, which is the blind spot doing its job on a shot a person aimed.
+func _advance_the_arrow(delta: float) -> void:
+	if not _arrow_live:
+		return
+	_arrow_age += delta
+	_arrow_vel += BallFlight.gravity() * delta
+	_arrow_at += _arrow_vel * delta
+	_contender.fly(_arrow_from, _arrow_at)
+
+	if _arrow_at.distance_to(ball.global_position) <= ARROW_HIT:
+		_stow_the_arrow()
+		if _contender.brain.connected_at(_arrow_at):
+			_on_defender_acted(_contender)
+		return
+	if _arrow_age >= ARROW_LIFE or _arrow_at.y < 0.0:
+		_stow_the_arrow()
+
+
+func _stow_the_arrow() -> void:
+	_arrow_live = false
+	if _contender != null:
+		_contender.stow()
 
 
 ## Kept inside the fence. Twice the distance to the far pin is a hundred and
@@ -554,7 +636,9 @@ func _enter_aim() -> void:
 	ball.global_position = BAY_POS
 	ball.linear_velocity = Vector3.ZERO
 	ball.angular_velocity = Vector3.ZERO
-	_gesture.enabled = not _defending
+	# Live on both sides now. Defending, the same drag draws a bow instead of a
+	# club, which is the whole of ADR-021.
+	_gesture.enabled = true
 	_ai_beat = AI_ADDRESS
 	_light_pins()
 	state_changed.emit(state)
@@ -571,6 +655,10 @@ func _light_pins() -> void:
 
 
 func _on_gesture_began() -> void:
+	if _defending:
+		# Drawing a bow is not taking a stroke, and the flat layer listens to
+		# this to know the player has started golfing.
+		return
 	stroke_began.emit()
 	if state == State.ATTRACT:
 		state = State.AIM
@@ -583,6 +671,9 @@ func _on_cancelled() -> void:
 
 
 func _on_aim_updated(heading: Vector3, power: float, curve: float) -> void:
+	if _defending:
+		_aim_the_bow(heading, power)
+		return
 	if not _aiming:
 		return
 	if power <= 0.0:
@@ -603,10 +694,14 @@ func _on_aim_updated(heading: Vector3, power: float, curve: float) -> void:
 
 
 func _on_fired(heading: Vector3, power: float, curve: float) -> void:
+	if _defending and not _ai_is_playing:
+		_loose(heading, power)
+		return
 	if not _aiming:
 		return
 	_aiming = false
-	_gesture.enabled = false
+	# Defending, the drag is the defence and does not stop when the ball goes.
+	_gesture.enabled = _defending
 	_ribbon.hide_arc()
 	_spin.hide_dial()
 
@@ -657,6 +752,11 @@ func _on_fired(heading: Vector3, power: float, curve: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	# Before the state gate: an arrow in the air is in the air, whether or not
+	# the ball has been struck yet. Loosing during the golfer's backswing is
+	# allowed and simply wastes the shot, which is a rule that explains itself.
+	_advance_the_arrow(delta)
+
 	if state != State.FLIGHT:
 		return
 
@@ -677,10 +777,6 @@ func _physics_process(delta: float) -> void:
 	# where the arrow would go if they pressed now. It is the only thing a
 	# defender has to judge by, which is the point: they are given the golfer's
 	# view and one line, not a solution.
-	if _defending and _contender != null:
-		_contender.track(
-			ball.global_position, _contender.brain.can_reach(ball.global_position))
-
 	for defender in _defenders:
 		if defender.advance(delta):
 			_on_defender_acted(defender)
@@ -913,9 +1009,9 @@ func _process(delta: float) -> void:
 			_frame_attract()
 			return
 		State.AIM:
-			_cam_target = _frame_aim()
+			_cam_target = _frame_defend() if _defending else _frame_aim()
 		State.FLIGHT:
-			_cam_target = _frame_flight()
+			_cam_target = _frame_defend() if _defending else _frame_flight()
 		State.DONE:
 			if idle:
 				_drift += delta * 0.2
@@ -998,6 +1094,34 @@ func _frame_aim() -> Transform3D:
 	return _framed(
 		ball.global_position - dir * (7.0 + reach * 0.08) + Vector3.UP * (3.4 + reach * 0.045),
 		ball.global_position + dir * (reach * 0.55) + Vector3.UP * 1.0)
+
+
+## Over the archer's shoulder, exactly as `_frame_aim` stands over the golfer's.
+##
+## The first version of defending gave the player the golfer's camera, on the
+## grounds that both sides should see the same thing. That was the wrong reading
+## of it. Pillar 5 says defence is a *whole way to play*, and a whole way to play
+## does not get somebody else's viewpoint -- what has to be equal is that neither
+## side gets a god view, not that they get one camera between them. Standing
+## behind the archer also makes the shot aimable: a lead is a direction, and a
+## direction cannot be judged from a camera pointed the other way.
+func _frame_defend() -> Transform3D:
+	if _contender == null:
+		return _frame_aim()
+	var stand := _contender.global_position
+	var to_ball := ball.global_position - stand
+	to_ball.y = 0.0
+	var dir := to_ball.normalized() if to_ball.length() > 0.01 else Vector3.FORWARD
+	var reach := clampf(to_ball.length(), 18.0, 80.0)
+	# Over one shoulder rather than straight up the spine. Directly behind, the
+	# figure sits in the middle of the frame and the ball it is being aimed at is
+	# behind its head -- and the archer is drawn 1.6x human on purpose, so it
+	# takes more getting out of the way than the golfer does.
+	var shoulder := dir.cross(Vector3.UP).normalized()
+	return _framed(
+		stand - dir * (11.0 + reach * 0.09) + shoulder * 2.4
+			+ Vector3.UP * (6.5 + reach * 0.06),
+		stand + dir * (reach * 0.6) + Vector3.UP * 2.0)
 
 
 ## Trails the ball, and widens to take in a defender that is acting. The widening

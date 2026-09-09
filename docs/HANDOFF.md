@@ -198,6 +198,40 @@ unbuilt. `DefenderZone` as a visible thing is now flagged as the most valuable i
 **Gates:** suite 149/149 green (10 new), docs check green, `demo_round` PASS, ten screenshots re-rendered
 and looked at.
 
+### build-05, part three — third person on both sides (ADR-021)
+
+**Asked for:** *"have the defender be third person like the golfer when selected, and the same mechanism
+should apply for defense input."* Two corrections to ADR-020, and they turned out to be the same one.
+
+- **The camera was wrong on principle, not only in practice.** ADR-020 handed the defender the golfer's
+  view because "both sides see the same thing". Pillar 5 says defence is a *whole way to play*, and a whole
+  way to play does not get somebody else's viewpoint — what has to be equal is that neither side gets a god
+  view. `_frame_defend()` now stands over the archer's shoulder exactly as `_frame_aim()` stands over the
+  golfer's, and it had to: a lead is a direction, and a direction cannot be judged from a camera pointed
+  the other way.
+- **The tap was a different game played with the same fingers.** Pillar 1 rules out a separate minigame for
+  the golfer; nobody had written down the symmetric claim for the defender. The drag draws the bow now —
+  same `StrokeGesture`, same `BallFlight` launch model against a bow profile, same `AimRibbon` preview.
+- **The arrow travels, and that fell out of the gesture rather than being bolted to it.** §3's counter for
+  archery is literally "arrows have travel time". The AI's arrow stays a *tracer* for the reason its own
+  comment gives — its pin lands on the tick it acts, so a projectile would arrive after the ball had
+  already stopped, and cause after effect reads as a glitch. A hand-played arrow inverts that exactly:
+  nothing has happened when the player lets go, so the travel is the anticipation. `commit_by_hand()`
+  starts the cooldown at the release, `connected_at()` resolves on arrival, and both are deterministic.
+- **The amber thread went away while aiming by hand.** It said what the ribbon already says. `aim_at()`
+  points the bow without one; `track()` keeps the thread for the AI's tell.
+
+**Watch out — `DECISIONS.md` has no blank line between the ADR table and the "Pending ratification"
+heading**, and appending a row by anchoring on that heading silently concatenates it onto the previous row.
+That happened this session and was caught by the docs check, which is exactly the failure it exists for. A
+blank line has been added; append rows by matching the last row, not the next heading.
+
+**Not played by anybody.** The lead is tuned against a mouse. `BOW_MIN_SPEED`, `BOW_MAX_SPEED` and
+`ARROW_HIT` are the three numbers that decide whether this is fun, and ADR-007 makes the thumb the arbiter.
+
+**Gates:** suite 153/153 green, docs check green, `demo_round` PASS, ten screenshots re-rendered and looked
+at — `10-defending` is now over the archer's shoulder with the ribbon on the ball.
+
 ### build-04
 **A defended hole that writes records, and a demo that checks them.** Four commits; the suite went from 22
 cases to 66.

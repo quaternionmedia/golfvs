@@ -175,6 +175,9 @@ ADR-015 and an adversary contesting the line (ADR-020). Skeet is still built and
       stroke, so "keep it low" has to be discovered rather than seen
 - [x] Per-lie re-planning (ADR-009) on the range: the contesting archer moves every lie, to a position
       derived from it. The *choice* of where — the part ADR-009 leaves to a plan — is still not built
+- [x] Defence is playable: third person over the defender, same gesture as the stroke, arrow with travel
+      time (ADR-020, ADR-021). **It has been played by nobody.** The lead is tuned against a mouse and
+      `BOW_MIN_SPEED` / `BOW_MAX_SPEED` / `ARROW_HIT` are the three numbers that decide whether it is fun
 - [ ] `DefensePlan` as the human's authored defence (§11.4). **ADR-020 conflicts with it** by letting a
       person steer in real time, and says why the replayability §11.4 protects survives anyway. Whoever
       takes this decides whether the plan model replaces that or wraps it

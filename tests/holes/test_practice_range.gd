@@ -387,15 +387,83 @@ func test_the_ball_is_held_for_the_backswing() -> void:
 	assert_float(here.ball.linear_velocity.length()).is_greater(0.0)
 
 
-func test_a_hand_played_defender_cannot_fire_before_the_ball_is_struck() -> void:
-	# The press has to beat the ball, not the backswing. Banking a shot during
-	# the golfer's windup would make the tell worthless in exactly the way the
-	# tell exists to prevent.
+func test_the_defence_is_the_same_gesture_as_the_stroke() -> void:
+	# The claim ADR-021 makes. Both sides pull, aim and release; what changes is
+	# what is in your hands. A defender who has to learn a second control scheme
+	# is not playing the same game from the other end, they are playing a
+	# minigame -- which is what Pillar 1 rules out for the golfer and Pillar 5
+	# should have been ruling out here.
 	var here := _contested()
 	here.set_defending(true)
 	here._enter_aim()
+	assert_bool(here._gesture.enabled) \
+		.override_failure_message("the drag was taken away from the defender") \
+		.is_true()
+	# And it survives the ball going, because the defence happens during flight.
 	here._on_fired(Vector3.FORWARD, 0.8, 0.0)
-	assert_bool(here._contender.brain.act_now(here.ball.global_position)).is_false()
+	assert_bool(here._gesture.enabled).is_true()
+
+
+func test_letting_go_looses_an_arrow_that_has_to_travel() -> void:
+	# Not a press that resolves on the frame it arrives. The arrow leaves the bow
+	# and crosses the gap, which is the only reason leading the ball is a skill.
+	var here := _contested()
+	here.pin = 2
+	here._place_the_contender()
+	here.set_defending(true)
+	here._enter_aim()
+
+	here._on_fired(Vector3(0.0, 0.0, -1.0), 0.9, 0.0)
+	assert_bool(here._arrow_live).is_true()
+	var from: Vector3 = here._arrow_at
+	here._physics_process(1.0 / 60.0)
+	assert_float(here._arrow_at.distance_to(from)) \
+		.override_failure_message("the arrow did not move").is_greater(0.1)
+
+
+func test_one_arrow_per_stroke() -> void:
+	# The cooldown starts when the string is let go, not when the arrow lands: a
+	# bow you have already loosed is empty whatever the arrow is doing.
+	var here := _contested()
+	here.set_defending(true)
+	here._enter_aim()
+	assert_bool(here._contender.brain.commit_by_hand()).is_true()
+	assert_bool(here._contender.brain.commit_by_hand()).is_false()
+
+
+func test_an_arrow_that_hits_nothing_is_simply_gone() -> void:
+	# A miss has to end. An arrow that lingered would eventually wander into the
+	# ball and read as the game firing on the player's behalf.
+	var here := _contested()
+	here.set_defending(true)
+	here._enter_aim()
+	here._on_fired(Vector3(1.0, 0.0, 0.0), 1.0, 0.0)
+	assert_bool(here._arrow_live).is_true()
+	for i in 400:
+		here._physics_process(1.0 / 60.0)
+	assert_bool(here._arrow_live) \
+		.override_failure_message("the arrow is still in the air").is_false()
+
+
+func test_the_camera_stands_behind_the_archer_when_defending() -> void:
+	# Third person on whichever figure the player is holding. The first version
+	# handed the defender the golfer's camera, which made the lead unjudgeable:
+	# a direction cannot be read from a viewpoint pointed the other way.
+	var here := _contested()
+	here.pin = 2
+	here._place_the_contender()
+	here.set_defending(true)
+	here._enter_aim()
+
+	var stand: Vector3 = here._contender.global_position
+	var eye: Vector3 = here._frame_defend().origin
+	var golfing: Vector3 = here._frame_aim().origin
+	assert_float(eye.distance_to(stand)) \
+		.override_failure_message("the defence camera is not on the archer") \
+		.is_less(golfing.distance_to(stand))
+	# Behind it, not in front: further from the ball than the archer is.
+	assert_float(eye.distance_to(here.ball.global_position)) \
+		.is_greater(stand.distance_to(here.ball.global_position))
 
 
 func test_a_hand_played_defender_is_never_told_it_was_unlucky() -> void:
@@ -414,23 +482,31 @@ func test_a_hand_played_defender_is_never_told_it_was_unlucky() -> void:
 
 
 func test_holding_the_archer_stops_it_playing_itself() -> void:
-	# Both sides may not act on one stroke. While the player holds it, the
-	# archer gets no prediction to commit to -- its commitment is now the press.
+	# Both sides may not act on one stroke. While the player holds the archer it
+	# gets no prediction to commit to, because its commitment is now the release
+	# -- and the shot it is being held against is the game's, not the player's.
 	var here := _contested()
 	here.pin = 2
 	here.set_club(here.suggested_club_index())
 	here.set_defending(true)
 	here._enter_aim()
-	here._on_fired(Vector3(0.0, 0.0, -1.0), 1.0, 0.0)
-	assert_bool(here._contender.brain.is_committed()).is_false()
+	here._play_the_games_shot()
+	assert_bool(here._contender.brain.is_committed()) 		.override_failure_message("the archer read a shot the player is defending") 		.is_false()
 
 
-func test_switching_sides_takes_the_stroke_away_from_the_player() -> void:
+func test_switching_sides_changes_what_the_drag_means() -> void:
+	# The gesture is live on both sides; what it does is what moves. Golfing it
+	# hits a ball, defending it looses an arrow, and nothing in between.
 	var here := _contested()
 	here._enter_aim()
-	assert_bool(here._gesture.enabled).is_true()
-	here.set_defending(true)
-	assert_bool(here._gesture.enabled).is_false()
-	here.set_defending(false)
+	here._on_fired(Vector3.FORWARD, 0.8, 0.0)
+	assert_bool(here._held) \
+		.override_failure_message("golfing, the drag did not play a stroke").is_true()
+	assert_bool(here._arrow_live).is_false()
+
 	here._enter_aim()
-	assert_bool(here._gesture.enabled).is_true()
+	here.set_defending(true)
+	here._on_fired(Vector3.FORWARD, 0.8, 0.0)
+	assert_bool(here._arrow_live) \
+		.override_failure_message("defending, the drag did not loose an arrow").is_true()
+	assert_bool(here._held).is_false()

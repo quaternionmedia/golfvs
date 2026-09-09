@@ -171,43 +171,46 @@ func advance(delta: float) -> bool:
 	return false
 
 
-## Fire this defender now, because a person said so.
+## A person letting go, rather than the game deciding. The shot is committed and
+## on its way, and whether it connects is **not known yet** -- an arrow has to
+## travel, and that is the whole difference between playing this side and
+## watching it played.
 ##
-## The AI path commits in `read_shot()` before the ball has gone anywhere, which
-## is what makes its tell honest. A human has no equivalent: their commitment
-## *is* the press, and it lands in the middle of the flight. So this is the one
-## way into ACT that does not go through a prediction -- and it is still bounded
-## by everything that makes the sport fair, because those are properties of the
-## profile rather than of the prediction: the cooldown still applies, the zone
-## still applies, and the ball still has to be somewhere reachable.
-##
-## Whether it connects is **deterministic**, unlike the AI path. A person who
-## timed it right and was told "unlucky" has been given no way to improve, which
-## fails Pillar 2 harder than any camera cut -- and there is no dice roll to
-## record, so a hand-played defence still replays exactly.
-##
-## Returns true on the tick it acts, matching `advance()`, so a caller can apply
-## the impulse through the same code path.
-func act_now(at: Vector3) -> bool:
-	# Not before the ball has been struck. `_elapsed` only starts moving once the
-	# hole begins advancing this brain, which it does at launch and not during
-	# the golfer's backswing -- so pressing early is refused rather than banked.
-	if _acted or _cooldown_left > 0.0 or _elapsed <= 0.0:
+## The AI path commits in `read_shot()` before the ball has moved, which is what
+## makes its tell honest. A human has no equivalent, because their commitment is
+## the release. So this is the one way into ACT that does not go through a
+## prediction, and it is still bounded by everything that makes the sport fair,
+## because those live on the profile rather than on the prediction: one shot per
+## stroke, and a cooldown that starts the moment the string is let go rather than
+## when the arrow arrives.
+func commit_by_hand() -> bool:
+	if _acted or _cooldown_left > 0.0:
 		return false
 	_acted = true
 	alerted = false
-	_act_point = at
 	_act_at = _elapsed
 	_cooldown_left = profile.cooldown
-	_will_connect = can_reach(at)
+	_will_connect = false
 	_set_state(State.ACT)
 	return true
 
 
-## Would a shot loosed now connect? The same question `act_now` answers, asked
-## before committing to it -- which is what a person aiming needs and the AI,
-## having decided everything in advance, does not. The body draws its aim line
-## from this, so the line is never promising something the brain would refuse.
+## The hand-played shot arrived. Asked at the point the arrow actually reached,
+## not the point it was aimed at -- so a lead that was slightly wrong is a miss
+## for the reason the player can see, which is the whole of Pillar 2.
+##
+## **Deterministic**, unlike the AI's seeded draw. A person who timed it right and
+## is told "unlucky" has been given no way to improve, and there is no roll to
+## record either, so a hand-played defence still replays exactly.
+func connected_at(at: Vector3) -> bool:
+	_act_point = at
+	_will_connect = can_reach(at)
+	return _will_connect
+
+
+## Would a shot landing here connect? The same question `connected_at` answers,
+## asked before committing to it -- which is what somebody aiming needs and the
+## AI, having decided everything in advance, does not.
 func can_reach(at: Vector3) -> bool:
 	return profile.falloff_at(at, tier) >= HAND_MARGIN
 
