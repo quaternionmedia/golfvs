@@ -16,6 +16,13 @@ extends Control
 ## Control rather than something drawn into the world. StrokeGesture listens on
 ## `_unhandled_input`, so a tap that lands here never reaches it and cannot start
 ## a stroke -- no rectangle checks, no ordering, no special case in the gesture.
+##
+## That cuts both ways, and it shipped broken once. `set_anchors_preset` left the
+## control at the full size of the screen, so a selector that stopped presses
+## stopped *every* press: no stroke could be played anywhere, and because it was
+## also faded out there was nothing on screen to blame. The rect is set by
+## explicit offsets now, and `test_club_selector.gd` asserts it covers only the
+## strip -- a control that consumes input has to be exactly as big as it looks.
 
 signal club_chosen(index: int)
 
@@ -53,29 +60,40 @@ func _ready() -> void:
 		# A putt has no carry, so its reach is roll. Without this the putt draws
 		# as a bar of zero length and reads as a disabled control.
 		_reach.append(club.rolls() if club.is_putter else club.carry())
-	set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	custom_minimum_size = Vector2(0.0, HEIGHT)
+
+	# Pinned to the bottom edge, HEIGHT tall, by explicit offsets. A preset plus
+	# a minimum size is not enough: the control kept the full-screen rect it was
+	# given before it entered the tree, and then swallowed every press on it.
+	anchor_left = 0.0
+	anchor_right = 1.0
+	anchor_top = 1.0
+	anchor_bottom = 1.0
+	offset_left = 0.0
+	offset_right = 0.0
+	offset_top = -HEIGHT
+	offset_bottom = 0.0
 
 
+## The three tap targets, in the control's own coordinates. The control is
+## exactly HEIGHT tall, so the cells fill it top to bottom apart from padding.
 func _cells() -> Array[Rect2]:
 	var cells: Array[Rect2] = []
 	var count := _ids.size()
-	if count == 0:
+	if count == 0 or size.x <= 0.0:
 		return cells
-	var top := size.y - HEIGHT
 	var usable := size.x - PAD * 2.0 - GAP * float(count - 1)
 	var width := usable / float(count)
 	for i in count:
 		cells.append(Rect2(
-			PAD + (width + GAP) * float(i), top + PAD,
-			width, HEIGHT - PAD * 2.0))
+			PAD + (width + GAP) * float(i), PAD,
+			width, size.y - PAD * 2.0))
 	return cells
 
 
 func _gui_input(event: InputEvent) -> void:
 	var pressed := (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed) \
 		or (event is InputEventMouseButton and (event as InputEventMouseButton).pressed)
-	if not pressed or shown < 0.5:
+	if not pressed:
 		return
 	var at: Vector2 = event.position
 	var cells := _cells()

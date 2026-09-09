@@ -55,8 +55,10 @@ func _ready() -> void:
 	# that a tap landing on it is marked handled and never reaches StrokeGesture,
 	# which listens on _unhandled_input -- no rectangle checks and no special
 	# case in the gesture.
+	# No anchor preset here: the selector pins itself to the bottom strip in its
+	# own _ready. Giving it a full-rect preset first is what left it covering the
+	# whole screen and eating every press.
 	_clubs = ClubSelector.new()
-	_clubs.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(_clubs)
 	_clubs.club_chosen.connect(_on_club_chosen)
 	_clubs.selected = range_.club_index
@@ -86,9 +88,12 @@ func _process(delta: float) -> void:
 	# so an untouched attract screen stays clean.
 	var want: float = 1.0 if _player_acted else 0.0
 	_scorecard.shown = move_toward(_scorecard.shown, want, delta * 2.0)
-	# The selector appears with the first touch, not before it. An attract screen
-	# with a control on it is a menu, which is the one thing Pillar 3 forbids.
-	_clubs.shown = _scorecard.shown
+	# The selector is up from the first frame, unlike the card. It is not a menu
+	# standing between the player and the first swing -- it is part of the range,
+	# and a player who cannot see what is in their hands until after they have
+	# swung has been told nothing. Hiding it also made it unfindable while it was
+	# still, invisibly, consuming every tap.
+	_clubs.shown = move_toward(_clubs.shown, 1.0, delta * 2.5)
 
 
 func _unhandled_input(event: InputEvent) -> void:
