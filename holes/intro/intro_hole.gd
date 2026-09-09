@@ -21,6 +21,11 @@ const CUP_POS := Vector3(9.0, 0.0, -57.0)
 ## curve, and they are shown it exactly when they need it and not before.
 const SPIRE_POS := Vector3(2.2, 3.5, -38.0)
 const SPIRE_SIZE := Vector3(5.4, 7.0, 3.4)
+## The greenside bunker. Named rather than repeated, because _lie_at and the
+## terrain builder both need it and a silent disagreement between them is a ball
+## that looks like it is in sand and plays like it is on the green.
+const SAND_POS := Vector3(1.5, 0.0, -54.0)
+const SAND_RADIUS := 3.6
 
 ## Chunky enough to follow across 56 m of fairway. A regulation 43 mm ball is a
 ## few pixels at this range; §5's caricatured direction is the licence to round
@@ -150,7 +155,8 @@ func _build_terrain() -> void:
 		Vector3(6.0, 0.02, -48.0))
 	apron.rotation.y = deg_to_rad(-20.0)
 	HoleBuilder.disc(self, 2.2, 0.16, HoleBuilder.TEE, Vector3(0.0, 0.05, 0.0), 20)
-	HoleBuilder.disc(self, 3.6, 0.10, HoleBuilder.SAND, Vector3(1.5, 0.03, -54.0), 20)
+	HoleBuilder.disc(self, SAND_RADIUS, 0.10, HoleBuilder.SAND,
+		SAND_POS + Vector3(0.0, 0.03, 0.0), 20)
 	HoleBuilder.disc(self, 0.5, 0.10, HoleBuilder.CUP, CUP_POS + Vector3(0.0, 0.06, 0.0), 16)
 
 
@@ -292,6 +298,13 @@ func _setup_play() -> void:
 	# The first press both starts the game and starts the stroke. Nothing sits
 	# between the two -- Pillar 3.
 	state = State.ATTRACT
+	# Place the camera before anything can look through it. Until this ran, the
+	# camera spent frame 0 at the origin -- inside the tee -- so the first
+	# rendered frame of the first screen a player ever sees was a view from
+	# under the ground, and MainMenu._process (which runs before this node's,
+	# being the parent) unprojected the ball against a degenerate projection and
+	# put the ghost hand in the corner for a frame.
+	_frame_attract()
 
 
 func _on_cancelled() -> void:
@@ -320,7 +333,11 @@ func _enter_aim() -> void:
 ## skips to the putt. The tutorial cannot fall out of step with the player,
 ## because there is no step to fall out of.
 func _lesson_for(from: Vector3) -> Lesson:
-	if Vector2(from.x - GREEN_POS.x, from.z - GREEN_POS.z).length() <= GREEN_RADIUS:
+	# Asks _lie_at rather than repeating its test. The two used to decide "is
+	# this the green" independently, and both were wrong about the bunker in the
+	# same way -- so a ball in the sand was handed a putter, which cannot get out
+	# of one.
+	if _lie_at(from) == "green":
 		return Lesson.PUTT
 	if _line_blocked(from, CUP_POS):
 		return Lesson.CURVE
@@ -424,10 +441,14 @@ func _seed_for_stroke(number: int) -> int:
 func _lie_at(at: Vector3) -> String:
 	if absf(at.x - BOUNDS_CENTRE.x) > BOUNDS_EXTENT.x 			or absf(at.z - BOUNDS_CENTRE.z) > BOUNDS_EXTENT.y:
 		return "ob"
+	# Sand before green, and it matters. The greenside bunker at (1.5, -54) is
+	# 7.8 m from the green's centre against a 9 m radius, so it sits *inside*
+	# the green's circle -- which is what a greenside bunker looks like, and
+	# meant a ball in it read as being on the putting surface.
+	if Vector2(at.x - SAND_POS.x, at.z - SAND_POS.z).length() <= SAND_RADIUS:
+		return "sand"
 	if Vector2(at.x - GREEN_POS.x, at.z - GREEN_POS.z).length() <= GREEN_RADIUS:
 		return "green"
-	if Vector2(at.x - 1.5, at.z + 54.0).length() <= 3.6:
-		return "sand"
 	if Vector2(at.x, at.z).length() <= 2.2:
 		return "tee"
 	if absf(at.x) <= 9.0 and at.z <= 2.0 and at.z >= -56.0:
