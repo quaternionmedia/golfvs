@@ -23,6 +23,13 @@ extends Node
 ## never shows the hole recovering from a bad lie.
 const GOLFER_SKILL := 0.86
 
+## The demo opens with a deliberately wild tee shot, 42 degrees off line at full
+## power, because that is the only way to see ADR-015's archer do anything: it
+## acts on balls leaving the course and on nothing else, so a competent round
+## never meets it. A beginner's round meets it constantly, which is the point.
+const WILD_OPENER := true
+const WILD_DEGREES := 42.0
+
 ## Hard stop, so a ball that never settles cannot hang the run.
 const MAX_STROKES := 8
 const MAX_TICKS_PER_STROKE := 900
@@ -55,9 +62,11 @@ func _play() -> void:
 	print("  defenders    %d" % _hole._defenders.size())
 	for shooter in _hole._defenders:
 		var profile: DefenderProfile = shooter.brain.profile
-		print("               %s at %v, watching %v r=%.1f, band %.1f-%.1f m, tell %.2f s" % [
-			shooter.brain.id, profile.stand, profile.zone_centre, profile.zone_radius,
-			profile.zone_min_y, profile.zone_max_y, profile.tell_for(shooter.brain.tier)])
+		var guard := "the course boundary %v +/- %v" % [profile.bounds_centre, profile.bounds_extent] 			if profile.guards_bounds else "a zone at %v, r=%.1f" % [profile.zone_centre, profile.zone_radius]
+		print("               %s (%s) at %v" % [shooter.brain.id, profile.sport, profile.stand])
+		print("               guards %s, tell %.2f s, acts by %s" % [
+			guard, profile.tell_for(shooter.brain.tier),
+			["knocking down", "pinning", "blocking", "capturing"][profile.action]])
 
 	_rule("strokes")
 	while _hole.state != _hole.State.HOLED and _hole.strokes < MAX_STROKES:
@@ -92,10 +101,15 @@ func _play() -> void:
 func _take_stroke() -> void:
 	var lesson: int = _hole.lesson
 	var putting: bool = lesson == _hole.Lesson.PUTT
-	var intent := AIGolfer.choose(
-		_hole.ball.global_position, _hole._aim_point(), _hole.BALL_RADIUS,
-		Callable(_hole, "_arc_blocked"), putting, GOLFER_SKILL,
-		_hole._seed_for_stroke(_hole.strokes + 1))
+	var intent: ShotIntent
+	if WILD_OPENER and _hole.strokes == 0:
+		intent = ShotIntent.make(ShotIntent.Club.DRIVER, 1.0, 0.0,
+			Vector3(0.0, 0.0, -1.0).rotated(Vector3.UP, deg_to_rad(WILD_DEGREES)))
+	else:
+		intent = AIGolfer.choose(
+			_hole.ball.global_position, _hole._aim_point(), _hole.BALL_RADIUS,
+			Callable(_hole, "_arc_blocked"), putting, GOLFER_SKILL,
+			_hole._seed_for_stroke(_hole.strokes + 1))
 
 	# Driven through the same callback StrokeGesture fires, so the demo cannot
 	# take a path the player's thumb does not.
@@ -113,7 +127,10 @@ func _take_stroke() -> void:
 
 	var record: StrokeRecord = _hole._round[-1] if not _hole._round.is_empty() else null
 	print("")
-	print("  %d. %s" % [number, ["power", "curve around the spire", "putt"][lesson]])
+	var label: String = ["power", "curve around the spire", "putt"][lesson]
+	if WILD_OPENER and number == 1:
+		label = "a beginner's shank, %.0f degrees off line at full power" % WILD_DEGREES
+	print("  %d. %s" % [number, label])
 	print("     lesson     %s" % ["POWER", "CURVE", "PUTT"][lesson])
 	print("     from       %v on the %s" % [from, lie])
 	if record == null:
@@ -124,11 +141,15 @@ func _take_stroke() -> void:
 	print("     intent     %s" % record.intent.to_notation())
 	print("     seed       %d" % record.seed)
 	print("     events     %s" % ("—" if record.events.is_empty() else ", ".join(record.events)))
-	for shooter in _hole._defenders:
-		if shooter.brain.is_committed():
-			print("     %s   fired at %v, %s" % [
-				shooter.brain.id, shooter.brain.act_point(),
-				"HIT — knocked down in place" if shooter.brain.will_connect() else "missed"])
+	for defender in _hole._defenders:
+		var brain: DefenderBrain = defender.brain
+		if not brain.is_committed():
+			continue
+		var effect := "missed"
+		if brain.will_connect():
+			effect = "PINNED — the ball was leaving the course and is now not" 				if brain.profile.action == DefenderProfile.Action.PIN 				else "HIT — knocked down in place"
+		print("     %s  acts at t=%.2fs on %v: %s" % [
+			brain.id, brain.act_time(), brain.act_point(), effect])
 	print("     hash       %s" % record.after_hash.substr(0, 16))
 
 
@@ -148,27 +169,29 @@ func _check_determinism() -> void:
 	if _hole._defenders.is_empty():
 		print("  determinism  no defenders on this hole; nothing to re-roll")
 		return
-	var shooter: Skeet = _hole._defenders[0]
+	var defender: Node3D = _hole._defenders[0]
+	var brain: DefenderBrain = defender.brain
 	var arc := BallFlight.sample_arc(
 		Vector3(0.0, 0.35, 0.0),
-		BallFlight.launch_velocity(Vector3(0.0, 0.0, -1.0), 1.0),
+		BallFlight.launch_velocity(
+			Vector3(0.0, 0.0, -1.0).rotated(Vector3.UP, deg_to_rad(WILD_DEGREES)), 1.0),
 		Vector3.ZERO, 0.18, 900, _hole.DEFENDER_DT)
 
-	var first := DefenderBrain.new()
-	first.configure(shooter.brain.profile, shooter.brain.tier, shooter.brain.id)
+	var first := ArcherBrain.new()
+	first.configure(brain.profile, brain.tier, brain.id)
 	first.read_shot(arc, _hole.DEFENDER_DT, 8123481)
 	var stable := true
 	for i in 50:
-		var again := DefenderBrain.new()
-		again.configure(shooter.brain.profile, shooter.brain.tier, shooter.brain.id)
+		var again := ArcherBrain.new()
+		again.configure(brain.profile, brain.tier, brain.id)
 		again.read_shot(arc, _hole.DEFENDER_DT, 8123481)
 		stable = stable and again.will_connect() == first.will_connect() \
 			and is_equal_approx(again.act_time(), first.act_time())
 	if not stable:
 		_failures.append("the same seed and arc gave different defender verdicts")
-	print("  determinism  50 re-reads of one arc at seed 8123481: %s (fires at t=%.2fs, %s)" % [
+	print("  determinism  50 re-reads of one wild arc at seed 8123481: %s (acts at t=%.2fs, %s)" % [
 		"identical" if stable else "DIVERGED", first.act_time(),
-		"hit" if first.will_connect() else "miss"])
+		"connects" if first.will_connect() else "misses"])
 
 
 func _check_round_on_disk() -> void:

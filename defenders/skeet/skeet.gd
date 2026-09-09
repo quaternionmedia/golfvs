@@ -45,57 +45,26 @@ func _ready() -> void:
 	brain.state_changed.connect(_on_state_changed)
 
 
-static func _matte(color: Color) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = color
-	m.roughness = 0.9
-	return m
-
-
-static func _glow(color: Color, energy := 3.0) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	m.albedo_color = color
-	m.emission_enabled = true
-	m.emission = color
-	m.emission_energy_multiplier = energy
-	return m
-
-
-func _box(parent: Node3D, size: Vector3, color: Color, at: Vector3) -> MeshInstance3D:
-	var mesh := BoxMesh.new()
-	mesh.size = size
-	var mi := MeshInstance3D.new()
-	mi.mesh = mesh
-	mi.material_override = _matte(color)
-	mi.position = at
-	parent.add_child(mi)
-	return mi
-
-
 ## Chunky and readable at 64 px, per §5 and the art pipeline's silhouette rule.
 ## Boxes stand in for the Blender mesh that ART_PIPELINE.md will govern -- the
 ## proportions are the part worth getting right now, because they are what the
 ## final model has to match to keep the hole playing the same.
 func _build_body() -> void:
-	_box(self, Vector3(1.05, 1.25, 0.65), TWEED, Vector3(0.0, 0.95, 0.0))
-	_box(self, Vector3(1.2, 0.22, 0.75), TWEED_DARK, Vector3(0.0, 1.5, 0.0))
-	_box(self, Vector3(0.55, 0.5, 0.5), SKIN, Vector3(0.0, 1.85, 0.0))
+	DefenderArt.box(self, Vector3(1.05, 1.25, 0.65), TWEED, Vector3(0.0, 0.95, 0.0))
+	DefenderArt.box(self, Vector3(1.2, 0.22, 0.75), TWEED_DARK, Vector3(0.0, 1.5, 0.0))
+	DefenderArt.box(self, Vector3(0.55, 0.5, 0.5), SKIN, Vector3(0.0, 1.85, 0.0))
 	# The flat cap is most of the silhouette. Wider than the head on purpose.
-	_box(self, Vector3(0.78, 0.12, 0.7), TWEED_DARK, Vector3(0.0, 2.12, -0.04))
-	_box(self, Vector3(0.34, 0.62, 0.34), TWEED, Vector3(0.0, 0.28, 0.0)) # legs
-	_box(self, Vector3(0.4, 0.42, 0.4), TWEED_DARK, Vector3(0.0, 0.05, 0.0)) # boots
+	DefenderArt.box(self, Vector3(0.78, 0.12, 0.7), TWEED_DARK, Vector3(0.0, 2.12, -0.04))
+	DefenderArt.box(self, Vector3(0.34, 0.62, 0.34), TWEED, Vector3(0.0, 0.28, 0.0)) # legs
+	DefenderArt.box(self, Vector3(0.4, 0.42, 0.4), TWEED_DARK, Vector3(0.0, 0.05, 0.0)) # boots
 
 	# The gun is a child of a pivot at the shoulder, so tracking is one rotation
 	# and the muzzle position falls out of it for free.
 	_barrel = Node3D.new()
 	_barrel.position = Vector3(0.34, 1.35, 0.0)
 	add_child(_barrel)
-	_box(_barrel, Vector3(0.14, 0.14, 1.5), STEEL, Vector3(0.0, 0.0, -0.75))
-	_box(_barrel, Vector3(0.17, 0.3, 0.5), TWEED_DARK, Vector3(0.0, -0.06, 0.22))
+	DefenderArt.box(_barrel, Vector3(0.14, 0.14, 1.5), STEEL, Vector3(0.0, 0.0, -0.75))
+	DefenderArt.box(_barrel, Vector3(0.17, 0.3, 0.5), TWEED_DARK, Vector3(0.0, -0.06, 0.22))
 
 	_muzzle = Marker3D.new()
 	_muzzle.position = Vector3(0.0, 0.0, -1.5)
@@ -108,14 +77,14 @@ func _build_body() -> void:
 	flash_mesh.rings = 4
 	_flash = MeshInstance3D.new()
 	_flash.mesh = flash_mesh
-	_flash.material_override = _glow(FLASH, 7.0)
+	_flash.material_override = DefenderArt.glow(FLASH, 7.0)
 	_flash.visible = false
 	_muzzle.add_child(_flash)
 
 	# The aim line: an immediate-mode segment redrawn each frame while telling.
 	_line = MeshInstance3D.new()
-	_line.material_override = _glow(THREAT, 2.6)
-	_line.custom_aabb = AABB(Vector3(-300, -60, -300), Vector3(600, 240, 600))
+	_line.material_override = DefenderArt.glow(THREAT, 2.6)
+	_line.custom_aabb = DefenderArt.generous_aabb()
 	_line.visible = false
 	add_child(_line)
 
@@ -167,30 +136,7 @@ func _process(delta: float) -> void:
 
 	_line.visible = brain.state == DefenderBrain.State.TELL
 	if _line.visible:
-		_draw_aim_line(_muzzle.global_position, _watching)
-
-
-## A thin quad strip from the muzzle to where the shot is going. The player is
-## told *where* the threat is, not merely that there is one -- which is what
-## makes "keep it low" discoverable rather than a thing you read in a manual.
-func _draw_aim_line(from: Vector3, to: Vector3) -> void:
-	var mesh := ImmediateMesh.new()
-	mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
-	var along := (to - from)
-	var side := along.cross(Vector3.UP).normalized() * 0.05
-	if side.length_squared() < 1.0e-8:
-		side = Vector3(0.05, 0.0, 0.0)
-	var steps := 14
-	for i in steps + 1:
-		var t := float(i) / float(steps)
-		# Dashes, so the line reads as a warning rather than as a solid beam
-		# already connecting the gun to the ball.
-		var width := 0.0 if fposmod(t * 7.0, 1.0) > 0.55 else 1.0
-		var point := from + along * t
-		mesh.surface_add_vertex(to_local(point + side * width))
-		mesh.surface_add_vertex(to_local(point - side * width))
-	mesh.surface_end()
-	_line.mesh = mesh
+		DefenderArt.dashed_line(_line, _muzzle.global_position, _watching, 0.05, 7.0)
 
 
 func _on_state_changed(state: DefenderBrain.State) -> void:

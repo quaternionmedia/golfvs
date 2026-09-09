@@ -49,3 +49,14 @@ static func keen() -> DifficultyTier:
 
 static func ferocious() -> DifficultyTier:
 	return make(1.5, 0.95, 1.3)
+
+
+## Maximum on every axis. Not a difficulty setting -- it is what a defender
+## whose job is to never miss is configured at, and on the roster that means
+## only ADR-015's boundary archer.
+##
+## The three axes still apply to it, which is the point: nothing here invents an
+## ability, it turns the existing accuracy knob all the way up. A designer who
+## wants an adversarial archer near the green uses `standard()` and gets one.
+static func unerring() -> DifficultyTier:
+	return make(1.0, 1.0, 1.0)

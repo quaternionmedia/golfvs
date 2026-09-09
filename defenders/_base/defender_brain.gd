@@ -68,8 +68,13 @@ func read_shot(arc: PackedVector3Array, dt: float, stroke_seed: int) -> void:
 	if _cooldown_left > 0.0 or arc.size() < 2:
 		return
 
+	# _target_index owns the whole question of whether and where this defender
+	# acts. The base class deliberately does not second-guess it with a zone
+	# test of its own: §3's twelve sports trigger on entirely different things
+	# -- an apex, a crossing, a landing, a boundary -- and a shared predicate
+	# that fitted all of them would fit none of them well.
 	var index := _target_index(arc)
-	if index < 0:
+	if index < 0 or index >= arc.size():
 		return
 
 	var point := arc[index]
@@ -91,7 +96,10 @@ func read_shot(arc: PackedVector3Array, dt: float, stroke_seed: int) -> void:
 
 
 ## Which sample this defender acts on, or -1 for "cannot reach this shot".
-## Skeet fires at apex; a ground sport overrides this to pick a crossing.
+##
+## The default is the apex, which is skeet's trigger and the one most air sports
+## share. Override it for anything else -- a ground sport picks a crossing, and
+## ArcherBrain picks the moment the ball leaves the course.
 func _target_index(arc: PackedVector3Array) -> int:
 	var best := -1
 	var highest := -INF

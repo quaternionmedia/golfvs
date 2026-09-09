@@ -31,21 +31,24 @@ const BALL_MASS := 0.045
 ## The hole's id in records. "<biome>/<nn>", stable for the life of the hole.
 const HOLE_ID := "intro/01"
 
-## Where the shooter stands, and the piece of sky it owns.
+## The archer, and the edge of the world it guards (ADR-015).
 ##
-## A full-power drive from the tee peaks about 4.4 m up and 21 m out, so the
-## zone is centred there -- and offset three metres to the right of the corridor
-## so that *where* the apex sits inside the zone matters. Dead-straight full
-## power is the shot most at risk; bending it left moves the apex toward the rim
-## where accuracy_at() falls away, and a lower shot passes under the 2.5 m floor
-## entirely. Both of §3's counters for skeet are live on this hole.
+## It stands off the right of the green, in view from most of the hole, and it
+## shoots exactly one thing: a ball whose flight would carry it off the course.
+## Every good shot it watches without moving. That is what makes the intro hole
+## unfailable -- a beginner's characteristic disaster is spraying the ball off
+## the map, and an out-of-bounds penalty is the harshest rule in golf arriving
+## first.
 ##
-## Radius 7 rather than the profile default of 11: the wider zone makes lateral
-## position almost irrelevant, which test_defender_brain.gd measures and which
-## would make the curve read a lie on this hole.
-const SKEET_STAND := Vector3(11.0, 0.0, -20.0)
-const SKEET_WATCH := Vector3(3.0, 5.0, -21.0)
-const SKEET_RADIUS := 7.0
+## The bounds are drawn wide enough to contain every shot the hole asks for and
+## the trees that frame it, and tight enough that a badly mis-aimed full drive
+## reaches them: x from -19 to 29, z from -77 to 11, against a corridor 18 m
+## wide and a hole 57 m long. Measured rather than guessed -- at 24 m either
+## side, a full drive pulled 25 degrees off line is still in play and one pulled
+## 35 degrees is not, which is about where a shot stops being recoverable.
+const ARCHER_STAND := Vector3(15.5, 0.0, -49.0)
+const BOUNDS_CENTRE := Vector3(5.0, 0.0, -33.0)
+const BOUNDS_EXTENT := Vector2(24.0, 44.0)
 
 ## Sampling step for the arc the defenders read. Finer than the 0.075 s the
 ## ribbon uses, because it decides *when* a shot is fired at.
@@ -253,7 +256,7 @@ var _curve_accel := Vector3.ZERO
 ## and this is the switch that lets someone check.
 @export var defended := true
 
-var _defenders: Array[Skeet] = []
+var _defenders: Array[Node3D] = []
 var _round: Array[StrokeRecord] = []
 var _record: StrokeRecord = null
 var _round_seed := 0
@@ -352,14 +355,15 @@ func _arc_blocked(points: PackedVector3Array) -> bool:
 func _build_defenders() -> void:
 	if not defended:
 		return
-	var profile := DefenderProfile.skeet(SKEET_STAND, SKEET_WATCH)
-	profile.zone_radius = SKEET_RADIUS
-	# Gentle, because this is the hole a stranger meets first. About a third of
-	# dead-straight full drives get knocked down, which is often enough to be
-	# noticed and rare enough that nobody is stopped from finishing.
-	var shooter := Skeet.with_profile(profile, DifficultyTier.gentle(), "skeet_0")
-	add_child(shooter)
-	_defenders.append(shooter)
+	var profile := DefenderProfile.archer(ARCHER_STAND, BOUNDS_CENTRE, BOUNDS_EXTENT)
+	# Unerring, not standard. `standard()` carries an accuracy multiplier of 0.7,
+	# which quietly turned the safety net into a coin flip -- the profile's own
+	# base_accuracy of 1.0 was being multiplied down and the archer missed three
+	# wild shots in ten. A player cannot tell "the archer missed" from "the
+	# archer does not cover that", so it does not miss.
+	var archer := Archer.with_profile(profile, DifficultyTier.unerring(), "archery_0")
+	add_child(archer)
+	_defenders.append(archer)
 
 
 func _defender_entries() -> Array[Dictionary]:
@@ -369,16 +373,27 @@ func _defender_entries() -> Array[Dictionary]:
 	return entries
 
 
-## §3: a skeet hit "knocks the ball down in place". Applied as an impulse from
-## the action rather than as a collision with the shooter's mesh, per §6.4 --
-## animated colliders are flaky and nondeterministic, and determinism is what
-## the whole record format rests on.
-func _on_defender_acted(shooter: Skeet) -> void:
-	if not shooter.brain.will_connect():
+## What connecting does to the ball, by the profile's action. Applied as an
+## impulse from the action rather than as a collision with the defender's mesh,
+## per §6.4 -- animated colliders are flaky and nondeterministic, and
+## determinism is what the whole record format rests on.
+func _on_defender_acted(defender: Node3D) -> void:
+	var brain: DefenderBrain = defender.brain
+	if not brain.will_connect():
 		return
-	ball.linear_velocity = Vector3(0.0, minf(ball.linear_velocity.y, 0.0), 0.0)
-	ball.angular_velocity = Vector3.ZERO
 	_curve_accel = Vector3.ZERO
+	ball.angular_velocity = Vector3.ZERO
+	match brain.profile.action:
+		DefenderProfile.Action.PIN:
+			# "Stops dead where the arrow reaches it" (§3). The ball is moved to
+			# the point the archer committed to rather than left where the tick
+			# happens to have put it, so what the player saw the thread pointing
+			# at is where the ball ends up.
+			ball.global_position = brain.act_point()
+			ball.linear_velocity = Vector3.ZERO
+		_:
+			# KNOCK_DOWN: horizontal motion stops and gravity does the rest.
+			ball.linear_velocity = Vector3(0.0, minf(ball.linear_velocity.y, 0.0), 0.0)
 
 
 # ---------------------------------------------------------------- records ----
@@ -391,6 +406,7 @@ func _layout_hash() -> String:
 		"cup": Canonical.vec3_array(CUP_POS),
 		"green": [Canonical.vec3_array(GREEN_POS), GREEN_RADIUS],
 		"spire": [Canonical.vec3_array(SPIRE_POS), Canonical.vec3_array(SPIRE_SIZE)],
+		"bounds": [Canonical.vec3_array(BOUNDS_CENTRE), BOUNDS_EXTENT.x, BOUNDS_EXTENT.y],
 		"par": PAR,
 		"defended": defended,
 	}).substr(0, 16)
@@ -406,6 +422,8 @@ func _seed_for_stroke(number: int) -> int:
 ## Which surface the ball is sitting on, in the schema's vocabulary. Read off
 ## the same constants the geometry is built from, so the two cannot drift.
 func _lie_at(at: Vector3) -> String:
+	if absf(at.x - BOUNDS_CENTRE.x) > BOUNDS_EXTENT.x 			or absf(at.z - BOUNDS_CENTRE.z) > BOUNDS_EXTENT.y:
+		return "ob"
 	if Vector2(at.x - GREEN_POS.x, at.z - GREEN_POS.z).length() <= GREEN_RADIUS:
 		return "green"
 	if Vector2(at.x - 1.5, at.z + 54.0).length() <= 3.6:
@@ -481,6 +499,13 @@ func _on_fired(heading: Vector3, power: float, curve: float) -> void:
 	# played from the intent's quantized ones, which are also the ones written
 	# to disk -- so a replay feeds the simulation the identical inputs rather
 	# than ones that merely round to the same text (records/canonical.gd).
+	# The club is a placeholder. `intent.club` is in the frozen schema and has to
+	# hold *something*, but three clubs plus an auto-putter is still unratified
+	# and `ClubProfile` does not exist -- BallFlight has one set of speeds for
+	# every full shot. So every non-putt records as an iron, which is honest
+	# about there being one club rather than inventing a mapping from power to
+	# club name that no simulation is behind. A caller that passes a different
+	# club is deliberately ignored, not silently honoured.
 	var intent := ShotIntent.make(
 		ShotIntent.Club.PUTTER if putting else ShotIntent.Club.IRON,
 		power, curve, heading)
