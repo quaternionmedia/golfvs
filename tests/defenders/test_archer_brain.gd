@@ -152,3 +152,63 @@ func test_the_verdict_is_reproducible_from_the_seed() -> void:
 		again.read_shot(arc, DT, 4242)
 		assert_float(again.act_time()).is_equal(first.act_time())
 		assert_vector(again.act_point()).is_equal(first.act_point())
+
+
+# ----------------------------------------------------- guarding it live ------
+
+func test_it_intercepts_a_ball_the_prediction_never_saw() -> void:
+	# The bug this exists for. A ball that lands in play and rolls off the course
+	# never crosses the boundary in the air, so the predicted arc shows nothing
+	# and the archer used to let it go. Measured against the real hole, that was
+	# most of the balls that were lost.
+	var brain := _archer()
+	brain.read_shot(_arc(Vector3(0.0, 0.0, -1.0)), DT, 1)
+	assert_bool(brain.is_committed()).is_false()
+
+	var last_in_play := Vector3(-18.9, 0.18, -20.0)
+	assert_bool(brain.intercept(last_in_play)).is_true()
+	assert_vector(brain.act_point()).is_equal(last_in_play)
+	assert_bool(brain.will_connect()).is_true()
+	assert_that(brain.state).is_equal(DefenderBrain.State.ACT)
+
+
+func test_an_interception_pins_the_ball_somewhere_playable() -> void:
+	var brain := _archer()
+	brain.read_shot(_arc(Vector3(0.0, 0.0, -1.0)), DT, 1)
+	brain.intercept(Vector3(-18.9, 0.18, -20.0))
+	assert_bool(brain.profile.in_bounds(brain.act_point())).is_true()
+
+
+func test_it_only_intercepts_once_per_stroke() -> void:
+	# Otherwise a ball nudged back and forth across the line would be shot every
+	# tick, and the cooldown -- which every defender has, per §3 -- would mean
+	# nothing.
+	var brain := _archer()
+	brain.read_shot(_arc(Vector3(0.0, 0.0, -1.0)), DT, 1)
+	assert_bool(brain.intercept(Vector3(-18.9, 0.18, -20.0))).is_true()
+	assert_bool(brain.intercept(Vector3(-18.5, 0.18, -21.0))).is_false()
+
+
+func test_an_interception_is_reproducible_from_the_stroke_seed() -> void:
+	# It draws from the stroke's own seed, not from the global generator, so a
+	# replayed round intercepts identically.
+	seed(99)
+	var before := randi()
+	seed(99)
+	var brain := _archer()
+	brain.read_shot(_arc(Vector3(0.0, 0.0, -1.0)), DT, 8123481)
+	brain.intercept(Vector3(-18.9, 0.18, -20.0))
+	assert_int(randi()).is_equal(before)
+
+
+func test_watching_holds_the_draw_without_committing() -> void:
+	# The ball is near the edge but has not crossed it. The archer draws, so the
+	# save is readable rather than the ball simply stopping -- but it has not
+	# fired, and if the ball stays in play it never does.
+	var brain := _archer()
+	brain.read_shot(_arc(Vector3(0.0, 0.0, -1.0)), DT, 1)
+	brain.watch(Vector3(-17.0, 0.18, -20.0))
+	assert_bool(brain.alerted).is_true()
+	brain.advance(DT)
+	assert_that(brain.state).is_equal(DefenderBrain.State.TELL)
+	assert_bool(brain.is_committed()).is_false()

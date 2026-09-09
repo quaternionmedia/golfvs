@@ -45,6 +45,14 @@ var _act_point := Vector3.ZERO
 var _will_connect := false
 var _acted := false
 var _cooldown_left := 0.0
+## The seed this stroke was read at, kept so a live interception can draw from
+## the same source and stay replayable.
+var _stroke_seed := 0
+
+## Set by a guard that is watching something the predicted arc never showed --
+## a ball rolling toward the edge of the course. While it is true the defender
+## holds its tell instead of dropping back to idle.
+var alerted := false
 
 
 func configure(profile_: DefenderProfile, tier_: DifficultyTier, id_: String) -> void:
@@ -63,6 +71,8 @@ func read_shot(arc: PackedVector3Array, dt: float, stroke_seed: int) -> void:
 	_acted = false
 	_act_at = -1.0
 	_will_connect = false
+	alerted = false
+	_stroke_seed = stroke_seed
 	_set_state(State.COOLDOWN if _cooldown_left > 0.0 else State.IDLE)
 
 	if _cooldown_left > 0.0 or arc.size() < 2:
@@ -131,7 +141,9 @@ func advance(delta: float) -> bool:
 
 	_elapsed += delta
 	if _act_at < 0.0:
-		_set_state(State.IDLE)
+		# A defender with nothing predicted still watches. `alerted` is how a
+		# live guard says "something is happening that the arc did not show".
+		_set_state(State.TELL if alerted else State.IDLE)
 		return false
 
 	if _acted:
@@ -154,6 +166,7 @@ func rest() -> void:
 	_act_at = -1.0
 	_acted = false
 	_will_connect = false
+	alerted = false
 	_set_state(State.COOLDOWN if _cooldown_left > 0.0 else State.IDLE)
 
 

@@ -51,7 +51,17 @@ const HOLE_ID := "intro/01"
 ## wide and a hole 57 m long. Measured rather than guessed -- at 24 m either
 ## side, a full drive pulled 25 degrees off line is still in play and one pulled
 ## 35 degrees is not, which is about where a shot stops being recoverable.
-const ARCHER_STAND := Vector3(15.5, 0.0, -49.0)
+## Beside the corridor and level with the landing zone, not tucked away by the
+## green. §3 puts archery "near green", but ADR-015's archer guards the whole
+## course, and one standing 50 m away behind the player is one nobody ever sees
+## work -- which is exactly the report this position answers. Tucked between the
+## trees at z = -17 and z = -29 rather than inside one, and clear of the fairway
+## at x = 9.
+const ARCHER_STAND := Vector3(12.0, 0.0, -23.0)
+
+## How close to the edge the ball gets before the archer draws. Enough warning
+## to read, short enough that it is not drawing at every shot into the rough.
+const GUARD_MARGIN := 5.0
 const BOUNDS_CENTRE := Vector3(5.0, 0.0, -33.0)
 const BOUNDS_EXTENT := Vector2(24.0, 44.0)
 
@@ -267,6 +277,9 @@ var _round: Array[StrokeRecord] = []
 var _record: StrokeRecord = null
 var _round_seed := 0
 var _stroke_seed := 0
+## The last place the ball was still on the course, so an interception can pin
+## it somewhere playable rather than wherever it had got to when it was noticed.
+var _last_in_bounds := Vector3.ZERO
 
 ## Where the finished round was written. Empty until the ball drops.
 var round_path := ""
@@ -413,6 +426,44 @@ func _on_defender_acted(defender: Node3D) -> void:
 			ball.linear_velocity = Vector3(0.0, minf(ball.linear_velocity.y, 0.0), 0.0)
 
 
+## The boundary, watched rather than predicted.
+##
+## The predicted arc covers only the airborne part of a shot -- BallFlight stops
+## at first ground contact -- so it catches a ball that flies off the course and
+## misses one that lands in play and rolls off it. Measuring found that to be
+## most of them: at half power nothing ever crossed the line in the air, and a
+## 55-degree shank came to rest out of bounds with nothing stopping it.
+##
+## So the archer also watches where the ball actually is. Position beats
+## prediction: a prediction can be wrong about where a ball goes, and a position
+## cannot.
+func _guard_the_boundary() -> void:
+	for defender in _defenders:
+		var brain: DefenderBrain = defender.brain
+		if not brain.profile.guards_bounds:
+			continue
+		var at := ball.global_position
+		if brain.profile.in_bounds(at):
+			_last_in_bounds = at
+			# Drawing early is what makes the save readable instead of the ball
+			# simply stopping. The margin is measured from whichever edge is
+			# nearest.
+			var margin := minf(
+				brain.profile.bounds_extent.x - absf(at.x - brain.profile.bounds_centre.x),
+				brain.profile.bounds_extent.y - absf(at.z - brain.profile.bounds_centre.z))
+			if not brain.is_committed():
+				if margin <= GUARD_MARGIN:
+					defender.watch(at)
+				else:
+					# Back in safe ground. Without this the draw stays up for the
+					# rest of the stroke once a ball has been near an edge, which
+					# reads as a threat that never resolves.
+					brain.alerted = false
+			continue
+		if defender.intercept(_last_in_bounds):
+			_on_defender_acted(defender)
+
+
 # ---------------------------------------------------------------- records ----
 
 ## A different hole is a different hash whatever the id says (§2.1), so this
@@ -550,6 +601,7 @@ func _on_fired(heading: Vector3, power: float, curve: float) -> void:
 		origin, velocity, _curve_accel, BALL_RADIUS, 900, DEFENDER_DT)
 	for shooter in _defenders:
 		shooter.read_shot(arc, DEFENDER_DT, _stroke_seed)
+	_last_in_bounds = origin
 
 	ball.freeze = false
 	ball.linear_damp = ROLL_DAMP if putting else 0.0
@@ -572,6 +624,7 @@ func _physics_process(delta: float) -> void:
 	for shooter in _defenders:
 		if shooter.advance(delta):
 			_on_defender_acted(shooter)
+	_guard_the_boundary()
 
 	var airborne := ball.global_position.y > BALL_RADIUS * 1.8
 	if airborne:

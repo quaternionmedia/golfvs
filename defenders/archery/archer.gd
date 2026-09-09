@@ -32,6 +32,10 @@ var _draw := 0.0
 var _watching := Vector3.ZERO
 var _flight := -1.0
 var _from := Vector3.ZERO
+## Held separately from `_watching`, which `rest()` clears at the end of a
+## stroke -- an arrow still in the air would otherwise turn and fly to the world
+## origin on its last few frames.
+var _to := Vector3.ZERO
 
 
 static func with_profile(profile: DefenderProfile, tier: DifficultyTier, id: String) -> Archer:
@@ -102,6 +106,19 @@ func rest() -> void:
 	_watching = Vector3.ZERO
 
 
+## The ball is near the edge of the course. Draw, and look at it.
+func watch(at: Vector3) -> void:
+	brain.watch(at)
+	if brain.alerted:
+		_watching = at
+
+
+## The ball has left the course. Shoot it, and pin it where it was last in play.
+func intercept(at: Vector3) -> bool:
+	_watching = at
+	return brain.intercept(at)
+
+
 func _process(delta: float) -> void:
 	var drawing := brain.state == DefenderBrain.State.TELL \
 		or brain.state == DefenderBrain.State.ACT
@@ -139,10 +156,10 @@ func _advance_arrow(delta: float) -> void:
 		_flight = -1.0
 		_arrow.visible = false
 		return
-	var at := _from.lerp(_watching, _flight)
+	var at := _from.lerp(_to, _flight)
 	_arrow.visible = true
 	_arrow.global_position = at
-	var heading := (_watching - _from)
+	var heading := (_to - _from)
 	if heading.length_squared() > 1.0e-6:
 		_arrow.global_basis = Basis.looking_at(heading.normalized(), Vector3.UP)
 
@@ -150,4 +167,5 @@ func _advance_arrow(delta: float) -> void:
 func _on_state_changed(state: DefenderBrain.State) -> void:
 	if state == DefenderBrain.State.ACT and brain.will_connect():
 		_from = _nock.global_position
+		_to = brain.act_point()
 		_flight = 0.0
