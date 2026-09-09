@@ -119,7 +119,11 @@ it. While it is held it stops guarding by itself: taking the bow means the savin
 
 Defence is played third person over the archer, with **the same pull-aim-release drag as the stroke**
 (`ADR-021`) — the drag draws a bow instead of swinging a club, the same ribbon previews where the arrow goes,
-and the arrow travels, so leading the ball is the skill. Neither side gets a god view; that, and not a shared
+and the arrow travels, so leading the ball is the skill. The drag reads a bearing on the ground plane, as the
+stroke's does, so the **archer supplies the elevation** and the player supplies the lead, the draw and the
+moment (`ADR-023`): a club gives a golfer their launch angle and an arrow has nobody to give it one, and a
+planar aim with a fixed one cannot be pointed at a ball in the air at all. The bearing is never assisted, so
+a lead that is wrong misses by exactly how wrong it was. Neither side gets a god view; that, and not a shared
 camera, is what makes the two halves fair to each other. The golfer has a tell now — a backswing, during
 which the ball is genuinely held — because §3 asks every defender to telegraph and never said the same of the
 golfer, which left a defender reading a shot from a ball that had already gone.

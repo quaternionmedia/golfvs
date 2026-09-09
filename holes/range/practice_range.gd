@@ -83,12 +83,16 @@ const TEE_CLEARANCE := 2.0
 ## release, and watch a thing they aimed travel under the same gravity, so the
 ## defence is learnable by anybody who has already learned the stroke.
 ##
-## Fast and nearly flat: an arrow crossing forty metres drops about a metre and a
-## half, enough that a long lead has to be aimed above the ball and not through
-## it, and nowhere near enough to lob.
-const BOW_MIN_SPEED := 34.0
-const BOW_MAX_SPEED := 62.0
-const BOW_LAUNCH_DEG := 9.0
+## Fast, because the whole shot is a lead and a lead nobody can judge is a
+## guess. At these speeds an arrow crosses forty metres in a third of a second,
+## so the ball moves eight to twelve metres in the time it takes -- enough to be
+## a real read, little enough to see.
+##
+## The draw is the *speed*, which makes it the lead: a harder pull arrives sooner
+## and needs less lead. That is the choice this side of the game has, and it is
+## the same shape as the golfer's -- how hard, and where.
+const BOW_MIN_SPEED := 48.0
+const BOW_MAX_SPEED := 104.0
 ## How near the arrow has to pass. Generous against a 0.18 m ball, because the
 ## blind spot is already modelled -- `can_reach` still has to agree, so the
 ## tolerance here is about the thickness of an arrow and not about the difficulty
@@ -582,7 +586,8 @@ func _aim_the_bow(heading: Vector3, power: float) -> void:
 		_ribbon.hide_arc()
 		return
 	var from := archer.nock_at()
-	_ribbon.show_arc(from, _arrow_velocity(heading, power), Vector3.ZERO, 0.0, false)
+	_ribbon.show_arc(from, _arrow_velocity(heading, power), Vector3.ZERO, 0.0, false,
+		AimRibbon.SIGHTED_FRACTION)
 	archer.aim_at(from + heading * 14.0 + Vector3.UP * 2.0)
 
 
@@ -601,12 +606,51 @@ func _loose(heading: Vector3, power: float) -> void:
 	archer.fly(_arrow_from, _arrow_at)
 
 
-## The same launch model the stroke uses, with the bow's numbers instead of a
-## club's. `ClubProfile.make` rather than a member of `ClubProfile.all()`: the
-## bow is a launch profile and not a club, and the selector must never offer it.
+## Bearing and draw from the player; **elevation from the archer**.
+##
+## The gesture reads a heading on the ground plane, because that is what a golf
+## stroke needs -- a club supplies the launch angle, so the drag only has to
+## supply a compass bearing. An arrow has no club to supply it, and the target is
+## in the air, so a planar aim with a fixed launch angle can only hit a ball that
+## happens to be at the right height at the right range. It is not a hard shot,
+## it is an unaimable one.
+##
+## So the archer elevates. The player says *which way* and *how hard*, and the
+## bow solves the angle that reaches the range the ball is at -- the ordinary
+## ballistic solution, taking the flatter of its two roots, because an archer
+## lobbing over the range and waiting is not what anybody meant. That leaves the
+## horizontal lead and the timing as the whole of the skill, which is the right
+## half to keep: it is the half the player can see, judge and get better at.
+##
+## The target is where the ball *will be*, found by two passes -- guess the
+## flight time from the present distance, move the ball, guess again. A third
+## changes the answer by centimetres. Note this only sets the elevation: the
+## bearing stays the player's, so a lead that is wrong is still a miss, and it
+## misses by the amount they were wrong.
 func _arrow_velocity(heading: Vector3, power: float) -> Vector3:
-	return BallFlight.launch_velocity(heading, power, false,
-		ClubProfile.make("bow", BOW_MIN_SPEED, BOW_MAX_SPEED, BOW_LAUNCH_DEG, 0.0))
+	var speed := lerpf(BOW_MIN_SPEED, BOW_MAX_SPEED, clampf(power, 0.0, 1.0))
+	var archer := held()
+	var from := archer.nock_at() if archer != null else ball.global_position
+	var flat := Vector3(heading.x, 0.0, heading.z)
+	flat = flat.normalized() if flat.length() > 0.001 else Vector3.FORWARD
+
+	var target := ball.global_position
+	for i in 2:
+		var t := from.distance_to(target) / maxf(speed, 0.001)
+		target = ball.global_position + ball.linear_velocity * t \
+			+ BallFlight.gravity() * t * t * 0.5
+
+	var to := target - from
+	var range_ := Vector2(to.x, to.z).length()
+	var rise := to.y
+	var g := absf(BallFlight.gravity().y)
+	var elevation := deg_to_rad(45.0)
+	if range_ > 0.01:
+		var vv := speed * speed
+		var disc := vv * vv - g * (g * range_ * range_ + 2.0 * rise * vv)
+		if disc >= 0.0:
+			elevation = atan((vv - sqrt(disc)) / (g * range_))
+	return flat * (cos(elevation) * speed) + Vector3.UP * (sin(elevation) * speed)
 
 
 ## Fly the arrow, on the ball's own tick. Whether it connects is decided here and
@@ -616,6 +660,7 @@ func _advance_the_arrow(delta: float) -> void:
 	if not _arrow_live:
 		return
 	_arrow_age += delta
+	var was := _arrow_at
 	_arrow_vel += BallFlight.gravity() * delta
 	_arrow_at += _arrow_vel * delta
 	var archer := held()
@@ -624,9 +669,16 @@ func _advance_the_arrow(delta: float) -> void:
 		return
 	archer.fly(_arrow_from, _arrow_at)
 
-	if _arrow_at.distance_to(ball.global_position) <= ARROW_HIT:
+	# Against the *segment* the arrow swept, not the point it landed on. At a
+	# hundred metres a second an arrow covers nearly two metres between physics
+	# ticks, so a point test steps straight over a ball it went through -- which
+	# is a miss the player cannot tell from a bad shot, and the worst kind there
+	# is. This is the same reason the ball itself uses continuous collision.
+	var near := Geometry3D.get_closest_point_to_segment(
+		ball.global_position, was, _arrow_at)
+	if near.distance_to(ball.global_position) <= ARROW_HIT:
 		_stow_the_arrow()
-		if archer.brain.connected_at(_arrow_at):
+		if archer.brain.connected_at(near):
 			_on_defender_acted(archer)
 		return
 	if _arrow_age >= ARROW_LIFE or _arrow_at.y < 0.0:

@@ -577,3 +577,109 @@ func test_switching_sides_changes_what_the_drag_means() -> void:
 	assert_bool(here._arrow_live) \
 		.override_failure_message("defending, the drag did not loose an arrow").is_true()
 	assert_bool(here._held).is_false()
+
+
+# ------------------------------------------------------ can it be defended ---
+#
+# The question that matters about the other side, and it is not rhetorical: the
+# gesture reads a heading on the *ground plane*, and the target is in the air.
+# With a fixed launch angle that combination can only hit a ball that happens to
+# be at the right height at the right range, which is not a hard shot, it is an
+# unaimable one. The archer solves the elevation for exactly that reason, and
+# these two tests are what says so -- one that a good lead connects, and one that
+# a bad lead does not, because a test that only proves the first would pass just
+# as well if every arrow hit.
+
+
+const DEFEND_DT := 1.0 / 60.0
+
+
+## The bearing a competent player would take: at where the ball is going to be,
+## not where it is. Solved the same way the bow solves its elevation, which is
+## the point -- the read is available to the player, it is just theirs to make.
+func _lead_on(here: Node3D, speed: float) -> Vector3:
+	var from: Vector3 = here.held().nock_at()
+	var target: Vector3 = here.ball.global_position
+	for i in 3:
+		var t: float = from.distance_to(target) / speed
+		target = here.ball.global_position + here.ball.linear_velocity * t \
+			+ BallFlight.gravity() * t * t * 0.5
+	var flat := target - from
+	flat.y = 0.0
+	return flat.normalized()
+
+
+## Puts a ball in the air on a known flight and hands the archer to the player.
+## The ball is flown by hand rather than by the physics server so the test
+## measures the interception and not the engine.
+func _ball_in_flight(here: Node3D) -> Vector3:
+	here.set_defending(true)
+	here._enter_aim()
+	here.state = here.State.FLIGHT
+	here.ball.freeze = true
+	here.ball.global_position = Vector3(2.0, 9.0, -26.0)
+	var vel := Vector3(4.0, 2.0, -26.0)
+	here.ball.linear_velocity = vel
+	return vel
+
+
+func _fly_until_the_arrow_is_spent(here: Node3D, vel: Vector3) -> void:
+	var moving := vel
+	for i in 500:
+		if not here._arrow_live:
+			return
+		here.ball.global_position += moving * DEFEND_DT
+		moving += BallFlight.gravity() * DEFEND_DT
+		here.ball.linear_velocity = moving
+		here._physics_process(DEFEND_DT)
+
+
+func test_a_good_lead_actually_stops_the_ball() -> void:
+	# The whole claim of the defending side. If this cannot pass, the side is
+	# decorative.
+	var here := _range()
+	var vel := _ball_in_flight(here)
+	here._on_fired(_lead_on(here, here.BOW_MAX_SPEED), 1.0, 0.0)
+	assert_bool(here._arrow_live).is_true()
+
+	_fly_until_the_arrow_is_spent(here, vel)
+	assert_bool(here._contender == null and here._guard.brain.will_connect()) \
+		.override_failure_message("a correctly led arrow missed") \
+		.is_true()
+	assert_bool(here._pinned) \
+		.override_failure_message("the arrow connected and the ball flew on") \
+		.is_true()
+
+
+func test_aiming_at_where_the_ball_is_misses_it() -> void:
+	# And the other half. An arrow takes a third of a second to cross the range,
+	# so the ball has moved eight or ten metres by the time it arrives -- if
+	# shooting at the ball's present position worked, there would be no read.
+	var here := _range()
+	var vel := _ball_in_flight(here)
+	var straight: Vector3 = here.ball.global_position - here.held().nock_at()
+	straight.y = 0.0
+	here._on_fired(straight.normalized(), 1.0, 0.0)
+
+	_fly_until_the_arrow_is_spent(here, vel)
+	assert_bool(here._guard.brain.will_connect()) \
+		.override_failure_message("no lead was needed, so there is no shot to make") \
+		.is_false()
+	assert_bool(here._pinned).is_false()
+
+
+func test_a_harder_draw_needs_less_lead() -> void:
+	# What the power half of the gesture buys on this side. A faster arrow
+	# arrives sooner, so the ball has moved less -- which is a choice with a
+	# cost, exactly like hitting a golf shot harder.
+	var here := _range()
+	_ball_in_flight(here)
+	var slow := _lead_on(here, here.BOW_MIN_SPEED)
+	var fast := _lead_on(here, here.BOW_MAX_SPEED)
+	var straight: Vector3 = here.ball.global_position - here.held().nock_at()
+	straight.y = 0.0
+	straight = straight.normalized()
+
+	assert_float(fast.angle_to(straight)) \
+		.override_failure_message("the draw did not change the lead") \
+		.is_less(slow.angle_to(straight))

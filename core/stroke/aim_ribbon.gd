@@ -16,6 +16,12 @@ extends MultiMeshInstance3D
 ## longer streak. Power is legible without a number attached to it.
 
 const VISIBLE_FRACTION := 0.07
+## What an archer gets instead. A golfer is denied the landing point on purpose
+## -- judging distance is the game -- but an archer *sights*, and a bow whose
+## line stops a metre past the arrow is a bow with no sights on it. It is still
+## not the whole flight, and it still says nothing about where the ball will be,
+## which is the read that actually decides the shot.
+const SIGHTED_FRACTION := 0.62
 const DOTS := 16
 const SAMPLE_DT := 0.012
 const MAX_SAMPLES := 900
@@ -60,14 +66,14 @@ func _ready() -> void:
 ## colour. With only a stub on screen, colour is the only channel left for "this
 ## line does not get there" -- which is how the curve beat teaches itself.
 func show_arc(origin: Vector3, velocity: Vector3, accel: Vector3, ground_y: float,
-		blocked := false) -> void:
+		blocked := false, fraction := VISIBLE_FRACTION) -> void:
 	_blocked = blocked
 	var path := _dense_arc(origin, velocity, accel, ground_y)
 	if path.size() < 2:
 		visible = false
 		return
 
-	var stub := _leading_fraction(path, VISIBLE_FRACTION)
+	var stub := _leading_fraction(path, fraction)
 	if stub.size() < 2:
 		visible = false
 		return

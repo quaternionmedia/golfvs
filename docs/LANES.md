@@ -176,8 +176,11 @@ ADR-015 and an adversary contesting the line (ADR-020). Skeet is still built and
 - [x] Per-lie re-planning (ADR-009) on the range: the contesting archer moves every lie, to a position
       derived from it. The *choice* of where — the part ADR-009 leaves to a plan — is still not built
 - [x] Defence is playable: third person over the defender, same gesture as the stroke, arrow with travel
-      time (ADR-020, ADR-021). **It has been played by nobody.** The lead is tuned against a mouse and
-      `BOW_MIN_SPEED` / `BOW_MAX_SPEED` / `ARROW_HIT` are the three numbers that decide whether it is fun
+      time (ADR-020, ADR-021), and the archer solves the elevation so a planar aim can reach an airborne
+      ball at all (ADR-023). **It has been played by nobody.** `BOW_MIN_SPEED` / `BOW_MAX_SPEED` set how much
+      lead the shot needs and `ARROW_HIT` sets how forgiving it is; all three are tuned against a mouse, and
+      two tests now pin the *shape* of the skill — a good lead connects, no lead misses — so those numbers
+      can be moved without wondering whether the side still works
 - [x] The first run's defence is the archer on the rock, held by the player (ADR-022). The contesting
       archer is built, tested and **off** — `set_contested(true)` stands one up, and the first hole that
       wants one is the first real test of whether the placement rule holds away from a range

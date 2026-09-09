@@ -263,6 +263,34 @@ later hole places one: height is doing work here that the placement rule does no
 **Gates:** suite 158/158 green (5 new), docs check green, `demo_round` PASS, ten screenshots re-rendered.
 `10-defending` is now the first run's own defence — over the archer on the spire, bow drawn, ribbon out.
 
+### build-05, part five — making the defence actually possible (ADR-023)
+
+**Asked for:** *"aiming the archer is on a plane. Make sure it's possible to successfully defend in this
+scenario."* Correct, and it was three faults stacked rather than one.
+
+1. **The aim is planar and the target is not.** `StrokeGesture` reads a heading on the ground plane, which
+   is right for a stroke — a club supplies the launch angle, so the drag only has to supply a bearing. An
+   arrow has nobody to supply it. With a fixed 9° launch, the arrow could only hit a ball that happened to
+   be at the right height at the right range: not a hard shot, an unaimable one. The bow solves the
+   elevation now, against a two-pass prediction of where the ball will be. The **bearing is not assisted**,
+   so the lead and the moment remain the whole of the skill.
+2. **The ribbon was a 7% stub.** That is a deliberate denial for the golfer, because judging distance is the
+   game. An archer *sights*, and a bow whose line stops a metre past the arrow has no sights on it.
+   `AimRibbon.SIGHTED_FRACTION` is 0.62 and `show_arc` takes the fraction as an argument.
+3. **The hit test stepped over the ball.** At 100 m/s an arrow covers 1.7 m between physics ticks, so a
+   point test tunnels through a ball it passed within centimetres of. It is a swept segment now
+   (`Geometry3D.get_closest_point_to_segment`) — the same reason the ball itself runs CCD, and the kind of
+   miss a player cannot tell from a bad shot, which is the worst kind there is.
+
+**Three tests now pin the shape of the skill**, and they are the answer to the question that was asked: a
+correct lead stops the ball, shooting at where the ball *is* misses it, and a harder draw needs less lead.
+The second one matters as much as the first — without it, a passing suite would be consistent with every
+arrow hitting. They fly the ball by hand rather than through the physics server so they measure the
+interception and not the engine.
+
+**Gates:** suite 161/161 green (3 new), docs check green, `demo_round` PASS, ten screenshots re-rendered —
+`10-defending` now shows the sighted ribbon reaching the ball rather than stopping at the bow.
+
 ### build-04
 **A defended hole that writes records, and a demo that checks them.** Four commits; the suite went from 22
 cases to 66.
