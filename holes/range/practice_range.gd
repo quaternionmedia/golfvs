@@ -178,9 +178,12 @@ var _gesture: StrokeGesture
 ## `GolferFigure`: the ball is genuinely held for it.
 var _golfer: GolferFigure
 ## The archer contesting the line, or null. Repositioned every lie by
-## `_place_the_contender()`. Distinct from the boundary archer on the tower,
-## which is a safety net and stays where it is.
+## `_place_the_contender()`.
 var _contender: Archer
+## The boundary archer on the rock (ADR-015, ADR-016). A safety net, and the only
+## defender the first run has -- and the player can pick it up, which is what
+## `held()` is for.
+var _guard: Archer
 ## ADR-001's orbit, as an offset on whatever the state below framed. The range
 ## still chooses what is worth looking at; this is the player choosing from
 ## where. See `_framed()`.
@@ -243,9 +246,17 @@ var _threat := 0.0
 var _threat_at := Vector3.ZERO
 
 @export var defended := true
-## Whether a shooter contests the range. Off by default, which keeps the bare
-## range -- the one ADR-017 describes and the one `demo_round` gates on -- a
-## question about golf and nothing else. The menu turns it on.
+## Whether a second archer contests the line, in front of the boundary guard.
+##
+## **Off on the first run** (ADR-022). The tutorial has exactly one defender, the
+## archer on the rock, and it is a safety net -- that is ADR-015's whole point,
+## and a beginner meeting an adversary on the same screen meets two ideas at
+## once. The contesting archer and the defence side it makes playable are for
+## later holes, where the player already knows what a defender is.
+##
+## Toggle it with `set_contested()` rather than writing it after `_ready`: the
+## archer is built, placed and torn down by that call, so the flag and the world
+## cannot disagree.
 @export var contested := false
 
 
@@ -390,21 +401,12 @@ func _setup_play() -> void:
 
 	if defended:
 		var profile := DefenderProfile.archer(ARCHER_STAND, BOUNDS_CENTRE, BOUNDS_EXTENT)
-		var archer := Archer.with_profile(profile, DifficultyTier.unerring(), "archery_0")
-		add_child(archer)
-		_defenders.append(archer)
+		_guard = Archer.with_profile(profile, DifficultyTier.unerring(), "archery_0")
+		add_child(_guard)
+		_defenders.append(_guard)
 
 	if contested:
-		# Placed at the midpoint on the next line rather than here, so there is
-		# exactly one piece of code that knows where a defender stands.
-		_contender = Archer.with_profile(
-			DefenderProfile.contesting_archer(Vector3.ZERO, CONTEST_ZONE),
-			DifficultyTier.gentle(), "archery_1")
-		# Amber, not the safety net's green: this one is not on your side.
-		_contender.ink = Skeet.THREAT
-		add_child(_contender)
-		_defenders.append(_contender)
-		_place_the_contender()
+		_build_the_contender()
 
 	_gesture = StrokeGesture.new()
 	_gesture.camera = camera
@@ -459,6 +461,64 @@ func suggested_club_index() -> int:
 	return 0
 
 
+## Put a contesting archer on the range, or take it away.
+##
+## Not just a flag: it builds and frees the figure, so there is no state in which
+## the range says it is contested and nothing is standing there. A later hole
+## turns this on; the first run never does (ADR-022).
+func set_contested(value: bool) -> void:
+	if contested == value:
+		return
+	contested = value
+	if contested:
+		_build_the_contender()
+		return
+
+	# Going quiet. Anything the player was holding goes with it, or the range is
+	# left defending with a bow that no longer exists.
+	_stow_the_arrow()
+	_defenders.erase(_contender)
+	_contender.queue_free()
+	_contender = null
+
+
+func _build_the_contender() -> void:
+	# Placed at the midpoint on the next line rather than here, so there is
+	# exactly one piece of code that knows where a defender stands.
+	_contender = Archer.with_profile(
+		DefenderProfile.contesting_archer(Vector3.ZERO, CONTEST_ZONE),
+		DifficultyTier.gentle(), "archery_1")
+	# Amber, not the safety net's green: this one is not on your side.
+	_contender.ink = Skeet.THREAT
+	add_child(_contender)
+	_defenders.append(_contender)
+	_place_the_contender()
+
+
+## The archer the player has hold of when defending.
+##
+## The contesting one if the hole has stood one up, and otherwise **the archer on
+## the rock** -- the safety net itself. That is the first run's whole defence
+## side, and it is a better lesson than an adversary would be: the ball you are
+## being asked to shoot is the one that was about to be lost, so playing this
+## side is learning where the course ends by patrolling it. Pillar 6 is kind
+## comedy, and the funniest version of a safety net is one somebody has to work.
+##
+## It also has a consequence worth saying out loud: while the player holds the
+## guard, the guard stops guarding by itself (`_guard_the_boundary` skips it).
+## Taking the bow means the saving is now your job, and missing means the ball
+## is gone. Nothing is lost by it -- a range charges nothing for a lost ball --
+## but it is the difference between watching a net work and being one.
+func held() -> Archer:
+	return _contender if _contender != null else _guard
+
+
+## Is there anything to defend with? The flat layer asks before offering the
+## switch, because a control that changes nothing is worse than an absent one.
+func can_defend() -> bool:
+	return held() != null
+
+
 ## Which side the player is on, and the only thing that changes when it flips.
 ##
 ## Deliberately not a separate scene, a separate mode or a separate camera. §4's
@@ -469,6 +529,11 @@ func suggested_club_index() -> int:
 ## the view the golfer had rather than a better one.
 func set_defending(value: bool) -> void:
 	if _defending == value:
+		return
+	# There has to be somebody to be. Asking to defend a range with no defender
+	# on it is not an error, it is simply nothing, and it leaves the player
+	# holding a bow that was never built.
+	if value and held() == null:
 		return
 	_defending = value
 	_gesture.enabled = true
@@ -512,26 +577,28 @@ func _play_the_games_shot() -> void:
 ## "accurate on an empty hole and blind to defenders", and an arrow's arc is
 ## exactly as honest a thing to draw as a ball's.
 func _aim_the_bow(heading: Vector3, power: float) -> void:
-	if _contender == null or power <= 0.0:
+	var archer := held()
+	if archer == null or power <= 0.0:
 		_ribbon.hide_arc()
 		return
-	var from := _contender.nock_at()
+	var from := archer.nock_at()
 	_ribbon.show_arc(from, _arrow_velocity(heading, power), Vector3.ZERO, 0.0, false)
-	_contender.aim_at(from + heading * 14.0 + Vector3.UP * 2.0)
+	archer.aim_at(from + heading * 14.0 + Vector3.UP * 2.0)
 
 
 ## Let go. One arrow per stroke, and the cooldown starts here rather than when it
 ## arrives -- a bow you have already loosed is empty whatever the arrow is doing.
 func _loose(heading: Vector3, power: float) -> void:
 	_ribbon.hide_arc()
-	if _contender == null or not _contender.brain.commit_by_hand():
+	var archer := held()
+	if archer == null or not archer.brain.commit_by_hand():
 		return
-	_arrow_from = _contender.nock_at()
+	_arrow_from = archer.nock_at()
 	_arrow_at = _arrow_from
 	_arrow_vel = _arrow_velocity(heading, power)
 	_arrow_age = 0.0
 	_arrow_live = true
-	_contender.fly(_arrow_from, _arrow_at)
+	archer.fly(_arrow_from, _arrow_at)
 
 
 ## The same launch model the stroke uses, with the bow's numbers instead of a
@@ -551,12 +618,16 @@ func _advance_the_arrow(delta: float) -> void:
 	_arrow_age += delta
 	_arrow_vel += BallFlight.gravity() * delta
 	_arrow_at += _arrow_vel * delta
-	_contender.fly(_arrow_from, _arrow_at)
+	var archer := held()
+	if archer == null:
+		_stow_the_arrow()
+		return
+	archer.fly(_arrow_from, _arrow_at)
 
 	if _arrow_at.distance_to(ball.global_position) <= ARROW_HIT:
 		_stow_the_arrow()
-		if _contender.brain.connected_at(_arrow_at):
-			_on_defender_acted(_contender)
+		if archer.brain.connected_at(_arrow_at):
+			_on_defender_acted(archer)
 		return
 	if _arrow_age >= ARROW_LIFE or _arrow_at.y < 0.0:
 		_stow_the_arrow()
@@ -566,6 +637,8 @@ func _stow_the_arrow() -> void:
 	_arrow_live = false
 	if _contender != null:
 		_contender.stow()
+	if _guard != null:
+		_guard.stow()
 
 
 ## Kept inside the fence. Twice the distance to the far pin is a hundred and
@@ -722,8 +795,8 @@ func _on_fired(heading: Vector3, power: float, curve: float) -> void:
 	for defender in _defenders:
 		# An archer the player is holding does not get to read the shot. That
 		# prediction is the AI's commitment, and the whole point of the other
-		# side is that the commitment is now the player's press.
-		if _defending and defender == _contender:
+		# side is that the commitment is now the player's release.
+		if _defending and defender == held():
 			defender.read_shot(PackedVector3Array(), DEFENDER_DT, _stroke_seed)
 			continue
 		defender.read_shot(arc, DEFENDER_DT, _stroke_seed)
@@ -897,6 +970,11 @@ func _guard_the_boundary() -> void:
 	for defender in _defenders:
 		var brain: DefenderBrain = defender.brain
 		if not brain.profile.guards_bounds:
+			continue
+		# Not while somebody has hold of it. A net that keeps catching balls
+		# while the player is aiming it themselves is a net doing their job for
+		# them, and the shot they just missed would look like one they made.
+		if _defending and defender == held():
 			continue
 		var at := ball.global_position
 		var margin := minf(
@@ -1106,9 +1184,10 @@ func _frame_aim() -> Transform3D:
 ## behind the archer also makes the shot aimable: a lead is a direction, and a
 ## direction cannot be judged from a camera pointed the other way.
 func _frame_defend() -> Transform3D:
-	if _contender == null:
+	var archer := held()
+	if archer == null:
 		return _frame_aim()
-	var stand := _contender.global_position
+	var stand := archer.global_position
 	var to_ball := ball.global_position - stand
 	to_ball.y = 0.0
 	var dir := to_ball.normalized() if to_ball.length() > 0.01 else Vector3.FORWARD

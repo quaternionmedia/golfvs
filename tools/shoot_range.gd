@@ -117,6 +117,9 @@ func _shoot_swing() -> void:
 ## from the other end of the hole.
 func _shoot_defending() -> void:
 	_range.set_process(true)
+	# No contesting archer: this is the first run's own defence, played with the
+	# archer on the rock (ADR-022). Photographing the version the player actually
+	# meets matters more than photographing the one with more in it.
 	_range.pin = 2
 	_range.set_club(_range.suggested_club_index())
 	_range.set_defending(true)
@@ -128,7 +131,7 @@ func _shoot_defending() -> void:
 	for i in 78:
 		await get_tree().physics_frame
 	# And the bow drawn at it, which is what the player would be looking at.
-	var lead: Vector3 = _range.ball.global_position - _range._contender.nock_at()
+	var lead: Vector3 = _range.ball.global_position - _range.held().nock_at()
 	lead.y = 0.0
 	_range._on_aim_updated(lead.normalized(), 0.8, 0.0)
 	_range.set_process(false)

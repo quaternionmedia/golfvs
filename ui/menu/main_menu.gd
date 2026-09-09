@@ -102,7 +102,15 @@ func _process(delta: float) -> void:
 	# swung has been told nothing. Hiding it also made it unfindable while it was
 	# still, invisibly, consuming every tap.
 	_clubs.shown = move_toward(_clubs.shown, 1.0, delta * 2.5)
-	_side.shown = move_toward(_side.shown, 1.0, delta * 2.5)
+	# The side switch is offered whenever there is a defender to hold, which on
+	# the first run is the archer on the rock itself (ADR-022). If a hole has
+	# none, the control goes away rather than doing nothing -- and `mouse_filter`
+	# goes with it, because a faded Control that still eats presses is exactly
+	# the bug the club selector shipped once.
+	var can_defend: bool = range_.can_defend()
+	_side.shown = move_toward(_side.shown, 1.0 if can_defend else 0.0, delta * 2.5)
+	_side.mouse_filter = Control.MOUSE_FILTER_STOP if can_defend \
+		else Control.MOUSE_FILTER_IGNORE
 	# The clubs belong to whoever is swinging. Defending, that is not the player,
 	# so the selector goes quiet rather than away -- what the game has in its
 	# hands is still worth being able to read.

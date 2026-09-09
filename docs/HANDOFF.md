@@ -232,6 +232,37 @@ blank line has been added; append rows by matching the last row, not the next he
 **Gates:** suite 153/153 green, docs check green, `demo_round` PASS, ten screenshots re-rendered and looked
 at — `10-defending` is now over the archer's shoulder with the ribbon on the ball.
 
+### build-05, part four — one defender, and you can be it (ADR-022)
+
+**Asked for:** *"remove the additional defender, and have the one on the rock be the only for the tutorial.
+The closer put one will be in game further"*, then *"the helpful main screen archer should also be
+controllable."*
+
+- **The contesting archer is scoped out of the tutorial, not deleted.** `set_contested()` builds and frees
+  it at runtime, so the flag and the world cannot disagree, and a later hole turns it on. The first run
+  meets one defender, which is the whole budget it has: ADR-014 and ADR-017 make it about the clubs, and an
+  adversary would be a second idea arriving with the first.
+- **The archer on the rock is holdable, and that is the part worth the ADR.** Playing the safety net is a
+  better first defence lesson than an adversary would be — the ball you are asked to shoot is the one that
+  was about to be lost, so working that side teaches where the course ends by patrolling it. Same lesson as
+  the golfing side, from the other end.
+- **A held guard stops guarding by itself.** `_guard_the_boundary()` skips whatever the player is holding.
+  A net that keeps catching balls while somebody aims it themselves is doing their job for them, and a shot
+  they just missed would read as one they made. It costs nothing to be wrong — a range charges nothing for
+  a lost ball — but it is the difference between watching a safety net and being one.
+- **`held()` is the seam.** One accessor decides which archer the player has: the contender if a hole stood
+  one up, otherwise the guard. Every part of the defence path goes through it, so a hole with two defenders
+  and a hole with one differ in a single expression.
+- **The side switch appears only when there is somebody to be**, and its `mouse_filter` goes with its
+  fade — a faded Control that still eats presses is exactly the bug the club selector shipped once.
+
+**The elevated vantage turned out to matter.** Defending from the rock looks over the whole range, which
+suits a lookout and reads far better than the contender's ground-level view did. Worth remembering when a
+later hole places one: height is doing work here that the placement rule does not know about.
+
+**Gates:** suite 158/158 green (5 new), docs check green, `demo_round` PASS, ten screenshots re-rendered.
+`10-defending` is now the first run's own defence — over the archer on the spire, bow drawn, ribbon out.
+
 ### build-04
 **A defended hole that writes records, and a demo that checks them.** Four commits; the suite went from 22
 cases to 66.

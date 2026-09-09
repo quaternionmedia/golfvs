@@ -301,11 +301,78 @@ func _contested() -> Node3D:
 	return here
 
 
-func test_the_bare_range_has_no_contender() -> void:
-	# The default is the range ADR-017 describes and `demo_round` gates on: golf
-	# and a safety net, nothing in the way. Contesting it is opt-in.
-	assert_object(_range()._contender).is_null()
-	assert_object(_contested()._contender).is_not_null()
+func test_the_first_run_has_exactly_one_defender_and_it_is_on_the_rock() -> void:
+	# ADR-022. The tutorial meets one defender and it is a safety net (ADR-015);
+	# an adversary on the same screen is a second idea arriving at the same time
+	# as the first. Contesting the line is opt-in and belongs to later holes.
+	var here := _range()
+	assert_object(here._contender).is_null()
+	assert_int(here._defenders.size()).is_equal(1)
+
+	var only: Node3D = here._defenders[0]
+	assert_bool(only.brain.profile.guards_bounds) 		.override_failure_message("the tutorial's one defender is not the boundary guard") 		.is_true()
+	# And it is standing on the rock, where ADR-016 put it.
+	assert_vector(only.global_position).is_equal_approx(
+		here.ARCHER_STAND, Vector3.ONE * 0.01)
+
+
+func test_the_contender_can_be_stood_up_and_taken_away() -> void:
+	# The flag is a switch, not a note: a later hole turns this on at runtime, so
+	# there must be no state where the range says contested and nothing is there.
+	var here := _range()
+	here.set_contested(true)
+	assert_object(here._contender).is_not_null()
+	assert_int(here._defenders.size()).is_equal(2)
+
+	here.set_contested(false)
+	assert_object(here._contender).is_null()
+	assert_int(here._defenders.size()).is_equal(1)
+
+
+func test_the_first_run_defends_with_the_archer_on_the_rock() -> void:
+	# The tutorial's one defender is the safety net, and the player can pick it
+	# up. That is a better lesson than an adversary: the ball you are asked to
+	# shoot is the one that was about to be lost, so working this side is
+	# learning where the course ends by patrolling it.
+	var here := _range()
+	assert_object(here._contender).is_null()
+	assert_bool(here.can_defend()).is_true()
+	assert_object(here.held()).is_same(here._guard)
+
+	here.set_defending(true)
+	assert_bool(here.defending()).is_true()
+
+
+func test_the_contender_is_held_in_preference_when_there_is_one() -> void:
+	var here := _contested()
+	assert_object(here.held()).is_same(here._contender)
+	here.set_contested(false)
+	assert_object(here.held()).is_same(here._guard)
+
+
+func test_a_range_with_no_defenders_offers_no_side_to_switch_to() -> void:
+	# Otherwise the control hands the player an empty bow.
+	var here := _range(false)
+	assert_bool(here.can_defend()).is_false()
+	here.set_defending(true)
+	assert_bool(here.defending()).is_false()
+	assert_bool(here._gesture.enabled).is_true()
+
+
+func test_a_held_guard_stops_guarding_by_itself() -> void:
+	# Taking the bow means the saving is now your job. A net that keeps catching
+	# balls while the player aims it themselves is doing their job for them, and
+	# the shot they just missed would read as one they made.
+	var here := _range()
+	here.set_defending(true)
+	here._enter_aim()
+	here.state = here.State.FLIGHT
+	here.ball.freeze = false
+	# Parked well outside the boundary, where the guard would normally act.
+	here.ball.global_position = Vector3(
+		here.BOUNDS_CENTRE.x + here.BOUNDS_EXTENT.x + 6.0, 2.0, here.BOUNDS_CENTRE.z)
+	here._guard_the_boundary()
+	assert_bool(here._guard.brain.is_committed()) 		.override_failure_message("the guard saved a ball the player was aiming at") 		.is_false()
 
 
 func test_the_contender_stands_at_twice_the_distance_to_the_pin() -> void:

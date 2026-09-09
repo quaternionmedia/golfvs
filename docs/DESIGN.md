@@ -111,13 +111,18 @@ rows stay a fingertip tall regardless, because subtle is a claim about ink and n
 hit.
 
 You can also play the other end of it (`ADR-020`). A switch in the opposite corner to the club selector
-puts the player on defence: the game golfs, and the archer standing beyond the pin becomes theirs. It is
-played third person over the archer, with **the same pull-aim-release drag as the stroke** (`ADR-021`) — the
-drag draws a bow instead of swinging a club, the same ribbon previews where the arrow goes, and the arrow
-travels, so leading the ball is the skill. Neither side gets a god view; that, and not a shared camera, is
-what makes the two halves fair to each other. The golfer has a tell now — a backswing, during which the ball
-is genuinely held — because §3 asks every defender to telegraph and never said the same of the golfer, which
-left a defender reading a shot from a ball that had already gone.
+puts the player on defence: the game golfs, and **the archer on the rock becomes theirs** (`ADR-022`). The
+tutorial has that one defender and no other — an adversary as well would be a second idea arriving with the
+first — and handing the player the *safety net* is the better lesson anyway, because the ball you are asked
+to shoot is the one that was about to be lost. Working that side teaches where the course ends by patrolling
+it. While it is held it stops guarding by itself: taking the bow means the saving is now your job.
+
+Defence is played third person over the archer, with **the same pull-aim-release drag as the stroke**
+(`ADR-021`) — the drag draws a bow instead of swinging a club, the same ribbon previews where the arrow goes,
+and the arrow travels, so leading the ball is the skill. Neither side gets a god view; that, and not a shared
+camera, is what makes the two halves fair to each other. The golfer has a tell now — a backswing, during
+which the ball is genuinely held — because §3 asks every defender to telegraph and never said the same of the
+golfer, which left a defender reading a shot from a ball that had already gone.
 
 The camera is the free orbit of `ADR-001`, and it is an offset rather than a mode: the range still frames the
 shot — behind the ball on the line to the pin, trailing the flight, wide on the archer as it draws — and two
