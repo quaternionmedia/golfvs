@@ -7,7 +7,9 @@ extends Node3D
 ## game. Everything a first-timer needs to learn is taught by where the ground
 ## is and what glows, never by a word.
 ##
-## Par 3, three strokes, one new idea each: power, then curve, then the putt.
+## Par 4, and three ideas -- power, then curve, then the putt -- one per lesson
+## rather than one per stroke. The par is deliberately a stroke longer than the
+## lesson count: PAR below says why.
 
 const TEE_POS := Vector3(0.0, 0.35, 0.0)
 const LANDING := Vector3(0.0, 0.0, -24.0)
