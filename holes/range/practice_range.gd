@@ -25,19 +25,27 @@ const BALL_MASS := 0.045
 
 const HOLE_ID := "range/01"
 
-## The three pins. Fanned to alternating sides on purpose: three targets in a
-## line differ only by distance, and distance is the hardest thing to read on a
-## flat plane. Off-axis, each one is a different *aim* as well as a different
-## club, and they stop reading as one target at three sizes.
+## The three pins, one for each club, met in the order a beginner meets them:
+## a putt you cannot miss, a pitch, and a full swing.
 ##
-## Distances sit a little short of each club's full carry, so a full swing is
-## slightly too much and the player has to find the shot rather than mash it.
-## `test_practice_range.gd` asserts that relationship rather than these numbers,
-## because the numbers move whenever a club is retuned.
+## Fanned to alternating sides on purpose: three targets in a line differ only by
+## distance, and distance is the hardest thing to read on a flat plane. Off-axis,
+## each one is a different *aim* as well as a different club, and they stop
+## reading as one target at three sizes.
+##
+## `suggests` is the club the range hands you when the pin comes up. It is a
+## suggestion and not a rule -- the player can change club at any time, and
+## finding out what happens when you take the long club to the putting pin is a
+## perfectly good way to learn what the long club is.
+##
+## Distances sit a little short of each club's reach, so a full swing is slightly
+## too much and there is something to judge. `test_practice_range.gd` asserts
+## that relationship rather than these numbers, because the numbers move whenever
+## a club is retuned.
 const PINS := [
-	{"club": "wedge", "at": Vector3(6.5, 0.0, -21.0), "radius": 5.0},
-	{"club": "iron", "at": Vector3(-7.0, 0.0, -43.0), "radius": 6.0},
-	{"club": "driver", "at": Vector3(10.0, 0.0, -70.0), "radius": 7.5},
+	{"suggests": "putt", "at": Vector3(2.5, 0.0, -6.0), "radius": 2.6},
+	{"suggests": "short", "at": Vector3(-6.0, 0.0, -21.0), "radius": 5.0},
+	{"suggests": "long", "at": Vector3(9.0, 0.0, -70.0), "radius": 9.0},
 ]
 
 ## The mat, and the boundary the archer keeps.
@@ -85,6 +93,7 @@ signal state_changed(state: State)
 signal stroke_began
 signal stroke_taken(strokes: int)
 signal pin_changed(index: int)
+signal club_changed(index: int)
 signal pin_made(index: int, holed: bool)
 signal finished(strokes: int)
 
@@ -94,6 +103,9 @@ var ball: RigidBody3D
 var state := State.ATTRACT
 var strokes := 0
 var pin := 0
+## What is in the player's hands right now. Changed by them, suggested by the
+## pin -- see `set_club()`.
+var club_index := 0
 
 ## Where the finished session was written. Empty until the last pin is made.
 var round_path := ""
@@ -272,19 +284,40 @@ func _setup_play() -> void:
 	_gesture.fired.connect(_on_fired)
 	_gesture.cancelled.connect(_on_cancelled)
 
+	club_index = suggested_club_index()
 	_enter_aim()
 	state = State.ATTRACT
 	_frame_attract()
 
 
-## The club is the pin's. There is no club selector and there is no word for
-## "wedge" anywhere on screen: the player learns what a club is by watching what
-## the ball does when the target changes, which is the only wordless way to
-## teach it and, not coincidentally, how it is learned on a real range.
+## What is in the player's hands. Not what the pin says it should be: the pin
+## only ever suggests, and the difference between the two is where the learning
+## is. There is no word for "short" anywhere on screen -- the selector draws the
+## three clubs as the distances they reach, and the ball does the explaining.
 func club() -> ClubProfile:
-	if pin >= PINS.size():
-		return ClubProfile.iron()
-	return ClubProfile.for_id(String(PINS[pin]["club"]))
+	return ClubProfile.all()[clampi(club_index, 0, ClubProfile.all().size() - 1)]
+
+
+## Put a club in the player's hands. Safe to call at any time; the aim preview
+## redraws itself against the new flight on the next drag.
+func set_club(index: int) -> void:
+	var next := clampi(index, 0, ClubProfile.all().size() - 1)
+	if next == club_index:
+		return
+	club_index = next
+	_ribbon.hide_arc()
+	_spin.hide_dial()
+	club_changed.emit(club_index)
+
+
+## The club this pin comes with. A suggestion the player is free to ignore.
+func suggested_club_index() -> int:
+	var id := String(PINS[mini(pin, PINS.size() - 1)]["suggests"])
+	var clubs := ClubProfile.all()
+	for i in clubs.size():
+		if clubs[i].id == id:
+			return i
+	return 0
 
 
 func pin_position() -> Vector3:
@@ -342,7 +375,12 @@ func _on_aim_updated(heading: Vector3, power: float, curve: float) -> void:
 	var velocity := BallFlight.launch_velocity(heading, power, false, profile)
 	var accel := BallFlight.curve_acceleration(heading, curve, profile)
 	_ribbon.show_arc(origin, velocity, accel, BALL_RADIUS, false)
-	_spin.show_spin(origin, heading, curve, false)
+	# A putt cannot be shaped, so the dial has nothing to report and showing an
+	# empty one would read as a control that is broken rather than absent.
+	if profile.is_putter:
+		_spin.hide_dial()
+	else:
+		_spin.show_spin(origin, heading, curve, false)
 
 
 func _on_fired(heading: Vector3, power: float, curve: float) -> void:
@@ -373,7 +411,10 @@ func _on_fired(heading: Vector3, power: float, curve: float) -> void:
 
 	ball.freeze = false
 	_pinned = false
-	ball.linear_damp = 0.0
+	# A putt is already rolling, so it gets the roll damping from the first tick
+	# rather than after it lands. Without this the putter behaves like a very
+	# weak long club and runs miles.
+	ball.linear_damp = ROLL_DAMP if profile.is_putter else 0.0
 	ball.angular_damp = 1.4
 	ball.linear_velocity = velocity
 
@@ -395,6 +436,8 @@ func _physics_process(delta: float) -> void:
 	var airborne := ball.global_position.y > BALL_RADIUS * 1.8
 	if _pinned:
 		ball.linear_damp = PINNED_DAMP
+	elif club().is_putter:
+		ball.linear_damp = ROLL_DAMP
 	elif airborne:
 		ball.apply_central_force(_curve_accel * ball.mass)
 		ball.linear_damp = 0.0
@@ -438,6 +481,7 @@ func _settle() -> void:
 		state_changed.emit(state)
 		return
 
+	set_club(suggested_club_index())
 	pin_changed.emit(pin)
 	_enter_aim()
 
@@ -504,7 +548,7 @@ func _guard_the_boundary() -> void:
 func _layout_hash() -> String:
 	var pins := []
 	for spec in PINS:
-		pins.append([spec["club"], Canonical.vec3_array(spec["at"]), spec["radius"]])
+		pins.append([spec["suggests"], Canonical.vec3_array(spec["at"]), spec["radius"]])
 	return Canonical.hash_of({
 		"bay": Canonical.vec3_array(BAY_POS),
 		"pins": pins,

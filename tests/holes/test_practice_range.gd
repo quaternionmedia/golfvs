@@ -23,8 +23,8 @@ func test_there_is_a_pin_for_each_club() -> void:
 	assert_int(here.PINS.size()).is_equal(3)
 	var clubs := []
 	for spec in here.PINS:
-		clubs.append(String(spec["club"]))
-	assert_array(clubs).contains_exactly(["wedge", "iron", "driver"])
+		clubs.append(String(spec["suggests"]))
+	assert_array(clubs).contains_exactly(["putt", "short", "long"])
 
 
 func test_each_pin_is_reachable_by_its_own_club_and_not_by_a_full_swing() -> void:
@@ -36,12 +36,13 @@ func test_each_pin_is_reachable_by_its_own_club_and_not_by_a_full_swing() -> voi
 	for spec in here.PINS:
 		var at: Vector3 = spec["at"]
 		var distance := Vector2(at.x, at.z).length()
-		var club := ClubProfile.for_id(String(spec["club"]))
+		var club := ClubProfile.for_id(String(spec["suggests"]))
+		var reach: float = club.rolls() if club.is_putter else club.carry()
 		assert_float(distance) \
 			.override_failure_message(
-				"the %s pin at %.1f m is not inside its club's %.1f m carry"
-				% [club.id, distance, club.carry()]) \
-			.is_between(club.carry() * 0.6, club.carry() * 0.98)
+				"the %s pin at %.1f m is not inside its club's %.1f m reach"
+				% [club.id, distance, reach]) \
+			.is_between(reach * 0.45, reach * 0.98)
 
 
 func test_the_pins_get_further_away() -> void:
@@ -71,11 +72,47 @@ func test_the_pins_are_off_axis_from_each_other() -> void:
 				.is_greater(6.0)
 
 
-func test_the_club_follows_the_pin() -> void:
+func test_each_pin_suggests_a_club_but_does_not_impose_it() -> void:
+	# The pin only ever suggests. Finding out what the long club does to the
+	# putting pin is a perfectly good way to learn what the long club is, and a
+	# range that refused would be teaching obedience rather than golf.
 	var here := _range()
 	for i in here.PINS.size():
 		here.pin = i
-		assert_str(here.club().id).is_equal(String(here.PINS[i]["club"]))
+		here.set_club(here.suggested_club_index())
+		assert_str(here.club().id).is_equal(String(here.PINS[i]["suggests"]))
+
+	# And it can be overridden, at any pin, at any time.
+	here.pin = 0
+	here.set_club(0)
+	assert_str(here.club().id).is_equal("long")
+
+
+func test_changing_club_is_announced_once() -> void:
+	# The selector mirrors the range rather than keeping its own state, so a
+	# change that is not announced leaves the two disagreeing, and a change
+	# announced twice makes it flicker.
+	var here := _range()
+	here.set_club(0)
+	var seen := []
+	here.club_changed.connect(func(index: int) -> void: seen.append(index))
+	here.set_club(2)
+	here.set_club(2)
+	here.set_club(1)
+	assert_array(seen).contains_exactly([2, 1])
+
+
+func test_a_club_index_out_of_range_is_clamped_rather_than_crashing() -> void:
+	var here := _range()
+	here.set_club(99)
+	assert_int(here.club_index).is_equal(ClubProfile.all().size() - 1)
+	here.set_club(-4)
+	assert_int(here.club_index).is_equal(0)
+
+
+func test_the_range_opens_with_the_club_its_first_pin_wants() -> void:
+	var here := _range()
+	assert_str(here.club().id).is_equal(String(here.PINS[0]["suggests"]))
 
 
 func test_everything_the_range_asks_for_is_inside_the_boundary() -> void:
@@ -105,7 +142,7 @@ func test_a_full_driver_stays_on_the_range() -> void:
 	# carries 78 m and finishes at 96 m, rather than assumed.
 	var here := _range()
 	var down_range := absf(here.BOUNDS_CENTRE.z - here.BOUNDS_EXTENT.y)
-	var longest := ClubProfile.driver().carry() * 1.25
+	var longest := ClubProfile.long_club().carry() * 1.25
 	assert_float(down_range) \
 		.override_failure_message(
 			"the range is %.0f m deep; a full driver carries and rolls about %.0f m"

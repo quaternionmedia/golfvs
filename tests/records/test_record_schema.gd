@@ -18,7 +18,7 @@ const FIXTURE_DIR := "res://tests/fixtures/records"
 const REQUIRED_TOP_LEVEL := [
 	"schema", "game", "hole", "seed", "before", "intent", "defense", "after", "ext",
 ]
-const CLUBS := ["driver", "iron", "wedge", "putter"]
+const CLUBS := ["long", "short", "putt"]
 const LIES := ["tee", "fairway", "rough", "sand", "water", "green", "ob"]
 const DEFENDER_STATES := ["idle", "tell", "act", "cooldown"]
 

@@ -62,6 +62,8 @@ func _run() -> void:
 
 func _reset() -> void:
 	_range.pin = 2
+	# The long club: the only one that can reach the boundary at all.
+	_range.club_index = 0
 	_range.strokes = 0
 	_range._record = null
 	_range._round.clear()

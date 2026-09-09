@@ -46,7 +46,9 @@ func _shoot() -> void:
 	await _shoot_impact()
 
 
-## The dial only exists while a finger is down, so the gesture has to be driven.
+## The whole flat layer at once: the club selector along the bottom, the card,
+## and the spin dial mid-gesture. None of it exists at rest, so a static shot of
+## the range never shows the one control the game has.
 func _shoot_spin_dial() -> void:
 	_range.set_process(false)
 	_range._on_gesture_began()
@@ -62,6 +64,7 @@ func _shoot_spin_dial() -> void:
 func _shoot_impact() -> void:
 	_range.set_process(true)
 	_range.pin = 2
+	_range.club_index = 0
 	_range._enter_aim()
 	_range._on_gesture_began()
 	_range._on_fired(

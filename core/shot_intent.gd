@@ -14,13 +14,18 @@ extends RefCounted
 ## Quantizing at the boundary means the number the player produced, the number
 ## the simulation consumes, and the number on disk are one number.
 
-enum Club { DRIVER, IRON, WEDGE, PUTTER }
+## Three clubs, named for what they are for rather than for what they would be
+## made of. A bag of driver/iron/wedge/putter is golf's own vocabulary and it
+## carries golf's own barrier to entry: it asks the player to know that a wedge
+## is the short one before they have hit anything. Long, short and putt are the
+## three decisions actually available, said in the order a beginner meets them.
+enum Club { LONG, SHORT, PUTT }
 
-## Index by Club. These strings are the schema's `intent.club` enum and are
-## frozen with it at M1 exit -- renaming one invalidates every stored record.
-const CLUB_NAMES: Array[String] = ["driver", "iron", "wedge", "putter"]
+## Index by Club. These strings are the schema's `intent.club` enum and freeze
+## with it at M1 exit -- renaming one after that invalidates every stored record.
+const CLUB_NAMES: Array[String] = ["long", "short", "putt"]
 
-var club: Club = Club.IRON
+var club: Club = Club.SHORT
 var power := 0.0
 var curve := 0.0
 var direction := Vector3.FORWARD
@@ -53,12 +58,12 @@ static func club_from_name(name: String) -> Club:
 	var index := CLUB_NAMES.find(name)
 	if index < 0:
 		push_error("ShotIntent: unknown club %s; defaulting to iron." % name)
-		return Club.IRON
+		return Club.SHORT
 	return index as Club
 
 
 func is_putt() -> bool:
-	return club == Club.PUTTER
+	return club == Club.PUTT
 
 
 func to_dict() -> Dictionary:
@@ -72,7 +77,7 @@ func to_dict() -> Dictionary:
 
 static func from_dict(data: Dictionary) -> ShotIntent:
 	return make(
-		club_from_name(String(data.get("club", "iron"))),
+		club_from_name(String(data.get("club", "short"))),
 		float(data.get("power", 0.0)),
 		float(data.get("curve", 0.0)),
 		Canonical.array_vec3(data.get("dir", [0.0, 0.0, -1.0])))

@@ -71,7 +71,7 @@ Because the sim is deterministic (§6.1), a stroke is fully described by its inp
 
 **Decisions**
 - `[PROPOSED]` Pull-curve-release as the sole stroke input.
-- `[RATIFIED ADR-017]` Three clubs + auto-putter, as `ClubProfile` resources.
+- `[RATIFIED ADR-018]` Three clubs — long, short, putt — chosen by the player, as `ClubProfile` resources.
 - `[PROPOSED]` Blocked = drop in place; caught = +1 and replay.
 - `[PROPOSED]` Scorecard is the only result in 1.0; everything in the game is available from first launch.
 - `[RATIFIED ADR-001]` Free orbit camera. `[RATIFIED ADR-007]` Touch-first.
@@ -96,10 +96,14 @@ and a scorecard of filled and empty rings. Nothing is typed, so nothing needs tr
 depends on a vendor's emoji set rendering the same on two devices.
 
 The first run is a **private practice range** (`ADR-017`): a mat, and three pins at three distances, one for
-each club. The club changes with the pin and there is no club selector — the player learns what a driver is
-by watching what the same drag does when the target moves, which is how anybody has ever learned it and the
-only wordless way to teach it. Unlimited balls, and nothing scored against par: you are done with a pin when
-you have put a ball on it, and the strokes it took are counted but never held against you.
+each club. Unlimited balls, and nothing scored against par — you are done with a pin when you have put a ball
+on it, and the strokes it took are counted but never held against you.
+
+There are three clubs, **long**, **short** and **putt**, and the player picks between them (`ADR-018`). The
+pin suggests one when it comes up and never insists: taking the long club to the putting pin is a perfectly
+good way to find out what the long club is. The selector runs along the bottom of the screen and has no words
+on it either — each club is a bar as long as that club is far, which is legible faster than a name would be
+readable and needs no translating.
 
 This replaced "The Handshake", a par-4 dogleg that taught power, shaping and the putt through a lie-driven
 lesson machine. That was good work for a hole and the wrong first thing to show: it taught three lessons with
@@ -158,7 +162,7 @@ Each defender is a **Sport**: a cast, a **zone** it patrols, a **tell**, an **ac
 Three families: **solo**, **local**, **async** (turn-based over records, never live). Everything is available from first launch.
 
 ### Solo
-1. **Practice Range (M1)** — three pins at three distances, one per club, unlimited balls. Exists to tune the stroke, and is also the first run (§2.6, ADR-017). The archer is its only defender, and it is a safety net rather than an opponent.
+1. **Practice Range (M1)** — three pins at three distances, one per club, unlimited balls, player-chosen clubs. Exists to tune the stroke, and is also the first run (§2.6, ADR-017 and ADR-018). The archer is its only defender, and it is a safety net rather than an opponent.
 2. **Scottish Rules (M2)** — the sandbox: any course, no defenders, plain golf. This is the control group for the game: every hole must be a good golf hole *before* it's a good golfVs hole, and Scottish Rules is how that's checked.
 3. **Course Play (M2)** — 9-hole course, defenders placed per hole by the designer.
 4. **Gauntlet (M5)** — fixed layouts; each replay adds a defender or raises an axis. Pick one of three modifiers between holes. Seeded, shareable.
@@ -353,7 +357,7 @@ The design for Pillar 4. Determinism (§6.1) makes a stroke *data*; data can be 
     "stroke_no": 2,
     "defenders": [ { "id": "skeet_0", "pos": [x, y, z], "state": "idle", "cooldown": 0.0 } ]
   },
-  "intent":  { "club": "iron", "power": 0.72, "curve": -0.15, "dir": [x, y, z] },
+  "intent":  { "club": "short", "power": 0.72, "curve": -0.15, "dir": [x, y, z] },
   "defense": null,
   "after":   { "ball": { "pos": [x, y, z], "lie": "green" }, "events": ["skeet_fired", "miss"], "hash": "…" },
   "ext": {}

@@ -26,6 +26,12 @@ var shown := 0.0:
 	set(value):
 		shown = value
 		queue_redraw()
+## How much room to leave below the row. The club selector sits along the bottom
+## of the screen, and a card drawn over it made both unreadable.
+var lift := 0.0:
+	set(value):
+		lift = value
+		queue_redraw()
 
 
 func _ready() -> void:
@@ -37,7 +43,7 @@ func _draw() -> void:
 		return
 	var slots := maxi(par, strokes)
 	var width := float(slots - 1) * GAP
-	var origin := Vector2(size.x * 0.5 - width * 0.5, size.y - 64.0)
+	var origin := Vector2(size.x * 0.5 - width * 0.5, size.y - 64.0 - lift)
 
 	for i in slots:
 		var at := origin + Vector2(float(i) * GAP, 0.0)

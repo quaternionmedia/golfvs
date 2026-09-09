@@ -40,7 +40,7 @@ The atomic unit. One stroke by one golfer against zero or more defenders.
     "stroke_no": 2,
     "defenders": [ { "id": "skeet_0", "pos": [x, y, z], "state": "idle", "cooldown": 0.0 } ]
   },
-  "intent":  { "club": "iron", "power": 0.72, "curve": -0.15, "dir": [x, y, z] },
+  "intent":  { "club": "short", "power": 0.72, "curve": -0.15, "dir": [x, y, z] },
   "defense": null,
   "after":   { "ball": { "pos": [x, y, z], "lie": "green" }, "events": ["skeet_fired", "miss"], "hash": "…" },
   "ext": {}
@@ -63,7 +63,7 @@ The atomic unit. One stroke by one golfer against zero or more defenders.
 | `before.defenders[]` | array | One entry per defender on the hole, in `HoleLayout` order. Empty in Scottish Rules. |
 | `before.defenders[].state` | enum | `idle` · `tell` · `act` · `cooldown` — the `DefenderBrain` states (§6.3). |
 | `intent` | object | The golfer's `ShotIntent`. The only thing that crosses from input into simulation. |
-| `intent.club` | enum | `driver` · `iron` · `wedge` · `putter`. |
+| `intent.club` | enum | `long` · `short` · `putt`. Named for the decision rather than the equipment (ADR-018). |
 | `intent.power` | float | `0.0`–`1.0`, normalised. Never metres — metres are a `ClubProfile` concern, and storing them would break replay whenever a club is retuned. |
 | `intent.curve` | float | `-1.0`–`1.0`. Negative is a draw (left), positive a fade (right), for a right-handed golfer. |
 | `intent.dir` | `[float,float,float]` | Unit vector, aim direction on the XZ plane. |

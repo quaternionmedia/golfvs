@@ -6,7 +6,7 @@ extends Node
 ## relationship between two numbers in different files, which is exactly the
 ## kind of thing that drifts -- so it gets measured rather than assumed.
 
-const POWERS := [0.6, 0.75, 0.9, 1.0]
+const POWERS := [0.6, 0.75, 0.82, 0.9, 1.0]
 const MAX_TICKS := 900
 
 var _range: Node3D
@@ -21,14 +21,15 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("  club   | carry | pin at | power -> rest distance (straight at the pin)")
+	print("  club   | reach | pin at | power -> rest distance (straight at the pin)")
 	print("  -------+-------+--------+---------------------------------------------")
 	for which in _range.PINS.size():
 		var spec: Dictionary = _range.PINS[which]
 		var at: Vector3 = spec["at"]
 		var pin_dist := Vector2(at.x, at.z).length()
-		var club: ClubProfile = ClubProfile.for_id(String(spec["club"]))
-		var line := "  %-6s | %5.1f | %6.1f | " % [club.id, club.carry(), pin_dist]
+		var club: ClubProfile = ClubProfile.for_id(String(spec["suggests"]))
+		var reach: float = club.rolls() if club.is_putter else club.carry()
+		var line := "  %-6s | %5.1f | %6.1f | " % [club.id, reach, pin_dist]
 
 		for power in POWERS:
 			_reset(which)
@@ -54,6 +55,7 @@ func _run() -> void:
 
 func _reset(which: int) -> void:
 	_range.pin = which
+	_range.club_index = _range.suggested_club_index()
 	_range.strokes = 0
 	_range._record = null
 	_range._round.clear()

@@ -40,13 +40,23 @@ func test_more_power_carries_further() -> void:
 		last = carry
 
 
-func test_full_power_does_not_overshoot_the_hole() -> void:
-	# The intro hole measures 77 m to the cup and wants three strokes. A driver
-	# that carries the whole thing turns it into a one-shot hole by accident.
-	# The bounds move with the hole: range goes as the square of launch speed,
-	# so lengthening one without the other silently changes how the hole plays.
+func test_the_long_club_reaches_the_far_pin_and_no_further() -> void:
+	# The far pin is about 71 m out and the range is 108 m deep. A long club that
+	# carried the whole range would put every full swing over the boundary and
+	# into the archer; one that could not reach the pin would make it unmakeable.
+	# Range goes as the square of launch speed, so the club and the range have to
+	# move together -- this is the assertion that notices when they do not.
+	var carry := _carry(
+		BallFlight.launch_velocity(Vector3.FORWARD, 1.0, false, ClubProfile.long_club()),
+		Vector3.ZERO)
+	assert_float(carry).is_between(70.0, 90.0)
+
+
+func test_the_default_club_is_the_short_one() -> void:
+	# Callers that name no club get the short one, which is a much less
+	# surprising thing to be handed by accident than the long one.
 	var carry := _carry(BallFlight.launch_velocity(Vector3.FORWARD, 1.0), Vector3.ZERO)
-	assert_float(carry).is_between(45.0, 68.0)
+	assert_float(carry).is_between(18.0, 32.0)
 
 
 func test_curve_signs_match_the_record_schema() -> void:

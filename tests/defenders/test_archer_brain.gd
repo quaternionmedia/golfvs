@@ -37,9 +37,15 @@ func _react(brain: DefenderBrain) -> void:
 	fail("the brain never finished reacting")
 
 
-func _arc(heading: Vector3, power := 1.0, from := Vector3(0.0, 0.35, 0.0)) -> PackedVector3Array:
+## The long club unless told otherwise. The archer guards a boundary thirty-odd
+## metres away, and the short club cannot reach it -- an arc flown with the
+## default club would test a defender that never has anything to do.
+func _arc(heading: Vector3, power := 1.0, from := Vector3(0.0, 0.35, 0.0),
+		club: ClubProfile = null) -> PackedVector3Array:
+	var held := club if club != null else ClubProfile.long_club()
 	return BallFlight.sample_arc(
-		from, BallFlight.launch_velocity(heading, power), Vector3.ZERO, 0.0, 900, DT)
+		from, BallFlight.launch_velocity(heading, power, false, held),
+		Vector3.ZERO, 0.0, 900, DT)
 
 
 # ------------------------------------------------- it leaves good shots alone -
@@ -151,7 +157,9 @@ func test_without_bounds_it_falls_back_to_the_apex_trigger() -> void:
 	# An adversarial archer near the green is the same class with a zone. It
 	# must not silently never act just because it is not guarding a boundary.
 	var brain := ArcherBrain.new()
-	var profile := DefenderProfile.skeet(Vector3(6.0, 0.0, -24.0), Vector3(0.0, 5.4, -24.0))
+	# Placed where a full long-club shot actually peaks, so the apex trigger has
+	# something to trigger on.
+	var profile := DefenderProfile.skeet(Vector3(6.0, 0.0, -35.0), Vector3(0.0, 10.0, -35.0))
 	brain.configure(profile, DifficultyTier.unerring(), "archery_0")
 	brain.read_shot(_arc(Vector3(0.0, 0.0, -1.0)), DT, 1)
 	assert_bool(brain.is_committed()).is_true()

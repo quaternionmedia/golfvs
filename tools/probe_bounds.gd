@@ -37,7 +37,7 @@ func _sweep() -> void:
 	var tested := 0
 	# Every club, because they reach very different distances and the boundary
 	# is only interesting to the ones that can get near it.
-	for which in _range.PINS.size():
+	for which in ClubProfile.all().size():
 		for power in POWERS:
 			for degrees in DEG:
 				tested += 1
@@ -76,7 +76,10 @@ func _sweep() -> void:
 
 
 func _reset(which: int) -> void:
-	_range.pin = which
+	# Sweep by *club*, not by pin: the boundary only cares how far a shot can be
+	# hit, and that is the club's business.
+	_range.pin = mini(which, _range.PINS.size() - 1)
+	_range.club_index = which
 	_range.strokes = 0
 	_range._record = null
 	_range._round.clear()

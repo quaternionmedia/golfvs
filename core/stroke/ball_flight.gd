@@ -16,12 +16,11 @@ extends Object
 
 ## The club used when a caller does not name one.
 ##
-## Every full shot in the game used to be this, under whatever name the record
-## happened to store -- so it stays the fallback, and it stays the iron, which is
-## the club those numbers always were. Callers that care about the difference
-## pass a ClubProfile; callers that only want *a* ball flight need not.
+## The club a caller gets when it does not name one. The short club: the one a
+## player has in hand most often, and the one whose numbers are least surprising
+## if a caller genuinely did not care. Callers that do care pass a ClubProfile.
 static func default_club() -> ClubProfile:
-	return ClubProfile.iron()
+	return ClubProfile.short_club()
 
 
 static func _resolve(club: ClubProfile) -> ClubProfile:
@@ -39,7 +38,7 @@ static func launch_velocity(heading: Vector3, power: float, putting := false,
 		club: ClubProfile = null) -> Vector3:
 	var profile := _resolve(club)
 	if putting and not profile.is_putter:
-		profile = ClubProfile.putter()
+		profile = ClubProfile.putt()
 	var flat := Vector3(heading.x, 0.0, heading.z).normalized()
 	var speed := lerpf(profile.min_speed, profile.max_speed, clampf(power, 0.0, 1.0))
 	if profile.is_putter:

@@ -10,7 +10,7 @@
       { "id": "skeet_0", "pos": [4.0, 0.0, -60.0], "state": "idle", "cooldown": 0.0 }
     ]
   },
-  "intent": { "club": "iron", "power": 0.72, "curve": -0.15, "dir": [0.0, 0.0, -1.0] },
+  "intent": { "club": "short", "power": 0.72, "curve": -0.15, "dir": [0.0, 0.0, -1.0] },
   "defense": null,
   "after": {
     "ball": { "pos": [1.75, 0.0, -96.5], "lie": "green" },

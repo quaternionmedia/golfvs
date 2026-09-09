@@ -15,7 +15,7 @@ const FIXTURE := "res://tests/fixtures/records/0001-parkland-03-stroke-2.json"
 
 
 func _a_stroke() -> StrokeRecord:
-	var intent := ShotIntent.make(ShotIntent.Club.IRON, 0.72, -0.15, Vector3(0.0, 0.0, -1.0))
+	var intent := ShotIntent.make(ShotIntent.Club.SHORT, 0.72, -0.15, Vector3(0.0, 0.0, -1.0))
 	var record := StrokeRecord.opened(
 		"parkland/03", "0000000000000000", 8123481, 2,
 		Vector3(12.5, 0.0, -38.25), "fairway", intent)
@@ -98,7 +98,7 @@ func test_the_intent_survives_the_round_trip_exactly() -> void:
 	assert_float(reloaded.intent.power).is_equal(record.intent.power)
 	assert_float(reloaded.intent.curve).is_equal(record.intent.curve)
 	assert_vector(reloaded.intent.direction).is_equal(record.intent.direction)
-	assert_str(reloaded.intent.club_name()).is_equal("iron")
+	assert_str(reloaded.intent.club_name()).is_equal("short")
 
 
 func test_intent_values_are_quantized_at_construction() -> void:
@@ -106,7 +106,7 @@ func test_intent_values_are_quantized_at_construction() -> void:
 	# rounded copy, a replay would feed the sim different numbers from the ones
 	# the original stroke used.
 	var intent := ShotIntent.make(
-		ShotIntent.Club.DRIVER, 0.7234567891, -0.1512345678, Vector3(0.3, 5.0, -1.0))
+		ShotIntent.Club.LONG, 0.7234567891, -0.1512345678, Vector3(0.3, 5.0, -1.0))
 	assert_float(intent.power).is_equal(0.723457)
 	assert_float(intent.curve).is_equal(-0.151235)
 	# Flattened to the XZ plane and normalised, as the schema promises.
@@ -130,10 +130,10 @@ func test_notation_is_the_derived_one_line_view() -> void:
 	var record := _a_stroke()
 	record.resolve(Vector3(1.75, 0.0, -96.5), "green",
 		PackedStringArray(["skeet_fired", "miss"]))
-	assert_str(record.to_notation()).is_equal("2. I 0.72 L15 → G (skeet ✗)")
+	assert_str(record.to_notation()).is_equal("2. S 0.72 L15 → G (skeet ✗)")
 
 	record.events = PackedStringArray(["skeet_fired", "skeet_hit"])
-	assert_str(record.to_notation()).is_equal("2. I 0.72 L15 → G (skeet ✓)")
+	assert_str(record.to_notation()).is_equal("2. S 0.72 L15 → G (skeet ✓)")
 
 
 func test_notation_is_never_parsed_back() -> void:

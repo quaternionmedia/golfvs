@@ -51,9 +51,10 @@ func _play() -> void:
 	print("  pins         %d" % _range.PINS.size())
 	for spec in _range.PINS:
 		var at: Vector3 = spec["at"]
-		var club := ClubProfile.for_id(String(spec["club"]))
-		print("               %-6s pin %5.1f m out, green r=%.1f, club carries %.0f m" % [
-			club.id, Vector2(at.x, at.z).length(), float(spec["radius"]), club.carry()])
+		var club := ClubProfile.for_id(String(spec["suggests"]))
+		var reach: float = club.rolls() if club.is_putter else club.carry()
+		print("               %-6s pin %5.1f m out, green r=%.1f, club reaches %.0f m" % [
+			club.id, Vector2(at.x, at.z).length(), float(spec["radius"]), reach])
 	for defender in _range._defenders:
 		var profile: DefenderProfile = defender.brain.profile
 		print("  marshal      %s on the tower at %v, guarding the boundary" % [
@@ -98,7 +99,8 @@ func _take_stroke() -> void:
 	var clear := func(_arc: PackedVector3Array) -> bool: return false
 	var intent := AIGolfer.choose(
 		_range.ball.global_position, target, _range.BALL_RADIUS,
-		clear, false, GOLFER_SKILL, _range._seed_for_stroke(_range.strokes + 1), club)
+		clear, club.is_putter, GOLFER_SKILL,
+		_range._seed_for_stroke(_range.strokes + 1), club)
 
 	var pin_before: int = _range.pin
 	# Driven through the same callback StrokeGesture fires, so the demo cannot
@@ -157,7 +159,7 @@ func _check_determinism() -> void:
 		Vector3(0.0, 0.35, 0.0),
 		BallFlight.launch_velocity(
 			Vector3(0.0, 0.0, -1.0).rotated(Vector3.UP, deg_to_rad(46.0)), 1.0,
-			false, ClubProfile.driver()),
+			false, ClubProfile.long_club()),
 		Vector3.ZERO, 0.18, 900, _range.DEFENDER_DT)
 
 	var first := ArcherBrain.new()

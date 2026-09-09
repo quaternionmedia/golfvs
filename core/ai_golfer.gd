@@ -69,7 +69,7 @@ static func choose(from: Vector3, target: Vector3, ground_y: float,
 		blocked: Callable, putting: bool, skill: float, rng_seed: int,
 		club: ClubProfile = null) -> ShotIntent:
 	var held := club if club != null else (
-		ClubProfile.putter() if putting else BallFlight.default_club())
+		ClubProfile.putt() if putting else BallFlight.default_club())
 	var to_target := Vector3(target.x - from.x, 0.0, target.z - from.z)
 	if to_target.length() < 0.01:
 		to_target = Vector3.FORWARD
@@ -144,7 +144,4 @@ static func choose(from: Vector3, target: Vector3, ground_y: float,
 ## handed it one. Defense Range needs this -- an AI golfer playing a hole picks
 ## its own club -- and it is the closest thing to a caddie the game has.
 static func club_for_distance(metres: float) -> ClubProfile:
-	for candidate in [ClubProfile.wedge(), ClubProfile.iron(), ClubProfile.driver()]:
-		if metres <= candidate.carry() * 0.98:
-			return candidate
-	return ClubProfile.driver()
+	return ClubProfile.for_distance(metres)

@@ -16,6 +16,7 @@ const GHOST_DELAY := 0.9
 var range_: Node3D
 var _ghost: GhostGesture
 var _scorecard: Scorecard
+var _clubs: ClubSelector
 var _taught := {}
 var _idle := 0.0
 var _player_acted := false
@@ -29,6 +30,8 @@ func _ready() -> void:
 
 	var overlay := Control.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# The overlay itself passes touches through; only the selector inside it
+	# stops them.
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(overlay)
 
@@ -42,8 +45,23 @@ func _ready() -> void:
 	# par: you are done with a pin when you have put a ball on it, and how many
 	# it took is counted but never held against you.
 	_scorecard.par = range_.PINS.size()
+	# Clear of the club selector along the bottom. Two things drawn in the same
+	# strip made both unreadable, and the selector is the one that has to be
+	# hittable.
+	_scorecard.lift = ClubSelector.HEIGHT
 	overlay.add_child(_scorecard)
 
+	# The one control in the game. It is a Control rather than world geometry so
+	# that a tap landing on it is marked handled and never reaches StrokeGesture,
+	# which listens on _unhandled_input -- no rectangle checks and no special
+	# case in the gesture.
+	_clubs = ClubSelector.new()
+	_clubs.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(_clubs)
+	_clubs.club_chosen.connect(_on_club_chosen)
+	_clubs.selected = range_.club_index
+
+	range_.club_changed.connect(_on_club_changed)
 	range_.stroke_began.connect(_on_stroke_began)
 	range_.pin_changed.connect(_on_pin_changed)
 	range_.stroke_taken.connect(_on_stroke_taken)
@@ -68,6 +86,9 @@ func _process(delta: float) -> void:
 	# so an untouched attract screen stays clean.
 	var want: float = 1.0 if _player_acted else 0.0
 	_scorecard.shown = move_toward(_scorecard.shown, want, delta * 2.0)
+	# The selector appears with the first touch, not before it. An attract screen
+	# with a control on it is a menu, which is the one thing Pillar 3 forbids.
+	_clubs.shown = _scorecard.shown
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -100,6 +121,18 @@ func _on_stroke_taken(strokes: int) -> void:
 	# shown the ghost again -- a demo that keeps replaying after it has landed
 	# reads as nagging.
 	_taught[range_.pin] = true
+
+
+## The player reached for a different club. The range is the one that decides
+## what that means; this only asks.
+func _on_club_chosen(index: int) -> void:
+	range_.set_club(index)
+
+
+## And the range answering -- either because the player asked, or because a new
+## pin came up and handed them the club it suggests.
+func _on_club_changed(index: int) -> void:
+	_clubs.selected = index
 
 
 ## The card counts pins made, not strokes taken.

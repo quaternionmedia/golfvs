@@ -14,8 +14,8 @@ config/name="golfVs"
 config/version="0.0.1-m0"
 run/main_scene="res://ui/menu/main_menu.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
-config/icon="res://icon.svg"
 run/flush_stdout_on_print=true
+config/icon="res://icon.svg"
 
 [display]
 
