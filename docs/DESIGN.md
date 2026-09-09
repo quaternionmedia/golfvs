@@ -186,9 +186,21 @@ Three families: **solo**, **local**, **async** (turn-based over records, never l
 **Audio:** club "thwock" pitch-scaled to power; every defender has a 2-note motif on its tell (doubles as accessibility). Music: upbeat lo-fi/chiptune-adjacent, loopable per biome. No dialogue.
 **Accessibility:** colorblind-safe zone overlays; all tells have audio + visual + optional haptic; hold-to-slow aiming; no timing-critical input in the base stroke.
 
+**The tutorial is drawn, not grown** (ADR-016). The intro hole is a holodeck blueprint: a solid dark-grey
+deck, a cyan grid, glowing outlines, an amber boundary, and one lit ball. It does not depict a golf course
+and does not try to — the sunlit manicured fairway sells an image of the sport, and its irrigation, that this
+game has no interest in promoting. It is also the honest look for what the hole *is*: a hole that already
+teaches through geometry, a coloured trajectory stub and a ghost hand was a diagram drawn on grass.
+
+The blueprint reuses the signal language rather than adding one — cyan is clear, amber costs you, gold is the
+cup, green is done — so scenery and signalling cannot contradict each other. Whether the biomes of §5 adopt
+it, contrast with it, or are reached *through* it as the simulation it implies, is open and is a 1.0-content
+question rather than an M1 one.
+
 **Decisions**
 - `[PROPOSED]` Vertex-color-only pipeline for 1.0.
 - `[RATIFIED ADR-003]` In-house art in Blender.
+- `[RATIFIED ADR-016]` The intro hole renders as a holodeck blueprint; no depicted golf course.
 
 ---
 

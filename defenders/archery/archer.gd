@@ -11,16 +11,27 @@ extends Node3D
 ## Silent, per ADR-004. The bow drawing is the tell; the arrow having travel time
 ## is what makes the act readable rather than instantaneous.
 
-const CLOTH := Color("3f6b4e")
-const CLOTH_DARK := Color("2e5039")
-const SKIN := Color("e0b68f")
-const BOW := Color("8a5a2f")
-const STRING := Color("d8e4dc")
+## Drawn, not photographed. The intro hole is a holodeck blueprint, so its one
+## inhabitant is a dark form with lit edges rather than a painted figure -- the
+## same vocabulary as the spire it stands on.
+const CLOTH := Color("0e2530")
+const CLOTH_EDGE := Color("4fb8d6")
+const SKIN := Color("15384a")
+const BOW := Color("9fd8e8")
+const STRING := Color("21d4ff")
 ## The archer's thread is green, not the ribbon's amber. Amber means "this line
 ## does not get there" and applies to the player's shot; the archer is not a
 ## warning about the shot, it is an announcement that the shot has already gone
 ## wrong and is being saved.
 const THREAD := Color("8dffa1")
+
+## How much bigger than a person the figure is drawn.
+##
+## §5 asks for caricatured proportions and ART_PIPELINE for a silhouette that
+## reads at 64 px. Built at human scale the archer stood 2.4 m on top of a 7 m
+## spire, seen from a tee 38 m away, and rendered as a smudge -- which is half
+## of why it went unnoticed. At 1.6x it is a landmark instead.
+const SCALE := 1.6
 
 var brain: ArcherBrain = ArcherBrain.new()
 
@@ -30,6 +41,7 @@ var _arrow: MeshInstance3D
 var _thread: MeshInstance3D
 var _draw := 0.0
 var _watching := Vector3.ZERO
+var _sweep := 0.0
 var _flight := -1.0
 var _from := Vector3.ZERO
 ## Held separately from `_watching`, which `rest()` clears at the end of a
@@ -53,41 +65,60 @@ func _ready() -> void:
 func _build_body() -> void:
 	# Tall and narrow, against the shooter's squat rectangle. Two defenders that
 	# read as the same blob at distance are two defenders the player cannot tell
-	# apart when it matters.
-	DefenderArt.box(self, Vector3(0.72, 1.5, 0.5), CLOTH, Vector3(0.0, 1.15, 0.0))
-	DefenderArt.box(self, Vector3(0.9, 0.16, 0.6), CLOTH_DARK, Vector3(0.0, 1.86, 0.0))
-	DefenderArt.box(self, Vector3(0.46, 0.5, 0.44), SKIN, Vector3(0.0, 2.15, 0.0))
-	DefenderArt.box(self, Vector3(0.2, 0.34, 0.16), SKIN, Vector3(-0.3, 2.2, 0.02))
-	DefenderArt.box(self, Vector3(0.2, 0.34, 0.16), SKIN, Vector3(0.3, 2.2, 0.02))
-	DefenderArt.box(self, Vector3(0.3, 0.75, 0.3), CLOTH_DARK, Vector3(0.0, 0.35, 0.0))
-	DefenderArt.box(self, Vector3(0.38, 0.16, 0.46), CLOTH_DARK, Vector3(0.0, 0.06, 0.03))
+	# apart when it matters. Every dimension is multiplied by SCALE, so the
+	# proportions stay in one place and the figure resizes as a whole.
+	var s := SCALE
+	DefenderArt.lit_box(self, Vector3(0.72, 1.5, 0.5) * s, CLOTH, CLOTH_EDGE, Vector3(0.0, 1.15, 0.0) * s)
+	DefenderArt.lit_box(self, Vector3(0.9, 0.16, 0.6) * s, CLOTH, CLOTH_EDGE, Vector3(0.0, 1.86, 0.0) * s)
+	DefenderArt.lit_box(self, Vector3(0.46, 0.5, 0.44) * s, SKIN, CLOTH_EDGE, Vector3(0.0, 2.15, 0.0) * s)
+	DefenderArt.box(self, Vector3(0.2, 0.34, 0.16) * s, SKIN, Vector3(-0.3, 2.2, 0.02) * s)
+	DefenderArt.box(self, Vector3(0.2, 0.34, 0.16) * s, SKIN, Vector3(0.3, 2.2, 0.02) * s)
+	DefenderArt.lit_box(self, Vector3(0.3, 0.75, 0.3) * s, CLOTH, CLOTH_EDGE, Vector3(0.0, 0.35, 0.0) * s)
+	DefenderArt.box(self, Vector3(0.38, 0.16, 0.46) * s, CLOTH, Vector3(0.0, 0.06, 0.03) * s)
 
 	_bow = Node3D.new()
-	_bow.position = Vector3(0.0, 1.5, 0.0)
+	_bow.position = Vector3(0.0, 1.5, 0.0) * s
 	add_child(_bow)
-	# The bow itself: three segments, so the limbs read as curved at distance
-	# without a single curve in the geometry.
-	DefenderArt.box(_bow, Vector3(0.1, 1.0, 0.1), BOW, Vector3(0.42, 0.0, 0.0))
-	DefenderArt.box(_bow, Vector3(0.1, 0.5, 0.1), BOW, Vector3(0.36, 0.66, -0.06))
-	DefenderArt.box(_bow, Vector3(0.1, 0.5, 0.1), BOW, Vector3(0.36, -0.66, -0.06))
-	DefenderArt.box(_bow, Vector3(0.03, 1.72, 0.03), STRING, Vector3(0.3, 0.0, 0.0))
+
+	# A real bow, drawn as one: a curve and a string. This is the silhouette
+	# prop ART_PIPELINE asks for, and it is the only shape on the whole hole
+	# that is not a box, a grid or a circle -- which is exactly why it reads at
+	# distance when a stack of wire boxes did not.
+	#
+	# `_bow` rotates so local -Z points at the target, so the limbs run along
+	# local Y and the belly bulges toward -Z, ahead of the string. That is how
+	# a bow is actually held, and it means the D-shape is broadside to anyone
+	# standing off the line of the shot -- which the player always is.
+	var reach := 1.45 * s
+	var belly := 0.62 * s
+	var hand := 0.52 * s
+	var limb := PackedVector3Array()
+	for i in 21:
+		var t := lerpf(-1.0, 1.0, float(i) / 20.0)
+		limb.append(Vector3(hand, reach * t, -belly * cos(t * PI * 0.5)))
+	DefenderArt.polyline(_bow, limb, BOW, 3.4)
+	DefenderArt.lines(_bow, PackedVector3Array([
+		Vector3(hand, -reach, 0.0), Vector3(hand, reach, 0.0),
+	]), STRING, 3.8)
 
 	_nock = Marker3D.new()
-	_nock.position = Vector3(0.42, 0.0, -0.4)
+	_nock.position = Vector3(hand, 0.0, 0.0)
 	_bow.add_child(_nock)
 
 	var shaft := BoxMesh.new()
-	shaft.size = Vector3(0.05, 0.05, 1.0)
+	shaft.size = Vector3(0.06, 0.06, 1.3)
 	_arrow = MeshInstance3D.new()
 	_arrow.mesh = shaft
-	_arrow.material_override = DefenderArt.glow(THREAD, 2.2)
+	_arrow.material_override = DefenderArt.glow(THREAD, 2.6)
 	_arrow.custom_aabb = DefenderArt.generous_aabb()
+	_arrow.top_level = true
 	_arrow.visible = false
 	add_child(_arrow)
 
 	_thread = MeshInstance3D.new()
 	_thread.material_override = DefenderArt.glow(THREAD, 2.0)
 	_thread.custom_aabb = DefenderArt.generous_aabb()
+	_thread.top_level = true
 	_thread.visible = false
 	add_child(_thread)
 
@@ -126,7 +157,15 @@ func _process(delta: float) -> void:
 	# tell's length, so how far it is drawn says how long is left.
 	_draw = move_toward(_draw, 1.0 if drawing else 0.0, delta * (2.6 if drawing else 5.0))
 
-	var target := _watching if drawing else global_position + Vector3(0.0, 4.0, -14.0)
+	# Idle sweeps slowly across the corridor. Three things at once: it reads as
+	# alive rather than as scenery, it brings the bow broadside to the player
+	# periodically -- a bow seen edge-on is a stick -- and it is the same idle
+	# language the shooter uses, so two defenders behave alike when doing
+	# nothing.
+	var target := _watching
+	if not drawing:
+		_sweep += delta * 0.35
+		target = global_position + Vector3(sin(_sweep) * 16.0, 3.0, -12.0 - cos(_sweep) * 5.0)
 	var want := (target - _bow.global_position).normalized()
 	if want.length_squared() > 0.0:
 		var basis := Basis.looking_at(want, Vector3.UP)
@@ -136,6 +175,10 @@ func _process(delta: float) -> void:
 		# once stopped tracking mid-round.
 		_bow.global_basis = _bow.global_basis.orthonormalized() \
 			.slerp(basis, clampf(delta * speed, 0.0, 1.0)).orthonormalized()
+
+	# The nock rides back along the string as the draw builds, so how far the
+	# bow is drawn says how long is left before the arrow goes.
+	_nock.position.z = 0.62 * SCALE * _draw
 
 	_thread.visible = _draw > 0.02 and _watching != Vector3.ZERO
 	if _thread.visible:

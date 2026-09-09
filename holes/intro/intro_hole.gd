@@ -51,13 +51,20 @@ const HOLE_ID := "intro/01"
 ## wide and a hole 57 m long. Measured rather than guessed -- at 24 m either
 ## side, a full drive pulled 25 degrees off line is still in play and one pulled
 ## 35 degrees is not, which is about where a shot stops being recoverable.
-## Beside the corridor and level with the landing zone, not tucked away by the
-## green. §3 puts archery "near green", but ADR-015's archer guards the whole
-## course, and one standing 50 m away behind the player is one nobody ever sees
-## work -- which is exactly the report this position answers. Tucked between the
-## trees at z = -17 and z = -29 rather than inside one, and clear of the fairway
-## at x = 9.
-const ARCHER_STAND := Vector3(12.0, 0.0, -23.0)
+## On top of the spire.
+##
+## §3 puts archery "near green", but ADR-015's archer guards the whole course,
+## and the highest point on the hole is both the only place with a sightline to
+## all of it and the one thing every player is already looking at -- the spire is
+## the obstacle the curve beat is built around. Standing on it, the archer is
+## unmissable from the tee and from the landing zone, which is what the report
+## "not seeing the archer react" was really about.
+##
+## The height is the top face of the spire's collider: SPIRE_POS.y is its
+## centre, so the cap is half its height above that. HoleBuilder.spire stacks its
+## tiers to finish exactly there.
+const ARCHER_STAND := Vector3(
+	SPIRE_POS.x, SPIRE_POS.y + SPIRE_SIZE.y * 0.5, SPIRE_POS.z)
 
 ## How close to the edge the ball gets before the archer draws. Enough warning
 ## to read, short enough that it is not drawing at every shot into the rough.
@@ -85,51 +92,47 @@ func _ready() -> void:
 
 
 func _build_environment() -> void:
-	var sky_material := ProceduralSkyMaterial.new()
-	sky_material.sky_top_color = Color("4f9fd4")
-	sky_material.sky_horizon_color = Color("cfe9f5")
-	sky_material.ground_bottom_color = Color("3d5f38")
-	sky_material.ground_horizon_color = Color("cfe9f5")
-	var sky := Sky.new()
-	sky.sky_material = sky_material
-
+	# No sky. A holodeck has walls you cannot see and a floor you can, so the
+	# background is flat void and the grid does all the work of saying where
+	# the world is. A gradient sky here would immediately read as outdoors.
 	var env := Environment.new()
-	env.background_mode = Environment.BG_SKY
-	env.sky = sky
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	# Low ambient, strong sun. The chunky low-poly forms only read if their
-	# facets differ, and flat sky light erases exactly that.
-	env.ambient_light_energy = 0.5
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = HoleBuilder.VOID
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color("2a3d4a")
+	env.ambient_light_energy = 0.75
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	# The beacons are additive and unshaded; glow is what turns them from bright
-	# decals into light. Without it the whole signalling language falls flat.
+	# Everything in the hole is a glowing line, so glow is not a flourish here --
+	# it is what turns one-pixel primitives into something readable on a phone.
 	env.glow_enabled = true
-	env.glow_intensity = 0.9
-	env.glow_bloom = 0.15
+	env.glow_intensity = 1.35
+	env.glow_bloom = 0.35
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
-	env.glow_hdr_threshold = 0.85
-	# Depth cue and edge-hider in one: the corridor recedes into haze instead of
-	# stopping at the rim of a slab. Depth-mode with a far start, so the fog
-	# hides the horizon without touching the ground the player is aiming at --
-	# exponential fog washed the whole hole out.
+	env.glow_hdr_threshold = 0.55
+	# The deck fades out rather than ending at a visible rim. It fades toward a
+	# dark grey, not toward the void: fogging to black put a hard horizon line
+	# across the floor and undid the grounding the solid deck is there for.
 	env.fog_enabled = true
 	env.fog_mode = Environment.FOG_MODE_DEPTH
-	env.fog_light_color = Color("b9d6e6")
-	env.fog_density = 0.55
-	env.fog_depth_begin = 95.0
-	env.fog_depth_end = 320.0
+	env.fog_light_color = Color("101418")
+	env.fog_density = 1.0
+	env.fog_depth_begin = 90.0
+	env.fog_depth_end = 260.0
 	env.fog_sky_affect = 0.0
 
 	var world_env := WorldEnvironment.new()
 	world_env.environment = env
 	add_child(world_env)
 
-	var sun := DirectionalLight3D.new()
-	sun.rotation = Vector3(deg_to_rad(-52.0), deg_to_rad(38.0), 0.0)
-	sun.light_energy = 1.12
-	sun.light_color = Color("fff4dd")
-	sun.shadow_enabled = true
-	add_child(sun)
+	# One cool key light, dim. Nothing here needs lighting -- the lines are
+	# emissive -- but the ball and the archer are solid, and without a light
+	# they are flat silhouettes with no sense of which way is up.
+	var key := DirectionalLight3D.new()
+	key.rotation = Vector3(deg_to_rad(-58.0), deg_to_rad(34.0), 0.0)
+	key.light_energy = 0.45
+	key.light_color = Color("9fd8e8")
+	key.shadow_enabled = false
+	add_child(key)
 
 	camera = Camera3D.new()
 	camera.fov = 58.0
@@ -137,9 +140,11 @@ func _build_environment() -> void:
 
 
 func _build_terrain() -> void:
+	# The deck. Its collider is the same ground plane the grass version had, at
+	# the same place and the same size -- the look changed, the physics did not.
 	var ground := StaticBody3D.new()
 	add_child(ground)
-	HoleBuilder.slab(ground, Vector3(420.0, 1.0, 460.0), HoleBuilder.ROUGH, Vector3(0.0, -0.5, -40.0))
+	HoleBuilder.deck(ground, Vector2(420.0, 460.0), Vector3(0.0, 0.0, -40.0))
 	var ground_shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	box.size = Vector3(420.0, 1.0, 460.0)
@@ -147,43 +152,30 @@ func _build_terrain() -> void:
 	ground_shape.position = Vector3(0.0, -0.5, -40.0)
 	ground.add_child(ground_shape)
 
-	HoleBuilder.slab(self, Vector3(18.0, 0.08, 58.0), HoleBuilder.FAIRWAY, Vector3(0.0, 0.02, -27.0))
-	# Mown stripes. Almost free, and they do real work: they give the corridor a
-	# sense of distance and make the fairway read as tended ground rather than a
-	# green rectangle.
-	for i in 10:
-		var z := -2.5 - float(i) * 5.6
-		HoleBuilder.slab(self, Vector3(18.0, 0.02, 2.8), HoleBuilder.FAIRWAY_MOWN,
-			Vector3(0.0, 0.07, z))
-	# Two centimetres proud of the fairway: enough that its collider, not the
-	# rough beneath it, is what the ball putts on, and low enough that a ball
-	# rolls onto it instead of stopping against its edge.
-	HoleBuilder.green(self, 9.0, GREEN_POS)
-	# A short apron linking the corridor to the off-axis green, so the dogleg
-	# reads as one hole rather than two disconnected patches of mown grass.
-	var apron := HoleBuilder.slab(self, Vector3(14.0, 0.08, 17.0), HoleBuilder.FAIRWAY,
+	# The corridor, the apron and the tee, as outlined panels on the deck. The
+	# mown stripes are gone: a grid says "measured ground" without pretending to
+	# be a lawn, and it does the same job of giving the corridor a sense of
+	# distance.
+	HoleBuilder.slab(self, Vector3(18.0, 0.08, 58.0), HoleBuilder.EDGE, Vector3(0.0, 0.02, -27.0))
+	var apron := HoleBuilder.slab(self, Vector3(14.0, 0.08, 17.0), HoleBuilder.EDGE,
 		Vector3(6.0, 0.02, -48.0))
 	apron.rotation.y = deg_to_rad(-20.0)
-	HoleBuilder.disc(self, 2.2, 0.16, HoleBuilder.TEE, Vector3(0.0, 0.05, 0.0), 20)
-	HoleBuilder.disc(self, SAND_RADIUS, 0.10, HoleBuilder.SAND,
-		SAND_POS + Vector3(0.0, 0.03, 0.0), 20)
-	HoleBuilder.disc(self, 0.5, 0.10, HoleBuilder.CUP, CUP_POS + Vector3(0.0, 0.06, 0.0), 16)
+	HoleBuilder.green(self, GREEN_RADIUS, GREEN_POS)
+	HoleBuilder.disc(self, 2.2, 0.16, HoleBuilder.EDGE, Vector3(0.0, 0.05, 0.0), 32)
+	HoleBuilder.disc(self, SAND_RADIUS, 0.10, HoleBuilder.HAZARD,
+		SAND_POS + Vector3(0.0, 0.03, 0.0), 32)
+	HoleBuilder.disc(self, 0.5, 0.10, HoleBuilder.CUP, CUP_POS + Vector3(0.0, 0.06, 0.0), 20)
 
 
 func _build_props() -> void:
 	HoleBuilder.spire(self, SPIRE_POS, SPIRE_SIZE)
 
-	# Trees frame the corridor and hide the world's edge. Asymmetric on purpose:
-	# a corridor that reads as hand-placed rather than as a tunnel.
-	var spots := [
-		[-13.0, -8.0, 4.6, 0.05], [-15.0, -19.0, 5.4, -0.04], [-12.5, -31.0, 4.0, 0.07],
-		[-16.0, -44.0, 6.0, 0.0], [-13.5, -57.0, 4.8, -0.06],
-		[13.0, -6.0, 5.0, -0.05], [15.5, -17.0, 4.2, 0.06], [13.5, -29.0, 5.8, 0.0],
-		[21.0, -42.0, 4.4, -0.07], [22.5, -56.0, 5.2, 0.04], [21.0, -68.0, 6.2, 0.0],
-		[-9.0, -62.0, 5.0, -0.05], [-4.0, -72.0, 5.6, 0.03], [13.0, -78.0, 4.8, -0.03],
-	]
-	for s in spots:
-		HoleBuilder.tree(self, Vector3(s[0], 0.0, s[1]), s[2], s[3])
+	# The boundary, drawn where it actually is. The trees that used to frame the
+	# corridor are gone -- they were scenery hiding the edge of the world, and
+	# the edge of the world is the one piece of scenery on this hole that has
+	# rules attached to it. The archer shoots anything crossing this line, and
+	# until it was drawn the player had no way to know that.
+	HoleBuilder.boundary(self, BOUNDS_CENTRE, BOUNDS_EXTENT)
 
 	HoleBuilder.flag(self, CUP_POS)
 
@@ -211,11 +203,12 @@ func _build_ball() -> void:
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color("fdfdf6")
 	mat.roughness = 0.35
-	# A little self-emission keeps the ball readable against the dark boulder
-	# and in the shadow of the trees, without turning it into a lamp.
+	# On a dark deck the ball is the only lit, solid, moving thing on screen, and
+	# everything else is a line. Leaning into that makes it trivially trackable
+	# across 57 m without a marker or a trail.
 	mat.emission_enabled = true
 	mat.emission = Color("fdfdf6")
-	mat.emission_energy_multiplier = 0.25
+	mat.emission_energy_multiplier = 0.9
 	mi.material_override = mat
 	ball.add_child(mi)
 

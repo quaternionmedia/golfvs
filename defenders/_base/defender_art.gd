@@ -47,6 +47,70 @@ static func box(parent: Node3D, size: Vector3, color: Color, at: Vector3) -> Mes
 	return mi
 
 
+## An arbitrary line list, as consecutive pairs. The escape hatch from boxes:
+## a silhouette that has to be recognised at 64 px needs at least one shape
+## nothing else on the hole has, and a box is not it.
+static func lines(parent: Node3D, points: PackedVector3Array, color: Color,
+		energy := 2.0, at := Vector3.ZERO) -> MeshInstance3D:
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = points
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_LINES, arrays)
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.material_override = glow(color, energy)
+	mi.position = at
+	parent.add_child(mi)
+	return mi
+
+
+## A polyline through `points`, as line pairs.
+static func polyline(parent: Node3D, points: PackedVector3Array, color: Color,
+		energy := 2.0) -> MeshInstance3D:
+	var pairs := PackedVector3Array()
+	for i in range(1, points.size()):
+		pairs.append(points[i - 1])
+		pairs.append(points[i])
+	return lines(parent, pairs, color, energy)
+
+
+## The twelve edges of a box, as lines. A body built from dark fills plus these
+## reads as something the simulation drew rather than something it photographed,
+## which is what the intro hole's deck asks of anything standing on it.
+static func wire_box(parent: Node3D, size: Vector3, color: Color, at: Vector3,
+		energy := 2.0) -> MeshInstance3D:
+	var h := size * 0.5
+	var c := [
+		Vector3(-h.x, -h.y, -h.z), Vector3(h.x, -h.y, -h.z),
+		Vector3(h.x, -h.y, h.z), Vector3(-h.x, -h.y, h.z),
+		Vector3(-h.x, h.y, -h.z), Vector3(h.x, h.y, -h.z),
+		Vector3(h.x, h.y, h.z), Vector3(-h.x, h.y, h.z),
+	]
+	var points := PackedVector3Array()
+	for e in [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]]:
+		points.append(c[e[0]])
+		points.append(c[e[1]])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = points
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_LINES, arrays)
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.material_override = glow(color, energy)
+	mi.position = at
+	parent.add_child(mi)
+	return mi
+
+
+## A box with a dark fill and a glowing outline. The default body part.
+static func lit_box(parent: Node3D, size: Vector3, fill: Color, edge: Color,
+		at: Vector3) -> void:
+	box(parent, size, fill, at)
+	wire_box(parent, size, edge, at)
+
+
 ## A dashed line from one world point to another, as a triangle strip.
 ##
 ## Dashes rather than a solid beam: a continuous line from a defender to the
