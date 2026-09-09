@@ -231,4 +231,12 @@ if [ "$target" = "all" ] || [ "$target" = "android" ]; then
   export_one "Android" "build/android/golfVs.apk"
 fi
 
+# The licence travels with the binaries or the distribution is not compliant:
+# Godot is statically linked into both of them and MIT requires the notice to
+# accompany it. Copying it here rather than remembering to at release time is
+# the difference between a rule and a hope.
+cp THIRDPARTY.md CHANGELOG.md build/
+
 say "Done. Artifacts are under build/, and they are debug builds."
+printf '  THIRDPARTY.md and CHANGELOG.md are beside them; ship all of it together.
+'

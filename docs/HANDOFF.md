@@ -405,8 +405,16 @@ player's own aim.
 **Feedback from playing is now a first-class input** alongside the suite and the demo. Nothing here was
 findable from either, and the first round found three real defects in an afternoon.
 
-**Next:** somebody has to say whether it now *feels* right at a low angle. The fix is measured; feel is not.
-Lane C carries that as its own task.
+**Confirmed by the reporter, same session: "much better."** So the loop closed inside one round — reported,
+diagnosed, measured, fixed, re-played, confirmed. Desktop and mouse only; the low-angle read still has not
+been tried with a thumb, and ADR-007 makes the thumb the arbiter of feel.
+
+**`docs/PLAYTEST.md` is new, and it is the follow-through rather than an extra process.** ADR-026 promoted
+feedback from playing to a first-class input alongside the suite and the demo; those two have `tests/` and
+`demo_round.gd`, and an input with nowhere to be recorded is not first-class. It logs what was said verbatim,
+what it turned out to be, and what changed — the middle column being the one that earns the file. It also
+carries a short list of things nobody has watched anybody do yet, which is the closest this project has to a
+research agenda.
 
 **Gates:** suite 169/169 green (8 new), docs check green, `demo_round` PASS, screenshots re-rendered —
 `6-aim-aids` and `6b-putt-aim` are new and exist to show the two previews that were wrong.

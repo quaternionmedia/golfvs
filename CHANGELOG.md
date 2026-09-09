@@ -27,6 +27,13 @@ and a course, and what exists is one range, one defender, and box art.
   held for a real backswing, which is also the golfer's tell.
 - **A free orbit camera** (ADR-001): two fingers on touch, right-drag and wheel
   on mouse, a tap to recentre.
+- **Aiming that does what it looks like it does** (ADR-026). The drag is read
+  through the camera rather than off its flattened basis, so the shot leaves
+  opposite the drag at every camera angle instead of drifting up to 33° as the
+  view gets shallower. The line only locks where there is curve to bend, so the
+  bow can be re-aimed all the way through the drag. A putt is previewed as roll,
+  because previewed as a projectile it landed in a metre and showed nothing.
+  Found by playing — see `docs/PLAYTEST.md`.
 - **You can play the other side.** A switch in the opposite corner hands you the
   archer on the rock — the safety net itself (ADR-020, ADR-022). Defence is
   third person over your own figure and uses the same drag as the stroke; the
@@ -51,4 +58,5 @@ and a course, and what exists is one range, one defender, and box art.
   portable and nothing has yet checked that the physics agrees across operating
   systems.
 - **Nobody has played this on a phone**, which is the one question the whole
-  project is built toward.
+  project is built toward. Everything confirmed so far was confirmed with a
+  mouse, and ADR-007 makes the thumb the arbiter of feel.

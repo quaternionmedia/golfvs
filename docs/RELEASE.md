@@ -40,6 +40,8 @@ that produced a file is not the same as one that produced a game.
 - [ ] **Confirm the Android build asks for nothing:**
       `aapt2 dump badging build/android/golfVs.apk | grep uses-permission`
       should print nothing at all. Pillar 4 as a fact about the artifact.
+- [ ] **Log a playtest round** in [`PLAYTEST.md`](PLAYTEST.md) if anybody played this build. A release that
+      nobody played is a release nobody has checked, and the log is where the third gate lives (ADR-026).
 - [ ] **Read the README's Status section as a stranger.** The pitch describes
       twelve sports and a course. Anybody arriving at a download must not be able
       to miss what is actually in it.

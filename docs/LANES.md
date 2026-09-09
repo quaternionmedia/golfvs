@@ -24,6 +24,7 @@ belongs in the other lane, not a reason to reach across. Say so in `HANDOFF.md` 
 | `project.godot` | One lane at a time, and **never with the Godot editor open** — it silently overwrites the file on save, which has already cost this project two settings. Announce it in `HANDOFF.md` before and after. |
 | `docs/DESIGN.md` + `docs/DECISIONS.md` | CI-coupled: they must move in the same commit. Scope does not change without a logged rationale (ADR-006). |
 | `docs/HANDOFF.md` | Append a section per session under §7. Never rewrite another session's. |
+| `docs/PLAYTEST.md` | Append a round. Never edit a previous one — what somebody said is not revisable. |
 
 **3. Nothing is ratified by writing code.** Assistants draft, humans ratify (ADR-006). If a lane's work
 implies a decision, add it to `DECISIONS.md` under *Pending ratification*, put the reasoning in `HANDOFF.md`,
@@ -126,9 +127,9 @@ playable. What is left is tuning, which needs a thumb.
       fail against the code that shipped
 - [ ] **Tune the gesture on a real thumb.** `LOCK_PX`, `MAX_PULL_PX`, `MAX_CURVE_PX` are all mouse guesses,
       and ADR-007 makes touch the reference feel (hardware). Correctness is settled; this is feel
-- [ ] **Second round of feedback on the aim**, at a low camera angle specifically. The first round found
-      three things the suite could not, and the fix is measured rather than felt — somebody still has to say
-      whether it now feels like it responds
+- [x] **Confirmed by the player who reported it** — "much better" (`docs/PLAYTEST.md`, round 1). Desktop and
+      mouse; the low-angle read still has not been tried with a thumb, and ADR-007 makes the thumb the
+      arbiter of feel
 - [x] `ClubProfile` — long, short, putt (ADR-018), as named constructors. `BallFlight`'s hardcoded
       `MIN_SPEED` / `MAX_SPEED` / `LAUNCH_DEG` now live in them
 - [ ] `ClubProfile` as `.tres`, once the numbers stop moving every session. See the note in the file

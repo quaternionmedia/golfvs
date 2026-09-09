@@ -23,4 +23,11 @@ GODOT_BIN=/path/to/godot ./addons/gdUnit4/runtest.sh --add res://tests --continu
 "$GODOT_BIN" --headless --fixed-fps 120 --path . res://tools/demo_round.tscn
 ```
 
+**Playing it counts as work.** [`docs/PLAYTEST.md`](docs/PLAYTEST.md) logs rounds
+of feedback and what each turned out to be. The first round found three real
+defects that a green suite of 161 tests had nothing to say about, because all
+three were about the gap between what the player sees and what the code does. If
+you play it, say what happened in your own words — the verbatim complaint is
+usually a better bug report than any summary of it.
+
 Contributions are accepted under Apache-2.0 §5. There is no CLA.
