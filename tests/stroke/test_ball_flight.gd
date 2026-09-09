@@ -41,10 +41,12 @@ func test_more_power_carries_further() -> void:
 
 
 func test_full_power_does_not_overshoot_the_hole() -> void:
-	# The intro hole measures 57 m to the cup and wants three strokes. A driver
+	# The intro hole measures 77 m to the cup and wants three strokes. A driver
 	# that carries the whole thing turns it into a one-shot hole by accident.
+	# The bounds move with the hole: range goes as the square of launch speed,
+	# so lengthening one without the other silently changes how the hole plays.
 	var carry := _carry(BallFlight.launch_velocity(Vector3.FORWARD, 1.0), Vector3.ZERO)
-	assert_float(carry).is_between(30.0, 50.0)
+	assert_float(carry).is_between(45.0, 68.0)
 
 
 func test_curve_signs_match_the_record_schema() -> void:

@@ -152,6 +152,32 @@ does *not* work by moving the ball out of the zone — it works through the accu
 hole designed on the assumption that curve alone beats a shooter will play as unfair. The intro hole's
 shooter therefore uses a 7 m radius, not the profile default of 11.
 
+**Late in build-04, the hole was rebuilt to look and feel like what it is.** ADR-016 makes the intro hole a
+holodeck blueprint -- a solid unlit dark-grey deck with no grid of its own, cyan grids only on surfaces that
+are in play, an amber course boundary drawn where it actually is, and one lit ball. It rejects the manicured
+fairway on tone, and it also fixed a real problem: the archer enforces a boundary the player had no way to
+see. The trees went with the grass; they existed to hide a world edge that is now the thing worth showing.
+
+Four refinements followed from playing it, each recorded here because none of them changes a ratified
+decision:
+- **The hole is a third longer** -- cup at 77 m, spire at 51 m -- with `BallFlight.MAX_SPEED` raised from 25
+  to 29 to match. Range goes as the square of launch speed, so those two constants have to move together or a
+  longer hole plays as a shorter one with more walking.
+- **The archer stands on top of the spire**, at 1.6x human scale with a drawn curved bow. It was invisible
+  before, in both senses.
+- **The interception is an event now**: an instant tracer rather than a slow projectile (the projectile had
+  the causality backwards -- the ball stopped, *then* the arrow arrived), the ball driven into the deck rather
+  than switched off in mid-air, an `Impact` burst in the defender's own colour, and a view-only camera kick.
+  The flight camera also frames a committed defender alongside the ball, because a tell that happens
+  off-screen is not a tell.
+- **`SpinDial`** shows how much shape is on the shot without showing where it lands. The 7 % ribbon made the
+  curve half of the gesture nearly invisible; the dial reports the input rather than predicting the outcome,
+  which is the line the truncated ribbon exists to hold.
+
+`tools/shoot_hole.tscn` renders the hole to PNGs, including two live states -- the spin dial mid-gesture and
+the archer's impact mid-frame -- because those are the moments most likely to be wrong and least likely to be
+noticed. `tools/probe_bounds.tscn` plays 22 tee shots through the real physics and reports how many escape.
+
 **What the demo does not prove.** `after` is produced by the analytic `BallFlight` model plus a Jolt
 rigid-body roll-out, and the hash covers where the ball finished. That round-trips on *this* machine. It is
 not yet the cross-platform determinism §11.7 requires, and nothing has measured Jolt's behaviour on two

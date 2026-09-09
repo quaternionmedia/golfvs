@@ -14,21 +14,28 @@ extends Object
 ## integrable in closed form, so the preview is exact rather than a simulation
 ## racing the real one.
 
-const MIN_SPEED := 8.0
-## Full power carries about 42 m at LAUNCH_DEG, against a hole that measures 57 m
+const MIN_SPEED := 9.2
+## Full power carries about 57 m at LAUNCH_DEG, against a hole that measures 77 m
 ## to the cup. A first-timer swinging as hard as they can should reach the
 ## landing zone comfortably and still have a second shot to play.
-const MAX_SPEED := 25.0
+##
+## Range goes as the square of launch speed, so the hole and this constant have
+## to move together: the hole was lengthened by a third and the speed by a sixth.
+## Getting that backwards makes a longer hole play as a shorter one with more
+## walking.
+const MAX_SPEED := 29.0
 const LAUNCH_DEG := 21.0
 ## Lateral acceleration at full curve, m/s^2. Tuned so a full-curve approach
-## bends about four metres over the intro hole's 32 m second shot -- enough to
-## clear the spire, not so much that a straight shot feels broken.
-const CURVE_ACCEL := 7.5
+## bends about five metres over the intro hole's 45 m second shot -- enough to
+## clear the spire, not so much that a straight shot feels broken. Scaled with
+## the hole: a longer ball in the air for longer bends further for free, so this
+## rose by less than the distance did.
+const CURVE_ACCEL := 8.2
 
 ## Low enough to leave a tap-in playable. A floor set for long putts makes the
 ## last stroke of the hole the hardest one in it.
 const PUTT_MIN_SPEED := 1.15
-const PUTT_MAX_SPEED := 8.4
+const PUTT_MAX_SPEED := 9.7
 
 
 static func gravity() -> Vector3:

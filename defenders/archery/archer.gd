@@ -39,10 +39,11 @@ var _bow: Node3D
 var _nock: Marker3D
 var _arrow: MeshInstance3D
 var _thread: MeshInstance3D
+var _trail: MeshInstance3D
 var _draw := 0.0
 var _watching := Vector3.ZERO
 var _sweep := 0.0
-var _flight := -1.0
+var _streak := -1.0
 var _from := Vector3.ZERO
 ## Held separately from `_watching`, which `rest()` clears at the end of a
 ## stroke -- an arrow still in the air would otherwise turn and fly to the world
@@ -122,6 +123,15 @@ func _build_body() -> void:
 	_thread.visible = false
 	add_child(_thread)
 
+	# The tracer: the line the arrow took, for the handful of frames it is worth
+	# seeing.
+	_trail = MeshInstance3D.new()
+	_trail.material_override = DefenderArt.glow(THREAD, 5.5)
+	_trail.custom_aabb = DefenderArt.generous_aabb()
+	_trail.top_level = true
+	_trail.visible = false
+	add_child(_trail)
+
 
 func read_shot(arc: PackedVector3Array, dt: float, stroke_seed: int) -> void:
 	brain.read_shot(arc, dt, stroke_seed)
@@ -187,28 +197,46 @@ func _process(delta: float) -> void:
 	_advance_arrow(delta)
 
 
-## The arrow has travel time, which is §3's stated counter for archery: a fast
-## low shot can beat it. Here it is mostly there to make the act readable — a
-## ball that simply stopped would look like a physics bug rather than a rescue.
+## The shot, drawn as a tracer rather than as a travelling projectile.
+##
+## The projectile version had the causality backwards: the pin is applied on the
+## tick the archer acts, but a projectile takes a third of a second to arrive, so
+## the player watched the ball stop and *then* watched an arrow reach it. Cause
+## after effect reads as a glitch however good the arrow looks.
+##
+## A tracer arrives in the same frame as the impulse. What sells the speed is
+## the streak fading over a few frames and the shaft left standing in the deck,
+## not watching something cross the gap.
 func _advance_arrow(delta: float) -> void:
-	if _flight < 0.0:
+	if _streak < 0.0:
 		_arrow.visible = false
+		_trail.visible = false
 		return
-	_flight += delta * 3.4
-	if _flight >= 1.0:
-		_flight = -1.0
-		_arrow.visible = false
-		return
-	var at := _from.lerp(_to, _flight)
-	_arrow.visible = true
-	_arrow.global_position = at
-	var heading := (_to - _from)
-	if heading.length_squared() > 1.0e-6:
-		_arrow.global_basis = Basis.looking_at(heading.normalized(), Vector3.UP)
+	_streak += delta
+
+	# The line from bow to ball: two frames at full brightness, gone by six.
+	var flash := clampf(1.0 - _streak / 0.12, 0.0, 1.0)
+	_trail.visible = flash > 0.0
+	if _trail.visible:
+		DefenderArt.dashed_line(_trail, _from, _to, 0.07 * flash, 1.0, 2)
+
+	# The shaft stands in the deck where it landed, and fades out.
+	var stay := clampf(1.0 - _streak / 0.9, 0.0, 1.0)
+	_arrow.visible = stay > 0.0
+	if _arrow.visible:
+		_arrow.global_position = _to
+		var heading := _to - _from
+		if heading.length_squared() > 1.0e-6:
+			_arrow.global_basis = Basis.looking_at(heading.normalized(), Vector3.UP)
+		var mat: StandardMaterial3D = _arrow.material_override
+		mat.albedo_color = Color(THREAD, stay)
+	else:
+		_streak = -1.0
 
 
 func _on_state_changed(state: DefenderBrain.State) -> void:
 	if state == DefenderBrain.State.ACT and brain.will_connect():
 		_from = _nock.global_position
 		_to = brain.act_point()
-		_flight = 0.0
+		_streak = 0.0
+		_draw = 0.0

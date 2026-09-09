@@ -12,20 +12,26 @@ extends Node3D
 ## lesson count: PAR below says why.
 
 const TEE_POS := Vector3(0.0, 0.35, 0.0)
-const LANDING := Vector3(0.0, 0.0, -24.0)
-const GREEN_POS := Vector3(9.0, 0.0, -56.0)
-const CUP_POS := Vector3(9.0, 0.0, -57.0)
+const LANDING := Vector3(0.0, 0.0, -32.0)
+const GREEN_POS := Vector3(11.0, 0.0, -76.0)
+const CUP_POS := Vector3(11.0, 0.0, -77.0)
+
+## The mown corridor, as constants rather than as numbers repeated between the
+## terrain builder and the lie detector -- the bunker already taught that lesson.
+const CORRIDOR_HALF := 9.0
+const CORRIDOR_NEAR_Z := 2.0
+const CORRIDOR_FAR_Z := -80.0
 ## Placed so the flag is visible from the tee but hidden from the landing zone.
 ## That asymmetry is the whole lesson: the player sees where they are going,
 ## walks up to the ball, and finds the straight line gone. The answer is the
 ## curve, and they are shown it exactly when they need it and not before.
-const SPIRE_POS := Vector3(2.2, 3.5, -38.0)
+const SPIRE_POS := Vector3(2.2, 3.5, -51.0)
 const SPIRE_SIZE := Vector3(5.4, 7.0, 3.4)
 ## The greenside bunker. Named rather than repeated, because _lie_at and the
 ## terrain builder both need it and a silent disagreement between them is a ball
 ## that looks like it is in sand and plays like it is on the green.
-const SAND_POS := Vector3(1.5, 0.0, -54.0)
-const SAND_RADIUS := 3.6
+const SAND_POS := Vector3(3.0, 0.0, -73.0)
+const SAND_RADIUS := 4.0
 
 ## Chunky enough to follow across 56 m of fairway. A regulation 43 mm ball is a
 ## few pixels at this range; §5's caricatured direction is the licence to round
@@ -46,11 +52,11 @@ const HOLE_ID := "intro/01"
 ## first.
 ##
 ## The bounds are drawn wide enough to contain every shot the hole asks for and
-## the trees that frame it, and tight enough that a badly mis-aimed full drive
-## reaches them: x from -19 to 29, z from -77 to 11, against a corridor 18 m
-## wide and a hole 57 m long. Measured rather than guessed -- at 24 m either
-## side, a full drive pulled 25 degrees off line is still in play and one pulled
-## 35 degrees is not, which is about where a shot stops being recoverable.
+## the frame of the hole, and tight enough that a badly mis-aimed full drive
+## reaches them: x from -22 to 34, z from -92 to 12, against a corridor 18 m
+## wide and a hole 77 m long. Scaled with the hole so that the angle at which a
+## shot stops being recoverable stays where it was -- about 25 degrees off line
+## at full power is still in play, and about 35 is not.
 ## On top of the spire.
 ##
 ## §3 puts archery "near green", but ADR-015's archer guards the whole course,
@@ -69,8 +75,20 @@ const ARCHER_STAND := Vector3(
 ## How close to the edge the ball gets before the archer draws. Enough warning
 ## to read, short enough that it is not drawing at every shot into the rough.
 const GUARD_MARGIN := 5.0
-const BOUNDS_CENTRE := Vector3(5.0, 0.0, -33.0)
-const BOUNDS_EXTENT := Vector2(24.0, 44.0)
+const BOUNDS_CENTRE := Vector3(6.0, 0.0, -40.0)
+const BOUNDS_EXTENT := Vector2(28.0, 52.0)
+
+## How hard a pinned ball is driven into the deck.
+##
+## §3 says an arrow "stops the ball dead", and stopping it dead in mid-air is
+## exactly what it used to do -- which looked like the game switching the ball
+## off. Killing the horizontal motion and slamming it down instead honours the
+## same rule (it goes no further) while giving the eye something to follow: the
+## ball is hit, it drops, it thumps. The deck has no bounce, so where it lands
+## is where it stays.
+const PIN_SLAM := 11.0
+## Camera kick on a connection, in metres. Decays over about a third of a second.
+const SHAKE_ON_HIT := 0.42
 
 ## Sampling step for the arc the defenders read. Finer than the 0.075 s the
 ## ribbon uses, because it decides *when* a shot is fired at.
@@ -156,12 +174,13 @@ func _build_terrain() -> void:
 	# mown stripes are gone: a grid says "measured ground" without pretending to
 	# be a lawn, and it does the same job of giving the corridor a sense of
 	# distance.
-	HoleBuilder.slab(self, Vector3(18.0, 0.08, 58.0), HoleBuilder.EDGE, Vector3(0.0, 0.02, -27.0))
-	var apron := HoleBuilder.slab(self, Vector3(14.0, 0.08, 17.0), HoleBuilder.EDGE,
-		Vector3(6.0, 0.02, -48.0))
+	HoleBuilder.slab(self, Vector3(CORRIDOR_HALF * 2.0, 0.08, CORRIDOR_NEAR_Z - CORRIDOR_FAR_Z),
+		HoleBuilder.EDGE, Vector3(0.0, 0.02, (CORRIDOR_NEAR_Z + CORRIDOR_FAR_Z) * 0.5))
+	var apron := HoleBuilder.slab(self, Vector3(16.0, 0.08, 20.0), HoleBuilder.EDGE,
+		Vector3(7.0, 0.02, -66.0))
 	apron.rotation.y = deg_to_rad(-20.0)
 	HoleBuilder.green(self, GREEN_RADIUS, GREEN_POS)
-	HoleBuilder.disc(self, 2.2, 0.16, HoleBuilder.EDGE, Vector3(0.0, 0.05, 0.0), 32)
+	HoleBuilder.disc(self, 2.6, 0.16, HoleBuilder.EDGE, Vector3(0.0, 0.05, 0.0), 32)
 	HoleBuilder.disc(self, SAND_RADIUS, 0.10, HoleBuilder.HAZARD,
 		SAND_POS + Vector3(0.0, 0.03, 0.0), 32)
 	HoleBuilder.disc(self, 0.5, 0.10, HoleBuilder.CUP, CUP_POS + Vector3(0.0, 0.06, 0.0), 20)
@@ -242,7 +261,7 @@ const SETTLE_SPEED := 0.5
 const SETTLE_TIME := 0.35
 const CUP_CATCH_RADIUS := 1.0
 const CUP_CATCH_SPEED := 3.2
-const GREEN_RADIUS := 9.0
+const GREEN_RADIUS := 10.0
 ## Light. The green's own friction does most of the stopping now, and a heavy
 ## damp on top of it made every putt dribble.
 const ROLL_DAMP := 0.45
@@ -253,6 +272,7 @@ var strokes := 0
 
 var _gesture: StrokeGesture
 var _ribbon: AimRibbon
+var _spin: SpinDial
 var _target: Beacon
 var _spire_aabb: AABB
 var _still_for := 0.0
@@ -273,6 +293,13 @@ var _stroke_seed := 0
 ## The last place the ball was still on the course, so an interception can pin
 ## it somewhere playable rather than wherever it had got to when it was noticed.
 var _last_in_bounds := Vector3.ZERO
+## View-only camera kick. Never touches the simulation: a record has to replay
+## the same whether or not the camera was shaking when it was made.
+var _shake := 0.0
+var _shake_t := 0.0
+## The unshaken camera pose. Kept apart from the camera's own transform so that
+## a kick is not fed back into the next frame's smoothing.
+var _cam_smooth := Transform3D.IDENTITY
 
 ## Where the finished round was written. Empty until the ball drops.
 var round_path := ""
@@ -287,6 +314,9 @@ func _setup_play() -> void:
 
 	_ribbon = AimRibbon.new()
 	add_child(_ribbon)
+
+	_spin = SpinDial.new()
+	add_child(_spin)
 
 	_target = Beacon.new()
 	_target.radius = 3.2
@@ -315,6 +345,7 @@ func _setup_play() -> void:
 
 func _on_cancelled() -> void:
 	_ribbon.hide_arc()
+	_spin.hide_dial()
 
 
 func _enter_aim() -> void:
@@ -405,18 +436,31 @@ func _on_defender_acted(defender: Node3D) -> void:
 	if not brain.will_connect():
 		return
 	_curve_accel = Vector3.ZERO
-	ball.angular_velocity = Vector3.ZERO
 	match brain.profile.action:
 		DefenderProfile.Action.PIN:
 			# "Stops dead where the arrow reaches it" (§3). The ball is moved to
-			# the point the archer committed to rather than left where the tick
-			# happens to have put it, so what the player saw the thread pointing
-			# at is where the ball ends up.
+			# the point the archer committed to, so what the player saw the
+			# thread pointing at is where the ball ends up -- then driven into
+			# the deck rather than switched off in mid-air.
 			ball.global_position = brain.act_point()
-			ball.linear_velocity = Vector3.ZERO
+			ball.linear_velocity = Vector3.DOWN * PIN_SLAM
+			# Spin about the arrow's axis. Costs nothing, and a ball that stops
+			# without spinning reads as a prop rather than as something hit.
+			var from_bow := (brain.act_point() - defender.global_position).normalized()
+			ball.angular_velocity = from_bow.cross(Vector3.UP) * 26.0
 		_:
 			# KNOCK_DOWN: horizontal motion stops and gravity does the rest.
 			ball.linear_velocity = Vector3(0.0, minf(ball.linear_velocity.y, 0.0), 0.0)
+			ball.angular_velocity = Vector3.ZERO
+
+	Impact.at_point(self, brain.act_point(), _defender_colour(brain))
+	_shake = maxf(_shake, SHAKE_ON_HIT)
+
+
+## A defender's action is drawn in its own colour, so a player who has met two
+## of them can tell which one just acted without looking up from the ball.
+func _defender_colour(brain: DefenderBrain) -> Color:
+	return Archer.THREAD if brain.profile.sport == "archery" else Skeet.THREAT
 
 
 ## The boundary, watched rather than predicted.
@@ -493,9 +537,9 @@ func _lie_at(at: Vector3) -> String:
 		return "sand"
 	if Vector2(at.x - GREEN_POS.x, at.z - GREEN_POS.z).length() <= GREEN_RADIUS:
 		return "green"
-	if Vector2(at.x, at.z).length() <= 2.2:
+	if Vector2(at.x, at.z).length() <= 2.6:
 		return "tee"
-	if absf(at.x) <= 9.0 and at.z <= 2.0 and at.z >= -56.0:
+	if absf(at.x) <= CORRIDOR_HALF and at.z <= CORRIDOR_NEAR_Z and at.z >= CORRIDOR_FAR_Z:
 		return "fairway"
 	return "rough"
 
@@ -542,13 +586,18 @@ func _on_aim_updated(heading: Vector3, power: float, curve: float) -> void:
 		return
 	if power <= 0.0:
 		_ribbon.hide_arc()
+		_spin.hide_dial()
 		return
 	var putting := lesson == Lesson.PUTT
 	var origin := ball.global_position
 	var velocity := BallFlight.launch_velocity(heading, power, putting)
 	var accel := BallFlight.curve_acceleration(heading, curve)
 	var arc := BallFlight.sample_arc(origin, velocity, accel, BALL_RADIUS)
-	_ribbon.show_arc(origin, velocity, accel, BALL_RADIUS, _arc_blocked(arc))
+	var blocked := _arc_blocked(arc)
+	_ribbon.show_arc(origin, velocity, accel, BALL_RADIUS, blocked)
+	# The ribbon shows the line, the dial shows the shape. Neither shows where
+	# the ball lands, which stays the read the hole is built around.
+	_spin.show_spin(origin, heading, curve, blocked)
 
 
 func _on_fired(heading: Vector3, power: float, curve: float) -> void:
@@ -557,6 +606,7 @@ func _on_fired(heading: Vector3, power: float, curve: float) -> void:
 	_aiming = false
 	_gesture.enabled = false
 	_ribbon.hide_arc()
+	_spin.hide_dial()
 	_target.confirm()
 
 	var putting := lesson == Lesson.PUTT
@@ -648,6 +698,7 @@ func _try_hole_out() -> bool:
 	ball.freeze = true
 	_gesture.enabled = false
 	_ribbon.hide_arc()
+	_spin.hide_dial()
 	cup_beacon.confirm()
 	_target.visible = false
 	# Closed before the drop tween runs, so the record holds where the ball
@@ -714,8 +765,29 @@ func _process(delta: float) -> void:
 			_cam_target = _frame_holed()
 	# One damped follow for every played state, so a change of beat reads as the
 	# camera walking up to the ball rather than as a hard cut.
-	camera.global_transform = camera.global_transform.interpolate_with(
-		_cam_target, clampf(delta * 3.4, 0.0, 1.0))
+	_cam_smooth = _cam_smooth.interpolate_with(_cam_target, clampf(delta * 3.4, 0.0, 1.0))
+	camera.global_transform = _cam_smooth
+	_apply_shake(delta)
+
+
+## The kick, applied on top of the smoothed pose and never written back into it.
+## Feeding a shake into the follow makes the camera chase its own jitter.
+func _apply_shake(delta: float) -> void:
+	camera.fov = 58.0
+	if _shake <= 0.0:
+		return
+	_shake_t += delta
+	_shake = maxf(0.0, _shake - delta * 1.4)
+	# Squared, so the kick is sharp at the front and settles quickly rather than
+	# wobbling out.
+	var k := _shake * _shake
+	camera.global_position += Vector3(
+		sin(_shake_t * 97.0) * k,
+		sin(_shake_t * 71.0 + 1.7) * k * 0.7,
+		sin(_shake_t * 59.0 + 3.1) * k)
+	# A touch of punch-in. The eye reads a field-of-view snap as force even when
+	# it cannot see the camera move.
+	camera.fov = 58.0 - k * 26.0
 
 
 func _look_from(eye: Vector3, at: Vector3) -> Transform3D:
@@ -750,9 +822,33 @@ func _frame_flight() -> Transform3D:
 	var vel := ball.linear_velocity
 	vel.y = 0.0
 	var back := -vel.normalized() if vel.length() > 0.5 else Vector3.BACK
+
+	# A defender that is about to act has to be on screen while it does. Being
+	# stopped by something you never saw is the "feels random" failure §9 rates
+	# High, and no amount of tell fixes it if the tell happens off-camera.
+	var threat := _acting_defender()
+	if threat != null:
+		var mid := (ball.global_position + threat.global_position) * 0.5
+		var spread := ball.global_position.distance_to(threat.global_position)
+		# Pull back and up in proportion to how far apart they are, so both stay
+		# inside a 58-degree field however the shot developed.
+		return _look_from(
+			mid + back * (10.0 + spread * 0.62) + Vector3.UP * (5.0 + spread * 0.26),
+			mid + Vector3.UP * 1.2)
+
 	return _look_from(
-		ball.global_position + back * 9.0 + Vector3.UP * 4.4,
+		ball.global_position + back * 10.5 + Vector3.UP * 4.8,
 		ball.global_position + Vector3.UP * 0.6)
+
+
+## The defender currently telling or acting, if any. Only one at a time matters
+## for framing: two at once is an M5 problem and this hole has one.
+func _acting_defender() -> Node3D:
+	for defender in _defenders:
+		var brain: DefenderBrain = defender.brain
+		if brain.state == DefenderBrain.State.TELL or brain.state == DefenderBrain.State.ACT:
+			return defender
+	return null
 
 
 func _frame_holed() -> Transform3D:
@@ -764,3 +860,4 @@ func _frame_attract() -> void:
 	var drift := sin(_orbit) * 5.0
 	camera.position = Vector3(drift, 5.2, 11.0)
 	camera.look_at(Vector3(3.0 + drift * 0.25, 1.4, -36.0))
+	_cam_smooth = camera.global_transform

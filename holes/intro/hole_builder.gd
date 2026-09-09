@@ -202,8 +202,12 @@ static func slab(parent: Node3D, size: Vector3, color: Color, at: Vector3) -> No
 	return root
 
 
-## The deck: an unlit ground plane and a wide faint grid, so the world reads as
-## a volume rather than as objects floating in nothing.
+## The deck: one unlit, unmarked ground plane.
+##
+## Deliberately not gridded. A grid out here competed with the corridor's own
+## grid and with the boundary, and three overlapping line systems make it harder
+## to tell which lines mean something -- which is the whole job of the palette.
+## Grids are for surfaces that are in play. The floor beyond them is just floor.
 static func deck(parent: Node3D, size: Vector2, at: Vector3) -> Node3D:
 	var root := Node3D.new()
 	root.position = at
@@ -211,7 +215,6 @@ static func deck(parent: Node3D, size: Vector2, at: Vector3) -> Node3D:
 	var plane := BoxMesh.new()
 	plane.size = Vector3(size.x, 1.0, size.y)
 	_mesh(root, plane, flat(DECK), Vector3(0.0, -0.5, 0.0))
-	grid(root, size, 8.0, GRID_FAINT, Vector3(0.0, 0.01, 0.0), 0.9)
 	return root
 
 

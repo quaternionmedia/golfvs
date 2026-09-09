@@ -11,14 +11,17 @@ extends GdUnitTestSuite
 
 const DT := 0.02
 
-## The intro hole's real bounds: x from -19 to 29, z from -77 to 11.
-const CENTRE := Vector3(5.0, 0.0, -33.0)
-const EXTENT := Vector2(24.0, 44.0)
+## Read off the hole rather than copied from it. Duplicated geometry is how the
+## bunker came to be inside the green: two places decided the same thing and
+## only one of them was updated.
+const IntroHole := preload("res://holes/intro/intro_hole.gd")
+const CENTRE := IntroHole.BOUNDS_CENTRE
+const EXTENT := IntroHole.BOUNDS_EXTENT
 
 
 func _archer(tier := DifficultyTier.unerring()) -> ArcherBrain:
 	var brain := ArcherBrain.new()
-	brain.configure(DefenderProfile.archer(Vector3(15.5, 0.0, -49.0), CENTRE, EXTENT),
+	brain.configure(DefenderProfile.archer(IntroHole.ARCHER_STAND, CENTRE, EXTENT),
 		tier, "archery_0")
 	return brain
 
@@ -61,7 +64,7 @@ func test_it_does_nothing_across_a_whole_spread_of_playable_shots() -> void:
 # ------------------------------------------------------ it catches the wild ---
 
 func test_a_ball_leaving_the_course_is_shot() -> void:
-	# Struck hard across the corridor, well past the left boundary at x = -19.
+	# Struck hard across the corridor, well past the left boundary.
 	var brain := _archer()
 	brain.read_shot(_arc(Vector3(-1.0, 0.0, -0.15)), DT, 1)
 	assert_bool(brain.is_committed()).is_true()
@@ -127,8 +130,8 @@ func test_a_bounds_guard_has_no_blind_spot() -> void:
 	# stands in the middle of. A boundary has no middle, so applying it would
 	# make the archer arbitrarily bad at arbitrary places along the edge.
 	var brain := _archer()
-	var near := brain.profile.accuracy_at(Vector3(-15.0, 5.0, -33.0), brain.tier)
-	var far := brain.profile.accuracy_at(Vector3(25.0, 5.0, -70.0), brain.tier)
+	var near := brain.profile.accuracy_at(Vector3(CENTRE.x - EXTENT.x + 4.0, 5.0, CENTRE.z), brain.tier)
+	var far := brain.profile.accuracy_at(Vector3(CENTRE.x + EXTENT.x - 4.0, 5.0, CENTRE.z + EXTENT.y - 6.0), brain.tier)
 	assert_float(near).is_equal(far)
 	assert_float(near).is_greater(0.0)
 
@@ -137,7 +140,7 @@ func test_without_bounds_it_falls_back_to_the_apex_trigger() -> void:
 	# An adversarial archer near the green is the same class with a zone. It
 	# must not silently never act just because it is not guarding a boundary.
 	var brain := ArcherBrain.new()
-	var profile := DefenderProfile.skeet(Vector3(6.0, 0.0, -21.0), Vector3(0.0, 4.4, -21.0))
+	var profile := DefenderProfile.skeet(Vector3(6.0, 0.0, -24.0), Vector3(0.0, 5.4, -24.0))
 	brain.configure(profile, DifficultyTier.unerring(), "archery_0")
 	brain.read_shot(_arc(Vector3(0.0, 0.0, -1.0)), DT, 1)
 	assert_bool(brain.is_committed()).is_true()
@@ -165,7 +168,7 @@ func test_it_intercepts_a_ball_the_prediction_never_saw() -> void:
 	brain.read_shot(_arc(Vector3(0.0, 0.0, -1.0)), DT, 1)
 	assert_bool(brain.is_committed()).is_false()
 
-	var last_in_play := Vector3(-18.9, 0.18, -20.0)
+	var last_in_play := Vector3(CENTRE.x - EXTENT.x + 0.1, 0.18, -20.0)
 	assert_bool(brain.intercept(last_in_play)).is_true()
 	assert_vector(brain.act_point()).is_equal(last_in_play)
 	assert_bool(brain.will_connect()).is_true()
@@ -175,7 +178,7 @@ func test_it_intercepts_a_ball_the_prediction_never_saw() -> void:
 func test_an_interception_pins_the_ball_somewhere_playable() -> void:
 	var brain := _archer()
 	brain.read_shot(_arc(Vector3(0.0, 0.0, -1.0)), DT, 1)
-	brain.intercept(Vector3(-18.9, 0.18, -20.0))
+	brain.intercept(Vector3(CENTRE.x - EXTENT.x + 0.1, 0.18, -20.0))
 	assert_bool(brain.profile.in_bounds(brain.act_point())).is_true()
 
 
@@ -185,8 +188,8 @@ func test_it_only_intercepts_once_per_stroke() -> void:
 	# nothing.
 	var brain := _archer()
 	brain.read_shot(_arc(Vector3(0.0, 0.0, -1.0)), DT, 1)
-	assert_bool(brain.intercept(Vector3(-18.9, 0.18, -20.0))).is_true()
-	assert_bool(brain.intercept(Vector3(-18.5, 0.18, -21.0))).is_false()
+	assert_bool(brain.intercept(Vector3(CENTRE.x - EXTENT.x + 0.1, 0.18, -20.0))).is_true()
+	assert_bool(brain.intercept(Vector3(CENTRE.x - EXTENT.x + 0.5, 0.18, -21.0))).is_false()
 
 
 func test_an_interception_is_reproducible_from_the_stroke_seed() -> void:
@@ -197,7 +200,7 @@ func test_an_interception_is_reproducible_from_the_stroke_seed() -> void:
 	seed(99)
 	var brain := _archer()
 	brain.read_shot(_arc(Vector3(0.0, 0.0, -1.0)), DT, 8123481)
-	brain.intercept(Vector3(-18.9, 0.18, -20.0))
+	brain.intercept(Vector3(CENTRE.x - EXTENT.x + 0.1, 0.18, -20.0))
 	assert_int(randi()).is_equal(before)
 
 
@@ -207,7 +210,7 @@ func test_watching_holds_the_draw_without_committing() -> void:
 	# fired, and if the ball stays in play it never does.
 	var brain := _archer()
 	brain.read_shot(_arc(Vector3(0.0, 0.0, -1.0)), DT, 1)
-	brain.watch(Vector3(-17.0, 0.18, -20.0))
+	brain.watch(Vector3(CENTRE.x - EXTENT.x + 2.0, 0.18, -20.0))
 	assert_bool(brain.alerted).is_true()
 	brain.advance(DT)
 	assert_that(brain.state).is_equal(DefenderBrain.State.TELL)

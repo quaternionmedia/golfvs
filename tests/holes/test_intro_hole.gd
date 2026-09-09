@@ -51,10 +51,11 @@ func test_the_lie_detector_agrees_with_the_geometry() -> void:
 	# cannot drift. This is what checks that claim.
 	var hole := _hole()
 	assert_str(hole._lie_at(hole.CUP_POS)).is_equal("green")
-	assert_str(hole._lie_at(Vector3(0.0, 0.0, -24.0))).is_equal("fairway")
-	assert_str(hole._lie_at(Vector3(1.5, 0.0, -54.0))).is_equal("sand")
-	assert_str(hole._lie_at(Vector3(-12.0, 0.0, -30.0))).is_equal("rough")
-	assert_str(hole._lie_at(Vector3(-40.0, 0.0, -30.0))).is_equal("ob")
+	assert_str(hole._lie_at(hole.LANDING)).is_equal("fairway")
+	assert_str(hole._lie_at(hole.SAND_POS)).is_equal("sand")
+	assert_str(hole._lie_at(Vector3(-14.0, 0.0, -30.0))).is_equal("rough")
+	assert_str(hole._lie_at(
+		Vector3(hole.BOUNDS_CENTRE.x - hole.BOUNDS_EXTENT.x - 4.0, 0.0, -30.0))).is_equal("ob")
 
 
 func test_a_ball_in_the_bunker_is_not_on_the_green() -> void:
