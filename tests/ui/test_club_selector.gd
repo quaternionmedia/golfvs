@@ -96,14 +96,23 @@ func test_the_bars_are_ordered_by_reach() -> void:
 		assert_float(selector._reach[i]).is_less(selector._reach[i - 1])
 
 
-func test_it_is_visible_from_the_first_frame_a_player_could_use_it() -> void:
+func test_it_appears_without_waiting_for_a_stroke() -> void:
 	# It used to fade in only once a stroke had been taken, which was circular:
 	# the stroke could not be taken because the invisible selector was eating the
 	# press that would have started it.
+	#
+	# The menu is stepped by hand with a known delta rather than by waiting a
+	# number of frames. A test that counts frames measures the machine it is
+	# running on -- this one failed only on a cold build, which is the worst way
+	# to find that out.
 	var menu := _menu()
-	for i in 30:
-		await await_idle_frame()
+	await await_idle_frame()
+	assert_bool(menu._player_acted).is_false()
+	for i in 20:
+		menu._process(0.1)
 	assert_float(menu._clubs.shown).is_greater(0.9)
+	# And the card stays down: it counts pins made, and none have been.
+	assert_float(menu._scorecard.shown).is_equal(0.0)
 
 
 func test_the_range_and_the_selector_agree_on_what_is_in_hand() -> void:
