@@ -106,3 +106,54 @@ func test_the_bounds_contain_the_hole_it_is_asked_to_play() -> void:
 		assert_bool(profile.in_bounds(spot)) \
 			.override_failure_message("the hole's own %v is out of bounds" % spot) \
 			.is_true()
+
+
+# ----------------------------------------------------- the defensive action --
+
+func test_the_arrow_carries_enough_momentum_to_arrest_a_golf_ball() -> void:
+	# The tuning invariant, and the one most likely to be broken by accident.
+	# The archer works because an arrow and a struck golf ball carry momentum of
+	# the same order -- so the hole's launch speed and the arrow cannot be tuned
+	# independently. Raise MAX_SPEED without raising the arrow and the archer
+	# quietly stops arresting anything; lower it and every save fires the ball
+	# into the deck like a nail.
+	#
+	# This project has already shipped one bug of exactly this shape, between
+	# the hole's length and MAX_SPEED, so the relationship gets an assertion
+	# rather than a comment.
+	var hole := _hole()
+	var delta_v: float = hole.ARROW_MASS * hole.ARROW_SPEED / hole.BALL_MASS
+	assert_float(delta_v).is_between(BallFlight.MAX_SPEED * 0.8, BallFlight.MAX_SPEED * 1.6)
+
+
+func test_a_struck_ball_is_hit_rather_than_switched_off() -> void:
+	# The pin used to assign the ball a position and a velocity, so it stopped
+	# dead in mid-air on the frame the archer acted. Momentum is added now, and
+	# what the ball does next is the solver answering a collision.
+	var hole := _hole()
+	hole.ball.freeze = false
+	hole.ball.linear_velocity = Vector3(0.0, 4.0, -20.0)
+	var before: Vector3 = hole.ball.global_position
+
+	var defender: Node3D = hole._defenders[0]
+	defender.brain.intercept(hole.ball.global_position)
+	hole._on_defender_acted(defender)
+
+	# Still moving, and now spinning.
+	assert_float(hole.ball.linear_velocity.length()).is_greater(5.0)
+	assert_float(hole.ball.angular_velocity.length()).is_greater(1.0)
+	# Driven into the deck: that is what pins it, and what stops the transfer
+	# from simply deflecting the ball onward.
+	assert_float(hole.ball.linear_velocity.y).is_less(0.0)
+	# And not teleported. Where the ball was hit is where it was.
+	assert_vector(hole.ball.global_position).is_equal(before)
+
+
+func test_the_shaft_keeps_dragging_until_the_next_stroke() -> void:
+	# Without this the usual roll damp wins on the next physics tick and a
+	# struck ball runs on as though nothing had hit it.
+	var hole := _hole()
+	var defender: Node3D = hole._defenders[0]
+	defender.brain.intercept(hole.ball.global_position)
+	hole._on_defender_acted(defender)
+	assert_bool(hole._pinned).is_true()

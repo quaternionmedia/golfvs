@@ -78,17 +78,39 @@ const GUARD_MARGIN := 5.0
 const BOUNDS_CENTRE := Vector3(6.0, 0.0, -40.0)
 const BOUNDS_EXTENT := Vector2(28.0, 52.0)
 
-## How hard a pinned ball is driven into the deck.
+## The arrow, as a physical object: 24 g at 58 m/s.
 ##
-## §3 says an arrow "stops the ball dead", and stopping it dead in mid-air is
-## exactly what it used to do -- which looked like the game switching the ball
-## off. Killing the horizontal motion and slamming it down instead honours the
-## same rule (it goes no further) while giving the eye something to follow: the
-## ball is hit, it drops, it thumps. The deck has no bounce, so where it lands
-## is where it stays.
-const PIN_SLAM := 11.0
+## The ball is no longer teleported and stopped. It is *hit*: the arrow's
+## momentum is added to whatever the ball already had, and what happens next is
+## the solver's answer rather than an assignment. Against a 45 g ball that is a
+## velocity change of about 31 m/s -- the same order as the ball's own speed,
+## which is why an arrow can plausibly arrest a golf ball at all, and why these
+## two numbers are the ones worth tuning.
+const ARROW_MASS := 0.024
+const ARROW_SPEED := 58.0
+
+## How the arrow meets the ball: mostly downward, partly against the flight.
+##
+## An interceptor leads its target -- it shoots where the ball is going, not
+## where it is -- so the shaft crosses the ball's path rather than chasing it
+## from behind, and its momentum opposes the flight. The downward share is what
+## pins: it drives the ball into the deck, which is the difference between being
+## shot down and being nudged off line.
+const ARROW_AGAINST_FLIGHT := 0.66
+const ARROW_DOWNWARD := 0.75
+
+## Drag on a ball with an arrow through it, until the next stroke. The shaft is
+## what stops it, rather than an assignment to zero -- so the ball skids,
+## tumbles and settles instead of halting on the spot.
+const PINNED_DAMP := 4.2
+
+## How close to the edge the archer lets the ball get before loosing. Struck a
+## little early rather than exactly on the line: a hit that transfers real
+## momentum needs somewhere for the ball to go afterwards, and one struck
+## precisely on the boundary has nowhere.
+const STRIKE_MARGIN := 2.0
 ## Camera kick on a connection, in metres. Decays over about a third of a second.
-const SHAKE_ON_HIT := 0.42
+const SHAKE_ON_HIT := 0.5
 
 ## Sampling step for the arc the defenders read. Finer than the 0.075 s the
 ## ribbon uses, because it decides *when* a shot is fired at.
@@ -293,6 +315,9 @@ var _stroke_seed := 0
 ## The last place the ball was still on the course, so an interception can pin
 ## it somewhere playable rather than wherever it had got to when it was noticed.
 var _last_in_bounds := Vector3.ZERO
+## True from the moment an arrow lands until the next stroke. Keeps the drag on
+## through the settle, which _physics_process would otherwise clear every tick.
+var _pinned := false
 ## View-only camera kick. Never touches the simulation: a record has to replay
 ## the same whether or not the camera was shaking when it was made.
 var _shake := 0.0
@@ -436,24 +461,31 @@ func _on_defender_acted(defender: Node3D) -> void:
 	if not brain.will_connect():
 		return
 	_curve_accel = Vector3.ZERO
+	# Where the ball actually is, not where the arc predicted it would be. Using
+	# the real position keeps the burst, the arrow and the ball in one place even
+	# when the prediction has drifted.
+	var hit_at := ball.global_position
+
 	match brain.profile.action:
 		DefenderProfile.Action.PIN:
-			# "Stops dead where the arrow reaches it" (§3). The ball is moved to
-			# the point the archer committed to, so what the player saw the
-			# thread pointing at is where the ball ends up -- then driven into
-			# the deck rather than switched off in mid-air.
-			ball.global_position = brain.act_point()
-			ball.linear_velocity = Vector3.DOWN * PIN_SLAM
-			# Spin about the arrow's axis. Costs nothing, and a ball that stops
-			# without spinning reads as a prop rather than as something hit.
-			var from_bow := (brain.act_point() - defender.global_position).normalized()
-			ball.angular_velocity = from_bow.cross(Vector3.UP) * 26.0
+			var flight := ball.linear_velocity
+			var against := -flight.normalized() if flight.length() > 0.5 else Vector3.ZERO
+			var incoming := (against * ARROW_AGAINST_FLIGHT
+				+ Vector3.DOWN * ARROW_DOWNWARD).normalized()
+			# Momentum, added rather than assigned. What the ball does next is
+			# the solver answering a collision, which is the whole difference
+			# between a struck ball and a switched-off one.
+			ball.linear_velocity += incoming * (ARROW_MASS * ARROW_SPEED / ball.mass)
+			# Tumble about the shaft. A ball that changes direction without
+			# starting to spin reads as a prop being moved.
+			ball.angular_velocity += incoming.cross(Vector3.UP) * 34.0
+			_pinned = true
 		_:
 			# KNOCK_DOWN: horizontal motion stops and gravity does the rest.
 			ball.linear_velocity = Vector3(0.0, minf(ball.linear_velocity.y, 0.0), 0.0)
 			ball.angular_velocity = Vector3.ZERO
 
-	Impact.at_point(self, brain.act_point(), _defender_colour(brain))
+	Impact.at_point(self, hit_at, _defender_colour(brain))
 	_shake = maxf(_shake, SHAKE_ON_HIT)
 
 
@@ -480,25 +512,30 @@ func _guard_the_boundary() -> void:
 		if not brain.profile.guards_bounds:
 			continue
 		var at := ball.global_position
+		var margin := minf(
+			brain.profile.bounds_extent.x - absf(at.x - brain.profile.bounds_centre.x),
+			brain.profile.bounds_extent.y - absf(at.z - brain.profile.bounds_centre.z))
 		if brain.profile.in_bounds(at):
 			_last_in_bounds = at
-			# Drawing early is what makes the save readable instead of the ball
-			# simply stopping. The margin is measured from whichever edge is
-			# nearest.
-			var margin := minf(
-				brain.profile.bounds_extent.x - absf(at.x - brain.profile.bounds_centre.x),
-				brain.profile.bounds_extent.y - absf(at.z - brain.profile.bounds_centre.z))
-			if not brain.is_committed():
-				if margin <= GUARD_MARGIN:
-					defender.watch(at)
-				else:
-					# Back in safe ground. Without this the draw stays up for the
-					# rest of the stroke once a ball has been near an edge, which
-					# reads as a threat that never resolves.
-					brain.alerted = false
+
+		# Struck a little inside the line rather than on it. The arrow transfers
+		# real momentum now, so the ball needs somewhere to go after being hit;
+		# one struck exactly on the boundary has none.
+		if margin <= STRIKE_MARGIN:
+			if defender.intercept(at):
+				_on_defender_acted(defender)
 			continue
-		if defender.intercept(_last_in_bounds):
-			_on_defender_acted(defender)
+
+		# Drawing early is what makes the save readable instead of the ball
+		# simply stopping. The margin is measured from whichever edge is nearest.
+		if not brain.is_committed():
+			if margin <= GUARD_MARGIN:
+				defender.watch(at)
+			else:
+				# Back in safe ground. Without this the draw stays up for the
+				# rest of the stroke once a ball has been near an edge, which
+				# reads as a threat that never resolves.
+				brain.alerted = false
 
 
 # ---------------------------------------------------------------- records ----
@@ -647,6 +684,7 @@ func _on_fired(heading: Vector3, power: float, curve: float) -> void:
 	_last_in_bounds = origin
 
 	ball.freeze = false
+	_pinned = false
 	ball.linear_damp = ROLL_DAMP if putting else 0.0
 	ball.angular_damp = 1.4
 	ball.linear_velocity = velocity
@@ -670,7 +708,11 @@ func _physics_process(delta: float) -> void:
 	_guard_the_boundary()
 
 	var airborne := ball.global_position.y > BALL_RADIUS * 1.8
-	if airborne:
+	if _pinned:
+		# The shaft is what stops it. Letting the usual roll damp win here would
+		# have a struck ball run on as though nothing had hit it.
+		ball.linear_damp = PINNED_DAMP
+	elif airborne:
 		# Sidespin, as a constant lateral push while the ball is in the air --
 		# exactly what the ribbon integrated, so the shot goes where it said.
 		ball.apply_central_force(_curve_accel * ball.mass)
