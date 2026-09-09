@@ -1,0 +1,40 @@
+# Ratification is a human action (ADR-006). This file names which humans, per
+# path. Tool involvement is never a byline.
+#
+# This file has no effect until "Require review from Code Owners" is enabled on
+# a branch protection ruleset, and GitHub reads CODEOWNERS from the PR's BASE
+# branch — so it does nothing until it is on main.
+#
+# Last match wins, and ownership does not accumulate: a later, narrower rule
+# REPLACES the owners of an earlier one rather than adding to them.
+#
+# Owners are carried from qm's own CODEOWNERS. Confirm the set is right for
+# golfVs at spawn: this repository did not exist when that list was written.
+
+*                       @subcontrabass @mrharpo @CameronRWest @MJWKagstrom
+
+# The two surfaces ADR-006 names explicitly. docs/ is the plan of record and
+# the ADR log; core/ is the deterministic simulation everything else replays
+# against (DESIGN.md §6.1).
+/docs/                  @subcontrabass @mrharpo
+/core/                  @subcontrabass @mrharpo
+
+# Determinism is load-bearing for records, forks and every async mode
+# (DESIGN.md §11). These three carry the same weight as core/.
+/records/               @subcontrabass @mrharpo
+/async/                 @subcontrabass @mrharpo
+/replay/                @subcontrabass @mrharpo
+
+# Enforcement: a PR must not weaken the checks that gate it.
+/.github/workflows/     @subcontrabass @mrharpo
+/CODEOWNERS             @subcontrabass @mrharpo
+/tools/                 @subcontrabass @mrharpo
+
+# Licensing: the outbound grant and the texts it refers to.
+/LICENSE                @subcontrabass @mrharpo
+/NOTICE                 @subcontrabass @mrharpo
+/art/LICENSE            @subcontrabass @mrharpo
+/audio/LICENSE          @subcontrabass @mrharpo
+
+# The engine pin. Changing it is an ADR (ADR-008), not a bump.
+/.godot-version         @subcontrabass @mrharpo

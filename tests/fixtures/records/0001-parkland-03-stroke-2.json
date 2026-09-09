@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "game": "0.0.1-m0+godot4.7.2",
+  "hole": { "id": "parkland/03", "layout_hash": "0000000000000000" },
+  "seed": 8123481,
+  "before": {
+    "ball": { "pos": [12.5, 0.0, -38.25], "lie": "fairway" },
+    "stroke_no": 2,
+    "defenders": [
+      { "id": "skeet_0", "pos": [4.0, 0.0, -60.0], "state": "idle", "cooldown": 0.0 }
+    ]
+  },
+  "intent": { "club": "iron", "power": 0.72, "curve": -0.15, "dir": [0.0, 0.0, -1.0] },
+  "defense": null,
+  "after": {
+    "ball": { "pos": [1.75, 0.0, -96.5], "lie": "green" },
+    "events": ["skeet_fired", "miss"],
+    "hash": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "ext": {
+    "fixture": {
+      "status": "shape-only",
+      "note": "Hand-authored at M0 to pin the shape of schema v1. The before/after values are plausible, not simulated, and the all-zero hash means 'no sim has computed this yet'. M1 replaces this file with a recorded stroke and turns on the replay test (DESIGN.md 11.7)."
+    }
+  }
+}

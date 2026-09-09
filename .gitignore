@@ -1,0 +1,15 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# Export artifacts and the presets file, which carries local keystore paths.
+export_presets.cfg
+/build/
+/exports/
+
+# gdUnit4 writes run reports here.
+/reports/
+
+# OS and editor cruft
+.DS_Store
+Thumbs.db

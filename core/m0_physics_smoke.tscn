@@ -1,0 +1,118 @@
+[gd_scene load_steps=15 format=3]
+
+[ext_resource type="Script" path="res://core/m0_physics_smoke.gd" id="1_smoke"]
+
+[sub_resource type="Environment" id="Environment_smoke"]
+background_mode = 1
+background_color = Color(0.52, 0.68, 0.85, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.62, 0.68, 0.78, 1)
+ambient_light_energy = 0.6
+tonemap_mode = 2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ground"]
+albedo_color = Color(0.35, 0.56, 0.29, 1)
+roughness = 0.95
+
+[sub_resource type="BoxMesh" id="BoxMesh_ground"]
+material = SubResource("StandardMaterial3D_ground")
+size = Vector3(40, 1, 40)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ground"]
+size = Vector3(40, 1, 40)
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_grass"]
+friction = 0.8
+bounce = 0.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_golfer"]
+albedo_color = Color(0.24, 0.35, 0.62, 1)
+roughness = 0.8
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_golfer"]
+material = SubResource("StandardMaterial3D_golfer")
+radius = 0.3
+height = 1.7
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wall"]
+albedo_color = Color(0.75, 0.27, 0.24, 1)
+roughness = 0.7
+
+[sub_resource type="BoxMesh" id="BoxMesh_wall"]
+material = SubResource("StandardMaterial3D_wall")
+size = Vector3(6, 3, 0.02)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_wall"]
+size = Vector3(6, 3, 0.02)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ball"]
+albedo_color = Color(0.96, 0.96, 0.94, 1)
+roughness = 0.45
+
+[sub_resource type="SphereMesh" id="SphereMesh_ball"]
+material = SubResource("StandardMaterial3D_ball")
+radius = 0.021335
+height = 0.04267
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_ball"]
+radius = 0.021335
+
+[node name="M0PhysicsSmoke" type="Node3D"]
+script = ExtResource("1_smoke")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_smoke")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.86, -0.29, 0.42, 0, 0.82, 0.57, -0.51, -0.49, 0.71, 0, 12, 0)
+shadow_enabled = true
+
+[node name="Camera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.5, 3.2, 9)
+
+[node name="Ground" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+physics_material_override = SubResource("PhysicsMaterial_grass")
+
+[node name="Mesh" type="MeshInstance3D" parent="Ground"]
+mesh = SubResource("BoxMesh_ground")
+
+[node name="Collision" type="CollisionShape3D" parent="Ground"]
+shape = SubResource("BoxShape3D_ground")
+
+[node name="Golfer" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 0.85, 4.4)
+
+[node name="Mesh" type="MeshInstance3D" parent="Golfer"]
+mesh = SubResource("CapsuleMesh_golfer")
+
+[node name="ThinWall" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -6)
+
+[node name="Mesh" type="MeshInstance3D" parent="ThinWall"]
+mesh = SubResource("BoxMesh_wall")
+
+[node name="Collision" type="CollisionShape3D" parent="ThinWall"]
+shape = SubResource("BoxShape3D_wall")
+
+[node name="Ball" type="RigidBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 4)
+mass = 0.04593
+continuous_cd = true
+
+[node name="Mesh" type="MeshInstance3D" parent="Ball"]
+mesh = SubResource("SphereMesh_ball")
+
+[node name="Collision" type="CollisionShape3D" parent="Ball"]
+shape = SubResource("SphereShape3D_ball")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Readout" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 12.0
+offset_right = 460.0
+offset_bottom = 110.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6

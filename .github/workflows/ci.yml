@@ -1,0 +1,112 @@
+name: CI
+
+# The two gates ADR-006 asks tooling to enforce:
+#
+#   docs   -- DESIGN.md and DECISIONS.md move together. Scope does not change
+#             without a logged rationale.
+#   tests  -- the gdUnit4 suite runs headless on the pinned engine (ADR-008).
+#
+# Both are required checks on main. Branch protection also requires one review;
+# CODEOWNERS routes docs/, core/, records/, async/ and replay/ to a ratifier.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    name: DESIGN and DECISIONS agree
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: the coupling check diffs against the base branch.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Resolve base ref
+        id: base
+        run: |
+          if [ "${{ github.event_name }}" = 'pull_request' ]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            echo "ref=origin/${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+          else
+            # On a push there is no "proposed change" to couple; the structural
+            # checks below still run, the coupling one is skipped.
+            echo "ref=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check documents
+        run: |
+          if [ -n '${{ steps.base.outputs.ref }}' ]; then
+            python tools/check_docs_consistency.py --base-ref '${{ steps.base.outputs.ref }}'
+          else
+            python tools/check_docs_consistency.py
+          fi
+
+  tests:
+    name: gdUnit4 headless
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Read the engine pin
+        id: pin
+        run: echo "version=$(cat .godot-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Godot ${{ steps.pin.outputs.version }}
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ steps.pin.outputs.version }}-linux-x86_64
+
+      - name: Install Godot ${{ steps.pin.outputs.version }}
+        run: |
+          set -euo pipefail
+          version='${{ steps.pin.outputs.version }}'
+          binary="$HOME/godot/Godot_v${version}_linux.x86_64"
+          if [ ! -x "$binary" ]; then
+            mkdir -p "$HOME/godot"
+            url="https://github.com/godotengine/godot/releases/download/${version}/Godot_v${version}_linux.x86_64.zip"
+            curl -fsSL -o /tmp/godot.zip "$url"
+            unzip -q /tmp/godot.zip -d "$HOME/godot"
+            chmod +x "$binary"
+          fi
+          echo "GODOT_BIN=$binary" >> "$GITHUB_ENV"
+
+      - name: Report the engine version
+        # The suite asserts this matches the pin; printing it makes a failure
+        # readable without opening the report.
+        run: '"$GODOT_BIN" --version'
+
+      - name: Import project
+        run: '"$GODOT_BIN" --headless --path . --import'
+
+      - name: Run tests
+        # --remote-debug on an unbound port stops Godot dropping into its
+        # interactive CLI debugger on a parse error, which would hang the job.
+        run: |
+          "$GODOT_BIN" --headless --path . -s -d --remote-debug tcp://127.0.0.1:0 \
+            res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
+            --add res://tests --continue --ignoreHeadlessMode
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gdunit4-report
+          path: reports/
+          if-no-files-found: ignore
