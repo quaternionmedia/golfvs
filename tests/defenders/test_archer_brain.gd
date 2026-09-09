@@ -14,14 +14,14 @@ const DT := 0.02
 ## Read off the hole rather than copied from it. Duplicated geometry is how the
 ## bunker came to be inside the green: two places decided the same thing and
 ## only one of them was updated.
-const IntroHole := preload("res://holes/intro/intro_hole.gd")
-const CENTRE := IntroHole.BOUNDS_CENTRE
-const EXTENT := IntroHole.BOUNDS_EXTENT
+const TheRange := preload("res://holes/range/practice_range.gd")
+const CENTRE := TheRange.BOUNDS_CENTRE
+const EXTENT := TheRange.BOUNDS_EXTENT
 
 
 func _archer(tier := DifficultyTier.unerring()) -> ArcherBrain:
 	var brain := ArcherBrain.new()
-	brain.configure(DefenderProfile.archer(IntroHole.ARCHER_STAND, CENTRE, EXTENT),
+	brain.configure(DefenderProfile.archer(TheRange.ARCHER_STAND, CENTRE, EXTENT),
 		tier, "archery_0")
 	return brain
 

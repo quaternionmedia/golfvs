@@ -71,7 +71,7 @@ Because the sim is deterministic (§6.1), a stroke is fully described by its inp
 
 **Decisions**
 - `[PROPOSED]` Pull-curve-release as the sole stroke input.
-- `[PROPOSED]` Three clubs + auto-putter at 1.0.
+- `[RATIFIED ADR-017]` Three clubs + auto-putter, as `ClubProfile` resources.
 - `[PROPOSED]` Blocked = drop in place; caught = +1 and replay.
 - `[PROPOSED]` Scorecard is the only result in 1.0; everything in the game is available from first launch.
 - `[RATIFIED ADR-001]` Free orbit camera. `[RATIFIED ADR-007]` Touch-first.
@@ -95,20 +95,27 @@ player has to perform it, a trajectory stub that is cyan when the line is clear 
 and a scorecard of filled and empty rings. Nothing is typed, so nothing needs translating and nothing
 depends on a vendor's emoji set rendering the same on two devices.
 
-The intro hole, "The Handshake", is a par 4 that teaches **power**, then **curve**, then **the putt** — one
-idea per *lesson*, chosen from where the ball actually lies rather than from a step counter, so the tutorial
-cannot fall out of step and cannot be failed. Par is one stroke longer than the lesson count, so the median
-first-timer's two-putt still reads *par* on the first scorecard they ever see.
+The first run is a **private practice range** (`ADR-017`): a mat, and three pins at three distances, one for
+each club. The club changes with the pin and there is no club selector — the player learns what a driver is
+by watching what the same drag does when the target moves, which is how anybody has ever learned it and the
+only wordless way to teach it. Unlimited balls, and nothing scored against par: you are done with a pin when
+you have put a ball on it, and the strokes it took are counted but never held against you.
 
-The hole's defender is an **archer who shoots only balls that are leaving the course** (`ADR-015`). A
-beginner's characteristic disaster is spraying it off the map; the archer pins those where they were hit, so
-the tutorial hole cannot lose a ball. It is the same principle as the lesson picker, applied to the golf
-instead of to the teaching.
+This replaced "The Handshake", a par-4 dogleg that taught power, shaping and the putt through a lie-driven
+lesson machine. That was good work for a hole and the wrong first thing to show: it taught three lessons with
+one club, because until `ClubProfile` existed there was only one club. A range also puts the first screen on
+§8's M1 gate — *is it fun to hit balls at nothing, on a phone?* — instead of on a question from a later
+milestone.
+
+The range's defender is an **archer who shoots only balls that are leaving it** (`ADR-015`). A beginner's
+characteristic disaster is spraying one off the map; the archer pins those where they were hit, so the range
+cannot lose a ball and has no failure state at all.
 
 **Decisions**
 - `[RATIFIED ADR-014]` Zero words in the first-run experience; ADR-004's reasoning extended from defenders to onboarding.
 - `[RATIFIED ADR-014]` No glyph vocabulary. Teaching is world → ribbon → ghost, three layers, all drawn.
-- `[RATIFIED ADR-015]` "The Handshake" as the intro hole: par 4, three lessons chosen from the lie, ending on a made putt, guarded by an archer that only stops balls going out of bounds.
+- `[RATIFIED ADR-017]` The first run is a private practice range: three pins, three clubs, unlimited balls, no par.
+- `[RATIFIED ADR-015]` Guarded by an archer that only stops balls leaving the range.
 
 ---
 
@@ -151,7 +158,7 @@ Each defender is a **Sport**: a cast, a **zone** it patrols, a **tell**, an **ac
 Three families: **solo**, **local**, **async** (turn-based over records, never live). Everything is available from first launch.
 
 ### Solo
-1. **Practice Range (M1)** — one hole, no defenders, unlimited balls. Exists to tune the stroke.
+1. **Practice Range (M1)** — three pins at three distances, one per club, unlimited balls. Exists to tune the stroke, and is also the first run (§2.6, ADR-017). The archer is its only defender, and it is a safety net rather than an opponent.
 2. **Scottish Rules (M2)** — the sandbox: any course, no defenders, plain golf. This is the control group for the game: every hole must be a good golf hole *before* it's a good golfVs hole, and Scottish Rules is how that's checked.
 3. **Course Play (M2)** — 9-hole course, defenders placed per hole by the designer.
 4. **Gauntlet (M5)** — fixed layouts; each replay adds a defender or raises an axis. Pick one of three modifiers between holes. Seeded, shareable.

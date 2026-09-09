@@ -61,8 +61,15 @@ const ROLL_ALLOWANCE := 0.24
 ## `skill` in 0..1. At 1.0 the best candidate is played exactly; below that the
 ## aim and power are nudged off it, so a weaker golfer misses in the ordinary
 ## ways rather than by picking a worse plan.
+## `club` is the club actually in the golfer's hands. Passing the wrong one -- or
+## none, and getting the default -- makes the search solve for a flight the shot
+## will not take, and the golfer comes up short of everything by exactly the
+## ratio between the two clubs. That is how this parameter came to exist.
 static func choose(from: Vector3, target: Vector3, ground_y: float,
-		blocked: Callable, putting: bool, skill: float, rng_seed: int) -> ShotIntent:
+		blocked: Callable, putting: bool, skill: float, rng_seed: int,
+		club: ClubProfile = null) -> ShotIntent:
+	var held := club if club != null else (
+		ClubProfile.putter() if putting else BallFlight.default_club())
 	var to_target := Vector3(target.x - from.x, 0.0, target.z - from.z)
 	if to_target.length() < 0.01:
 		to_target = Vector3.FORWARD
@@ -88,8 +95,8 @@ static func choose(from: Vector3, target: Vector3, ground_y: float,
 
 			for c in CURVE_STEPS:
 				var curve := 0.0 if putting else lerpf(-1.0, 1.0, float(c) / float(CURVE_STEPS - 1))
-				var velocity := BallFlight.launch_velocity(heading, power, putting)
-				var accel := BallFlight.curve_acceleration(heading, curve)
+				var velocity := BallFlight.launch_velocity(heading, power, putting, held)
+				var accel := BallFlight.curve_acceleration(heading, curve, held)
 				var arc := BallFlight.sample_arc(
 					from, velocity, accel, ground_y, SEARCH_SAMPLES, SEARCH_DT)
 				if arc.size() < 2:
@@ -127,18 +134,17 @@ static func choose(from: Vector3, target: Vector3, ground_y: float,
 	var power_error := rng.randfn(0.0, 0.09 * slop)
 
 	return ShotIntent.make(
-		ShotIntent.Club.PUTTER if putting else _club_for(best_power),
+		held.to_intent_club(),
 		clampf(best_power + power_error, 0.05, 1.0),
 		best_curve,
 		best_heading.rotated(Vector3.UP, deg_to_rad(aim_error)))
 
 
-## Until ClubProfile exists (M1), the club is a label on the power the single
-## flight model was already going to use. It goes in the record, so it wants to
-## be right rather than absent -- but nothing yet reads it back.
-static func _club_for(power: float) -> ShotIntent.Club:
-	if power >= 0.8:
-		return ShotIntent.Club.DRIVER
-	if power >= 0.45:
-		return ShotIntent.Club.IRON
-	return ShotIntent.Club.WEDGE
+## The club the golfer would reach for at a given distance, when nobody has
+## handed it one. Defense Range needs this -- an AI golfer playing a hole picks
+## its own club -- and it is the closest thing to a caddie the game has.
+static func club_for_distance(metres: float) -> ClubProfile:
+	for candidate in [ClubProfile.wedge(), ClubProfile.iron(), ClubProfile.driver()]:
+		if metres <= candidate.carry() * 0.98:
+			return candidate
+	return ClubProfile.driver()

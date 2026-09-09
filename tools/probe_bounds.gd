@@ -1,21 +1,21 @@
 extends Node
-## Diagnostic: what actually happens to a ball hit off the course?
+## Diagnostic: what actually happens to a ball hit off the range?
 ##
-## Plays a spread of tee shots through the real hole and the real physics, and
-## reports for each whether the archer committed, whether it fired, and where
-## the ball came to rest. Answers one question: is the safety net reachable by
-## the shots a player actually produces, or only by the one the demo scripts?
+## Plays a spread of shots from the mat through the real physics and reports,
+## for each, whether the archer committed, whether it fired, and where the ball
+## came to rest. Answers one question: is the safety net reachable by the shots
+## a player actually produces, or only by the one the demo scripts?
 
 const DEG := [-55.0, -45.0, -35.0, -27.0, -20.0, 0.0, 20.0, 27.0, 35.0, 45.0, 55.0]
 const POWERS := [0.45, 1.0]
-const MAX_TICKS := 700
+const MAX_TICKS := 900
 
-var _hole: Node3D
+var _range: Node3D
 
 
 func _ready() -> void:
-	_hole = preload("res://holes/intro/intro_hole.tscn").instantiate()
-	add_child(_hole)
+	_range = preload("res://holes/range/practice_range.tscn").instantiate()
+	add_child(_range)
 	await get_tree().process_frame
 	await _sweep()
 	get_tree().quit()
@@ -23,73 +23,64 @@ func _ready() -> void:
 
 func _sweep() -> void:
 	var profile := DefenderProfile.archer(
-		_hole.ARCHER_STAND, _hole.BOUNDS_CENTRE, _hole.BOUNDS_EXTENT)
+		_range.ARCHER_STAND, _range.BOUNDS_CENTRE, _range.BOUNDS_EXTENT)
 	print("bounds: x %.0f..%.0f   z %.0f..%.0f" % [
-		_hole.BOUNDS_CENTRE.x - _hole.BOUNDS_EXTENT.x,
-		_hole.BOUNDS_CENTRE.x + _hole.BOUNDS_EXTENT.x,
-		_hole.BOUNDS_CENTRE.z - _hole.BOUNDS_EXTENT.y,
-		_hole.BOUNDS_CENTRE.z + _hole.BOUNDS_EXTENT.y])
+		_range.BOUNDS_CENTRE.x - _range.BOUNDS_EXTENT.x,
+		_range.BOUNDS_CENTRE.x + _range.BOUNDS_EXTENT.x,
+		_range.BOUNDS_CENTRE.z - _range.BOUNDS_EXTENT.y,
+		_range.BOUNDS_CENTRE.z + _range.BOUNDS_EXTENT.y])
 	print("")
-	print("  aim   pwr | flies OB | archer | rests at            | lie     | verdict")
-	print("  ----------+----------+--------+---------------------+---------+--------")
+	print("  club   aim   pwr | archer | rests at            | lie     | verdict")
+	print("  -------------------+--------+---------------------+---------+--------")
 
 	var escaped := 0
 	var tested := 0
-	for power in POWERS:
-		for degrees in DEG:
-			tested += 1
-			var heading := Vector3(0.0, 0.0, -1.0).rotated(Vector3.UP, deg_to_rad(degrees))
+	# Every club, because they reach very different distances and the boundary
+	# is only interesting to the ones that can get near it.
+	for which in _range.PINS.size():
+		for power in POWERS:
+			for degrees in DEG:
+				tested += 1
+				_reset(which)
+				var heading := Vector3(0.0, 0.0, -1.0).rotated(Vector3.UP, deg_to_rad(degrees))
+				_range._on_gesture_began()
+				_range._on_fired(heading, power, 0.0)
 
-			# Would the *airborne* arc leave the course? This is all the archer
-			# can currently see: sample_arc stops at first ground contact.
-			var arc := BallFlight.sample_arc(
-				_hole.TEE_POS, BallFlight.launch_velocity(heading, power),
-				Vector3.ZERO, _hole.BALL_RADIUS, 900, _hole.DEFENDER_DT)
-			var flies_ob := false
-			for p in arc:
-				if not profile.in_bounds(p):
-					flies_ob = true
-					break
+				var fired := false
+				var ticks := 0
+				while _range.state == _range.State.FLIGHT and ticks < MAX_TICKS:
+					await get_tree().physics_frame
+					ticks += 1
+					for d in _range._defenders:
+						if d.brain.state == DefenderBrain.State.ACT:
+							fired = true
 
-			_reset()
-			_hole._on_gesture_began()
-			_hole._on_fired(heading, power, 0.0)
-			var fired := false
-			var ticks := 0
-			while _hole.state == _hole.State.FLIGHT and ticks < MAX_TICKS:
-				await get_tree().physics_frame
-				ticks += 1
-				for d in _hole._defenders:
-					if d.brain.state == DefenderBrain.State.ACT:
-						fired = true
-
-			var rest: Vector3 = _hole.ball.global_position
-			var lie: String = _hole._lie_at(rest)
-			var lost := lie == "ob"
-			if lost:
-				escaped += 1
-			print("  %4.0f  %.2f | %-8s | %-6s | %-19s | %-7s | %s" % [
-				degrees, power,
-				"yes" if flies_ob else "no",
-				"FIRED" if fired else "-",
-				"(%.1f, %.1f)" % [rest.x, rest.z],
-				lie,
-				"LOST — no hindrance" if lost else "in play"])
+				# From the record, not the ball: a settled stroke returns the
+				# ball to the mat before anything can look at it, which is right
+				# for a range and useless for measuring one.
+				var rest: Vector3 = _range._round[-1].after_pos if not _range._round.is_empty() 					else _range.ball.global_position
+				var lie: String = _range._lie_at(rest)
+				var lost := lie == "ob"
+				if lost:
+					escaped += 1
+				print("  %-6s %4.0f  %.2f | %-6s | %-19s | %-7s | %s" % [
+					_range.club().id, degrees, power,
+					"FIRED" if fired else "-",
+					"(%.1f, %.1f)" % [rest.x, rest.z],
+					lie,
+					"LOST -- no hindrance" if lost else "in play"])
 
 	print("")
 	print("  %d of %d shots came to rest out of bounds with nothing stopping them." % [
 		escaped, tested])
 
 
-func _reset() -> void:
-	_hole.ball.freeze = true
-	_hole.ball.global_position = _hole.TEE_POS
-	_hole.ball.linear_velocity = Vector3.ZERO
-	_hole.ball.angular_velocity = Vector3.ZERO
-	_hole.strokes = 0
-	_hole._record = null
-	_hole._round.clear()
-	for d in _hole._defenders:
+func _reset(which: int) -> void:
+	_range.pin = which
+	_range.strokes = 0
+	_range._record = null
+	_range._round.clear()
+	for d in _range._defenders:
 		d.brain._cooldown_left = 0.0
 		d.rest()
-	_hole._enter_aim()
+	_range._enter_aim()

@@ -1,18 +1,19 @@
 extends Node
-## The menu screen. Its background state is the intro hole, live and playable.
+## The menu screen. Its background state is the practice range, live and
+## playable.
 ##
 ## There are no buttons here during a first run, on purpose. Pillar 3 says
 ## nothing should stand between the urge to play and the first swing, so the
-## first thing a new player sees is a golf hole with a ball on the tee and a
-## ghost showing them the stroke. Touching the screen does not open the game --
-## it *is* the first stroke.
+## first thing a new player sees is a ball on a mat and a ghost showing them the
+## stroke. Touching the screen does not open the game -- it *is* the first
+## stroke.
 ##
-## This node owns only the flat layer: the ghost demonstration and the
-## scorecard. The hole owns the golf.
+## This node owns only the flat layer: the ghost demonstration and the card.
+## The range owns the golf.
 
 const GHOST_DELAY := 0.9
 
-var hole: Node3D
+var range_: Node3D
 var _ghost: GhostGesture
 var _scorecard: Scorecard
 var _taught := {}
@@ -21,7 +22,7 @@ var _player_acted := false
 
 
 func _ready() -> void:
-	hole = get_node("IntroHole")
+	range_ = get_node("PracticeRange")
 
 	var layer := CanvasLayer.new()
 	add_child(layer)
@@ -37,23 +38,26 @@ func _ready() -> void:
 
 	_scorecard = Scorecard.new()
 	_scorecard.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_scorecard.par = hole.PAR
+	# One ring per pin, filled as each is made. A range is not scored against
+	# par: you are done with a pin when you have put a ball on it, and how many
+	# it took is counted but never held against you.
+	_scorecard.par = range_.PINS.size()
 	overlay.add_child(_scorecard)
 
-	hole.stroke_began.connect(_on_stroke_began)
-	hole.lesson_changed.connect(_on_lesson_changed)
-	hole.stroke_taken.connect(_on_stroke_taken)
-	hole.holed.connect(_on_holed)
-	_on_lesson_changed(hole.lesson)
+	range_.stroke_began.connect(_on_stroke_began)
+	range_.pin_changed.connect(_on_pin_changed)
+	range_.stroke_taken.connect(_on_stroke_taken)
+	range_.pin_made.connect(_on_pin_made)
+	_on_pin_changed(range_.pin)
 
 
 func _process(delta: float) -> void:
 	# The ghost is pinned to the ball on screen, not parked in the corner: the
 	# demonstration happens where the player has to act.
-	_ghost.anchor = hole.camera.unproject_position(hole.ball.global_position)
+	_ghost.anchor = range_.camera.unproject_position(range_.ball.global_position)
 
-	var aiming: bool = hole.state == hole.State.AIM or hole.state == hole.State.ATTRACT
-	if aiming and not _taught.get(hole.lesson, false):
+	var aiming: bool = range_.state == range_.State.AIM or range_.state == range_.State.ATTRACT
+	if aiming and not _taught.get(range_.pin, false):
 		_idle += delta
 		if _idle > GHOST_DELAY:
 			_ghost.resume()
@@ -69,7 +73,7 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	var pressed := (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed) \
 		or (event is InputEventMouseButton and (event as InputEventMouseButton).pressed)
-	if pressed and hole.state == hole.State.HOLED:
+	if pressed and range_.state == range_.State.DONE:
 		_restart()
 
 
@@ -81,23 +85,26 @@ func _on_stroke_began() -> void:
 	_idle = 0.0
 
 
-func _on_lesson_changed(lesson: int) -> void:
+## A new pin means a new club, and the ghost demonstrates the stroke once more.
+## The gesture has not changed, but what it produces has -- a player who has only
+## ever swung a wedge has not yet seen what the same drag does with a driver.
+func _on_pin_changed(_index: int) -> void:
 	_idle = 0.0
 	_ghost.suppress()
-	_ghost.pattern = GhostGesture.Pattern.PULL_CURVE if lesson == hole.Lesson.CURVE \
-		else GhostGesture.Pattern.PULL
+	_ghost.pattern = GhostGesture.Pattern.PULL
 
 
 func _on_stroke_taken(strokes: int) -> void:
 	_player_acted = true
-	# A lesson is taught once. Having done the thing, the player is not shown it
-	# again -- a demo that keeps replaying after it has landed reads as nagging.
-	_taught[hole.lesson] = true
-	_scorecard.strokes = strokes
+	# A pin is demonstrated once. Having taken a swing at it, the player is not
+	# shown the ghost again -- a demo that keeps replaying after it has landed
+	# reads as nagging.
+	_taught[range_.pin] = true
 
 
-func _on_holed(strokes: int) -> void:
-	_scorecard.strokes = strokes
+## The card counts pins made, not strokes taken.
+func _on_pin_made(index: int, _holed: bool) -> void:
+	_scorecard.strokes = index + 1
 
 
 func _restart() -> void:
