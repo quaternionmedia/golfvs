@@ -148,6 +148,56 @@ left, and add orbit controls.
 are guesses in exactly the way `LOCK_PX` is, and ADR-007 makes the thumb the arbiter. Lane C's tuning task
 now covers both.
 
+### build-05, part two — the other side (ADR-020)
+
+**Asked for:** defence mechanics. The direction was given in pieces and each piece changed the shape, which
+is worth recording because the end state does not look like the start.
+
+1. *"Defender position is calculated halfway between hole and player. Defender sees exactly what the player
+   sees in the UI, and an animation to signal the golfer swinging and ball travelling. The intro screen
+   should let you switch back and forth to practice."*
+2. *"Should be archer not skeet."*
+3. *"Putt placement should be radial mirror to the hole."*
+4. *"Double the distance for the hole for the defender. A close putt should be easy for offence."*
+
+- **Placement is derived, not authored.** `defender_stand()` is the only code that knows where a defender
+  goes: twice the distance to the pin, mirrored through it, clamped inside the fence. Halving was the first
+  rule and it was wrong — a six-metre putting pin across a three-metre mat put an archer at the player's
+  elbow, which §3 forbids outright ("defenders never enter the tee box"). Doubling also changes what the
+  defender is *for*: it guards the ground beyond the target, so going long is what it punishes.
+- **It is an archer, not the skeet, and that was the right correction on the project's own terms.** ADR-015
+  keeps skeet for M2, so putting it here would have settled a roster question by accident. Archery is the
+  sport §3 already gives two jobs, and `ArcherBrain` already fell back to the apex trigger when it was not
+  guarding a boundary — so an adversarial archer needed no new sport, no new brain and no new decision. It
+  is drawn in threat amber rather than the safety net's green, via a new `Archer.ink`.
+- **The golfer has a tell, and the ball is genuinely held for it.** `GolferFigure` owns the swing clock and
+  the range asks it for `windup()`, so the backswing and the pause are one fact rather than two kept in
+  step. This was a *missing requirement* rather than a missing feature: §3 asks every defender to telegraph
+  and never said the same of the golfer, which left a defender reading a shot off a ball that had gone.
+- **A hand-played defender is deterministic.** `DefenderBrain.act_now()` is the one way into ACT that does
+  not go through a prediction. It keeps every fairness property that lives on the profile — cooldown, zone,
+  blind spot — and drops the dice: a person who timed it right is never told they were unlucky, which fails
+  Pillar 2 harder than any amount of chaos. `falloff_at()` was split out of `accuracy_at()` for it.
+- **The switch.** `SideSwitch`, top-right, mirroring the club selector top-left in size, ink and language.
+  Defending, the club selector dims (the clubs are not yours), the ghost stops (it demonstrates a stroke you
+  are not going to play), and the aim thread follows the ball — bright while the shot is on, dim while it is
+  not, straight from `brain.can_reach()` so the line cannot promise what the brain would refuse.
+- **`contested` defaults to false.** The bare range is what ADR-017 describes and what `demo_round` gates
+  on; only `main_menu.tscn` turns the archer on. That keeps the demo a question about physics.
+
+**For the ratifier — ADR-020 conflicts with §11.4** and says so in its own rationale. §11.4 proposes that a
+human defender authors a `DefensePlan` rather than steering in real time; this steers in real time. The
+property §11.4 exists to protect is replayability, and it survives — the action is deterministic and its
+time is one scalar — but whether the plan model replaces this at M5 or wraps it is not settled here.
+
+**Known gap, and it is the next thing worth doing.** Defending, the thread reports reachability, so the
+defender has a live read. **Golfing, there is still nothing.** Nothing draws a zone, so "keep it low" has to
+be discovered by being pinned rather than seen beforehand — which is the wrong half of Pillar 2 to leave
+unbuilt. `DefenderZone` as a visible thing is now flagged as the most valuable item in Lane E.
+
+**Gates:** suite 149/149 green (10 new), docs check green, `demo_round` PASS, ten screenshots re-rendered
+and looked at.
+
 ### build-04
 **A defended hole that writes records, and a demo that checks them.** Four commits; the suite went from 22
 cases to 66.

@@ -59,6 +59,8 @@ func _shoot() -> void:
 
 	await _shoot_spin_dial()
 	await _shoot_orbit()
+	await _shoot_swing()
+	await _shoot_defending()
 	await _shoot_impact()
 
 
@@ -94,6 +96,40 @@ func _shoot_orbit() -> void:
 	_range.set_process(false)
 	await _save("7-orbit")
 	_range._look.recentre()
+
+
+## The top of the backswing: the golfer's tell, and the one frame that proves the
+## ball is genuinely being held rather than the animation being decorative.
+func _shoot_swing() -> void:
+	_range.set_process(false)
+	_range.pin = 2
+	_range.set_club(_range.suggested_club_index())
+	_range._enter_aim()
+	_range._golfer.aim = Vector3(0.12, 0.0, -1.0).normalized()
+	_range._golfer.swing = GolferFigure.TOP_AT
+	_range.camera.global_transform = Transform3D(Basis.IDENTITY, Vector3(-4.2, 2.4, 5.0)) 		.looking_at(Vector3(0.0, 1.1, -6.0), Vector3.UP)
+	await _save("9-backswing")
+
+
+## Defending: the archer stands halfway to the pin, the bow is drawn, and the
+## thread follows the ball. That thread is the whole interface for the other
+## side -- it is where the arrow goes if the player presses now.
+func _shoot_defending() -> void:
+	_range.set_process(true)
+	_range.pin = 2
+	_range.set_club(_range.suggested_club_index())
+	_range.set_defending(true)
+	_menu._side.defending = true
+	_range._enter_aim()
+	_range._on_fired(Vector3(0.05, 0.0, -1.0).normalized(), 0.92, 0.0)
+
+	# Far enough into the flight that the ball is up in the archer's air.
+	for i in 95:
+		await get_tree().physics_frame
+	_range.set_process(false)
+	await _save("10-defending")
+	_range.set_defending(false)
+	_menu._side.defending = false
 
 
 ## The interception, caught on the frame the arrow lands. Plays a shot far

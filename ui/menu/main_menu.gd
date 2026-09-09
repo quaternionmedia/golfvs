@@ -17,6 +17,7 @@ var range_: Node3D
 var _ghost: GhostGesture
 var _scorecard: Scorecard
 var _clubs: ClubSelector
+var _side: SideSwitch
 var _taught := {}
 var _idle := 0.0
 var _player_acted := false
@@ -59,6 +60,14 @@ func _ready() -> void:
 	_clubs.club_chosen.connect(_on_club_chosen)
 	_clubs.selected = range_.club_index
 
+	# The other corner, and the same kind of control: which end of the swing the
+	# player is on. Pillar 5 says defence is a whole way to play; until there was
+	# a switch it was a way to play nobody could reach.
+	_side = SideSwitch.new()
+	overlay.add_child(_side)
+	_side.side_chosen.connect(_on_side_chosen)
+	_side.defending = range_.defending()
+
 	range_.club_changed.connect(_on_club_changed)
 	range_.stroke_began.connect(_on_stroke_began)
 	range_.pin_changed.connect(_on_pin_changed)
@@ -72,7 +81,10 @@ func _process(delta: float) -> void:
 	# demonstration happens where the player has to act.
 	_ghost.anchor = range_.camera.unproject_position(range_.ball.global_position)
 
-	var aiming: bool = range_.state == range_.State.AIM or range_.state == range_.State.ATTRACT
+	# The ghost demonstrates a stroke, so it has nothing to say to somebody who
+	# is not going to play one. Defending, the thing worth watching is the game's
+	# golfer addressing the ball, and it is already on screen.
+	var aiming: bool = not range_.defending() 		and (range_.state == range_.State.AIM or range_.state == range_.State.ATTRACT)
 	if aiming and not _taught.get(range_.pin, false):
 		_idle += delta
 		if _idle > GHOST_DELAY:
@@ -90,6 +102,11 @@ func _process(delta: float) -> void:
 	# swung has been told nothing. Hiding it also made it unfindable while it was
 	# still, invisibly, consuming every tap.
 	_clubs.shown = move_toward(_clubs.shown, 1.0, delta * 2.5)
+	_side.shown = move_toward(_side.shown, 1.0, delta * 2.5)
+	# The clubs belong to whoever is swinging. Defending, that is not the player,
+	# so the selector goes quiet rather than away -- what the game has in its
+	# hands is still worth being able to read.
+	_clubs.modulate.a = 1.0 if not range_.defending() else 0.45
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -122,6 +139,12 @@ func _on_stroke_taken(strokes: int) -> void:
 	# shown the ghost again -- a demo that keeps replaying after it has landed
 	# reads as nagging.
 	_taught[range_.pin] = true
+
+
+## The player changed sides. The range owns what that means, as it owns every
+## other rule -- this only asks, exactly as the club selector does.
+func _on_side_chosen(defending: bool) -> void:
+	range_.set_defending(defending)
 
 
 ## The player reached for a different club. The range is the one that decides

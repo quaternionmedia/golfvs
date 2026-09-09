@@ -7,3 +7,4 @@
 script = ExtResource("1_menu")
 
 [node name="PracticeRange" parent="." instance=ExtResource("2_range")]
+contested = true

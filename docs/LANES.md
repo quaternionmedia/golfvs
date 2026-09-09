@@ -160,7 +160,8 @@ drawn over it — the selector, the card, the ghost and the signals.
 ## Lane E — Defenders
 
 **Owns:** `defenders/` · `tests/defenders/`
-**Status:** the framework holds two sports. Skeet is built but not on any hole.
+**Status:** the framework holds two sports, and archery now does both of its §3 jobs — the boundary net of
+ADR-015 and an adversary contesting the line (ADR-020). Skeet is still built and still on no hole.
 
 - [x] `DefenderProfile` / `DefenderBrain` / `DifficultyTier`, and fairness as a signature rather than a rule
 - [x] Skeet (apex trigger, knock down) and the archer (boundary trigger, pin)
@@ -169,8 +170,14 @@ drawn over it — the selector, the card, the ghost and the signals.
       nor a boundary
 - [ ] Put skeet on a hole. It has never been played against
 - [ ] `DefenderZone` as a visible thing — the player has to read where a defender's zone is *before* the
-      stroke, and right now nothing draws it
-- [ ] Per-lie re-planning (ADR-009): exactly one defender moves per lie
+      stroke, and right now nothing draws it. **The most valuable thing in this lane.** Defending, the aim
+      thread reports reachability live, which is a read of *now*; the golfer still gets nothing before the
+      stroke, so "keep it low" has to be discovered rather than seen
+- [x] Per-lie re-planning (ADR-009) on the range: the contesting archer moves every lie, to a position
+      derived from it. The *choice* of where — the part ADR-009 leaves to a plan — is still not built
+- [ ] `DefensePlan` as the human's authored defence (§11.4). **ADR-020 conflicts with it** by letting a
+      person steer in real time, and says why the replayability §11.4 protects survives anyway. Whoever
+      takes this decides whether the plan model replaces that or wraps it
 - [ ] The audio motif per sport. ADR-004 makes it a gameplay signal, not decoration
 
 **Read before adding a sport:** `test_defender_brain.gd` pins a counter-intuitive measurement — at full

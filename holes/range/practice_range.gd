@@ -54,6 +54,29 @@ const BOUNDS_CENTRE := Vector3(0.0, 0.0, -46.0)
 const BOUNDS_EXTENT := Vector2(34.0, 62.0)
 const PLAY_INSET := 2.0
 
+## The contested range stands a shooter **halfway between the ball and the pin**
+## rather than anywhere a designer picked. That is the whole mechanic: the
+## defender is always on the line of play, at half the distance, so it cannot be
+## walked around and it cannot be ignored. What it can be is gone under -- an
+## archer owns the air above 2.5 m and nothing below it -- or shaped around,
+## because accuracy falls off toward the rim of its zone.
+##
+## It is an **archer** and not the skeet, for reasons past the fact that this
+## range already has one and the two should look like one another. ADR-015 keeps
+## skeet as the M2 defender, and putting it here would settle that by accident.
+## And archery is the sport §3 already gives two jobs -- "air, near green" as an
+## adversary, and ADR-015's boundary net -- so contesting the line needed no new
+## sport, no new brain and no new decision: `ArcherBrain` falls back to the apex
+## trigger on its own as soon as it is not guarding a boundary.
+##
+## It also teaches itself in the order the range teaches the clubs. The first pin
+## is a putt, a putt never leaves the ground, and a defender that owns only the
+## air cannot touch the first shot a beginner ever plays. It introduces itself
+## exactly when the player starts flying the ball, and not one stroke sooner.
+const CONTEST_ZONE := 11.0
+## Clear of the mat, whatever the arithmetic says. See `defender_stand()`.
+const TEE_CLEARANCE := 2.0
+
 ## Where the marshal stands. On a tower off to the side, high enough to see the
 ## whole range and impossible to miss from the mat -- the same reasoning that
 ## put the archer on the spire, minus the spire.
@@ -112,6 +135,9 @@ signal pin_changed(index: int)
 signal club_changed(index: int)
 signal pin_made(index: int, holed: bool)
 signal finished(strokes: int)
+## Which side the player is on. Emitted so the flat layer can follow rather than
+## keep its own copy -- the same arrangement the club selector already has.
+signal side_changed(defending: bool)
 
 var camera: Camera3D
 var ball: RigidBody3D
@@ -127,6 +153,13 @@ var club_index := 0
 var round_path := ""
 
 var _gesture: StrokeGesture
+## The golfer, and the backswing that warns a defender a shot is coming. See
+## `GolferFigure`: the ball is genuinely held for it.
+var _golfer: GolferFigure
+## The archer contesting the line, or null. Repositioned every lie by
+## `_place_the_contender()`. Distinct from the boundary archer on the tower,
+## which is a safety net and stays where it is.
+var _contender: Archer
 ## ADR-001's orbit, as an offset on whatever the state below framed. The range
 ## still chooses what is worth looking at; this is the player choosing from
 ## where. See `_framed()`.
@@ -142,6 +175,22 @@ var _round_seed := 0
 var _stroke_seed := 0
 var _last_in_bounds := Vector3.ZERO
 var _pinned := false
+
+## The struck-but-not-yet-launched ball. Between the stroke being committed and
+## the club reaching it there is a real pause, and this is what is waiting in it.
+var _held := false
+var _pending := Vector3.ZERO
+## Seconds into the swing, or -1 between swings.
+var _swing_t := -1.0
+
+## True when the player is the shooter and the game is the golfer. Both sides
+## play the same range, against the same shooter, in the same view -- switching
+## changes which end of the swing you are on and nothing else at all.
+var _defending := false
+## Seconds until the game's golfer plays. It addresses the ball for a moment
+## first, because a defender who is not given a still frame before the backswing
+## has been given the shot and not the read.
+var _ai_beat := 0.0
 
 var _still_for := 0.0
 var _aiming := false
@@ -161,6 +210,10 @@ var _threat := 0.0
 var _threat_at := Vector3.ZERO
 
 @export var defended := true
+## Whether a shooter contests the range. Off by default, which keeps the bare
+## range -- the one ADR-017 describes and the one `demo_round` gates on -- a
+## question about golf and nothing else. The menu turns it on.
+@export var contested := false
 
 
 func _ready() -> void:
@@ -298,11 +351,27 @@ func _setup_play() -> void:
 	_spin = SpinDial.new()
 	add_child(_spin)
 
+	_golfer = GolferFigure.new()
+	_golfer.position = Vector3(BAY_POS.x, 0.0, BAY_POS.z)
+	add_child(_golfer)
+
 	if defended:
 		var profile := DefenderProfile.archer(ARCHER_STAND, BOUNDS_CENTRE, BOUNDS_EXTENT)
 		var archer := Archer.with_profile(profile, DifficultyTier.unerring(), "archery_0")
 		add_child(archer)
 		_defenders.append(archer)
+
+	if contested:
+		# Placed at the midpoint on the next line rather than here, so there is
+		# exactly one piece of code that knows where a defender stands.
+		_contender = Archer.with_profile(
+			DefenderProfile.contesting_archer(Vector3.ZERO, CONTEST_ZONE),
+			DifficultyTier.gentle(), "archery_1")
+		# Amber, not the safety net's green: this one is not on your side.
+		_contender.ink = Skeet.THREAT
+		add_child(_contender)
+		_defenders.append(_contender)
+		_place_the_contender()
 
 	_gesture = StrokeGesture.new()
 	_gesture.camera = camera
@@ -357,6 +426,116 @@ func suggested_club_index() -> int:
 	return 0
 
 
+## Which side the player is on, and the only thing that changes when it flips.
+##
+## Deliberately not a separate scene, a separate mode or a separate camera. §4's
+## Defense Range is a whole mode at M5; this is the cheap version of the thing it
+## is for, which is that **you cannot defend a shot you have never had to play**.
+## Switching in place, against the same shooter on the same range, is what makes
+## the two halves teach each other -- and it is why the defender is given exactly
+## the view the golfer had rather than a better one.
+func set_defending(value: bool) -> void:
+	if _defending == value:
+		return
+	_defending = value
+	_gesture.enabled = not _defending and state == State.AIM
+	_ai_beat = AI_ADDRESS
+	side_changed.emit(_defending)
+
+
+func defending() -> bool:
+	return _defending
+
+
+## How long the game's golfer stands over the ball before swinging.
+const AI_ADDRESS := 1.1
+
+
+## The game plays a shot at the pin, so that the player has something to defend.
+##
+## `AIGolfer` has no privileged information -- §6.3 is explicit that it sees the
+## ball, the target and whatever the hole says is in the way, which is what the
+## player sees. That matters more here than it does in the demo round: the whole
+## claim of this mode is that both sides are looking at the same thing.
+func _play_the_games_shot() -> void:
+	if not _aiming:
+		return
+	_ai_beat = AI_ADDRESS
+	var intent := AIGolfer.choose(
+		ball.global_position, pin_position(), 0.0, Callable(),
+		club().is_putter, 0.78, _seed_for_stroke(strokes + 1), club())
+	stroke_began.emit()
+	_on_fired(intent.direction, intent.power, intent.curve)
+
+
+## The player, defending: a press looses the arrow at wherever the ball
+## actually is.
+##
+## Not at where it is predicted to be, and not at where it was when the press
+## started -- at its live position, on the tick the press arrives. That is what
+## makes the mode a test of timing rather than of aiming, and it is the same
+## thing `accuracy_at` has always measured for the AI.
+func _unhandled_input(event: InputEvent) -> void:
+	if not _defending or _contender == null:
+		return
+	var pressed := (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed) 		or (event is InputEventMouseButton 			and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT 			and (event as InputEventMouseButton).pressed)
+	if not pressed or state != State.FLIGHT:
+		return
+	get_viewport().set_input_as_handled()
+	if _contender.brain.act_now(ball.global_position):
+		_on_defender_acted(_contender)
+
+
+## Kept inside the fence. Twice the distance to the far pin is a hundred and
+## forty metres, which is past the boundary and into the void -- the arithmetic
+## is right and the place it points at is not on the range.
+func _inside_the_range(at: Vector3) -> Vector3:
+	var limit := BOUNDS_EXTENT - Vector2.ONE * PLAY_INSET
+	return Vector3(
+		clampf(at.x, BOUNDS_CENTRE.x - limit.x, BOUNDS_CENTRE.x + limit.x), 0.0,
+		clampf(at.z, BOUNDS_CENTRE.z - limit.y, BOUNDS_CENTRE.z + limit.y))
+
+
+## Twice the distance to the pin, on the ground. The one rule that
+## decides where a defender stands, so that moving it is a one-line change and
+## not a hunt through a level file.
+func defender_stand() -> Vector3:
+	var tee := Vector3(BAY_POS.x, 0.0, BAY_POS.z)
+	var to_pin := pin_position() - tee
+	to_pin.y = 0.0
+	if to_pin.length() < 0.01:
+		return tee
+	to_pin = _inside_the_range(tee + to_pin * 2.0) - tee
+	# **Twice the distance to the hole**, mirrored through it: the archer stands
+	# as far beyond the pin as the player is short of it, on the same line.
+	#
+	# Halving was the first rule and it was wrong at the near end. The putting
+	# pin is six metres away across a three-metre mat, so half of it put a
+	# defender at the player's elbow -- against §3, which says defenders never
+	# enter the tee box and the first swing is always yours, and against the
+	# grain of the range, where a short putt ought to be the easiest thing the
+	# player is ever asked to do.
+	#
+	# Mirroring keeps what the midpoint was chosen for -- on the line of play,
+	# and not something that can be walked around -- and it moves what the archer
+	# is *for*. It no longer contests the flight to the pin; it guards the ground
+	# beyond it. Going long is the shot it punishes, which is the one mistake a
+	# range cannot otherwise cost you anything for.
+	return tee + to_pin
+
+
+## Walk the shooter to the midpoint of the lie it is now guarding. Called on
+## every pin change, which is ADR-009's "exactly one defender moves per lie" with
+## the choice of where taken out of anybody's hands.
+func _place_the_contender() -> void:
+	if _contender == null:
+		return
+	var at := defender_stand()
+	_contender.position = at
+	_contender.brain.profile.stand = at
+	_contender.brain.profile.zone_centre = at
+
+
 func pin_position() -> Vector3:
 	return PINS[mini(pin, PINS.size() - 1)]["at"]
 
@@ -369,11 +548,14 @@ func _enter_aim() -> void:
 	state = State.AIM
 	_aiming = true
 	_pinned = false
+	_held = false
+	_swing_t = -1.0
 	ball.freeze = true
 	ball.global_position = BAY_POS
 	ball.linear_velocity = Vector3.ZERO
 	ball.angular_velocity = Vector3.ZERO
-	_gesture.enabled = true
+	_gesture.enabled = not _defending
+	_ai_beat = AI_ADDRESS
 	_light_pins()
 	state_changed.emit(state)
 
@@ -443,22 +625,29 @@ func _on_fired(heading: Vector3, power: float, curve: float) -> void:
 	var arc := BallFlight.sample_arc(
 		origin, velocity, _curve_accel, BALL_RADIUS, 900, DEFENDER_DT)
 	for defender in _defenders:
+		# An archer the player is holding does not get to read the shot. That
+		# prediction is the AI's commitment, and the whole point of the other
+		# side is that the commitment is now the player's press.
+		if _defending and defender == _contender:
+			defender.read_shot(PackedVector3Array(), DEFENDER_DT, _stroke_seed)
+			continue
 		defender.read_shot(arc, DEFENDER_DT, _stroke_seed)
 	_last_in_bounds = origin
 
-	ball.freeze = false
+	# The stroke is decided and the ball has not been hit yet. Everything above
+	# has already happened -- the record is open, the defenders have read the arc
+	# -- and what is left is the club actually arriving, which takes time a
+	# defender is entitled to see. See `GolferFigure`.
+	_held = true
+	_pending = velocity
+	_swing_t = 0.0
 	_pinned = false
-	# A putt is already rolling, so it gets the roll damping from the first tick
-	# rather than after it lands. Without this the putter behaves like a very
-	# weak long club and runs miles.
-	ball.linear_damp = ROLL_DAMP if profile.is_putter else 0.0
-	ball.angular_damp = 1.4
-	ball.linear_velocity = velocity
 
 	# Start the camera already behind the shot. Easing into it from wherever the
 	# last one finished would swing the camera through the tee on every stroke.
 	var away := Vector3(velocity.x, 0.0, velocity.z)
 	_trail = -away.normalized() if away.length() > 0.01 else Vector3.BACK
+	_golfer.aim = away.normalized() if away.length() > 0.01 else Vector3.FORWARD
 	_threat = 0.0
 
 	stroke_taken.emit(strokes)
@@ -470,6 +659,27 @@ func _on_fired(heading: Vector3, power: float, curve: float) -> void:
 func _physics_process(delta: float) -> void:
 	if state != State.FLIGHT:
 		return
+
+	# The backswing. The ball is still frozen on the mat and the defenders'
+	# clocks have not started, because neither the ball nor anyone watching it
+	# has anything to go on yet -- what is happening is a warning.
+	if _held:
+		_swing_t += delta
+		if _swing_t < GolferFigure.windup():
+			return
+		_launch()
+	elif _swing_t >= 0.0:
+		_swing_t += delta
+		if _swing_t >= GolferFigure.SWING_TIME:
+			_swing_t = -1.0
+
+	# The bow follows the ball while somebody is holding it, so the thread says
+	# where the arrow would go if they pressed now. It is the only thing a
+	# defender has to judge by, which is the point: they are given the golfer's
+	# view and one line, not a solution.
+	if _defending and _contender != null:
+		_contender.track(
+			ball.global_position, _contender.brain.can_reach(ball.global_position))
 
 	for defender in _defenders:
 		if defender.advance(delta):
@@ -493,6 +703,20 @@ func _physics_process(delta: float) -> void:
 			_settle()
 	else:
 		_still_for = 0.0
+
+
+## The club reaches the ball. Split out of `_on_fired` because the two happen at
+## different times now, and only this half is physics.
+func _launch() -> void:
+	_held = false
+	ball.freeze = false
+	# A putt is already rolling, so it gets the roll damping from the first tick
+	# rather than after it lands. Without this the putter behaves like a very
+	# weak long club and runs miles.
+	ball.linear_damp = ROLL_DAMP if club().is_putter else 0.0
+	ball.angular_damp = 1.4
+	ball.linear_velocity = _pending
+	Impact.at_point(self, ball.global_position, HoleBuilder.EDGE)
 
 
 ## Where the ball stopped decides everything. On the green is the pin made; in
@@ -529,6 +753,9 @@ func _settle() -> void:
 	# view" generalised: the camera resets when what it was framed against does,
 	# and not merely because time passed.
 	_look.recentre()
+	# One defender moves per lie (ADR-009), and where it moves to is not a
+	# choice: the midpoint of the new line of play.
+	_place_the_contender()
 	set_club(suggested_club_index())
 	pin_changed.emit(pin)
 	_enter_aim()
@@ -563,7 +790,10 @@ func _on_defender_acted(defender: Node3D) -> void:
 			ball.linear_velocity = Vector3(0.0, minf(ball.linear_velocity.y, 0.0), 0.0)
 			ball.angular_velocity = Vector3.ZERO
 
-	Impact.at_point(self, hit_at, Archer.THREAD)
+	var ink := Archer.THREAD
+	if defender is Archer:
+		ink = (defender as Archer).ink
+	Impact.at_point(self, hit_at, ink)
 	_shake = maxf(_shake, SHAKE_ON_HIT)
 
 
@@ -667,6 +897,14 @@ func _process(delta: float) -> void:
 	# the one-tap reset sets it going again.
 	var idle := _look.is_centred()
 	_ease_the_flight_camera(delta)
+	# The figure is drawn from the same clock that holds the ball, so what the
+	# defender sees and what the physics does cannot drift apart.
+	_golfer.swing = 0.0 if _swing_t < 0.0 else _swing_t / GolferFigure.SWING_TIME
+
+	if _defending and state == State.AIM:
+		_ai_beat -= delta
+		if _ai_beat <= 0.0:
+			_play_the_games_shot()
 
 	match state:
 		State.ATTRACT:

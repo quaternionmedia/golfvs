@@ -110,6 +110,13 @@ local to the corner: the range is what is being looked at and the club in hand i
 rows stay a fingertip tall regardless, because subtle is a claim about ink and not about what a thumb has to
 hit.
 
+You can also play the other end of it (`ADR-020`). A switch in the opposite corner to the club selector
+puts the player on defence: the game golfs, and the archer standing beyond the pin becomes theirs to time. Both
+sides get the same camera and the same overlay, because the claim the switch is making is that they are looking
+at the same thing. The golfer has a tell now — a backswing, during which the ball is genuinely held — because
+§3 asks every defender to telegraph and never said the same of the golfer, which left a defender reading a
+shot from a ball that had already gone.
+
 The camera is the free orbit of `ADR-001`, and it is an offset rather than a mode: the range still frames the
 shot — behind the ball on the line to the pin, trailing the flight, wide on the archer as it draws — and two
 fingers swing that framing around whatever it chose to look at. One finger is the stroke and always was, so
@@ -157,7 +164,7 @@ Each defender is a **Sport**: a cast, a **zone** it patrols, a **tell**, an **ac
 **Rules of defense**
 - Defenders are **fair**: they act on the ball's actual state, never on input before release.
 - Every defender has a **cooldown** and a **blind spot** visible in its idle.
-- Defenders never enter the tee box; the first swing is always yours.
+- Defenders never enter the tee box; the first swing is always yours. On the practice range, placement is derived from the lie rather than authored (`ADR-020`): the defender stands at twice the distance to the pin, mirrored through it, so it guards the ground beyond the target and a short putt is uncontested.
 - Difficulty tuning touches only reaction/accuracy/coverage, never invents abilities.
 - **Silent** (ADR-004): personality is carried by idle / tell / act / react animations and prop gags. No VO, no text bubbles. The tell's audio motif is a gameplay signal, not dialogue.
 

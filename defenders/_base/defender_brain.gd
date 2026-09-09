@@ -171,6 +171,54 @@ func advance(delta: float) -> bool:
 	return false
 
 
+## Fire this defender now, because a person said so.
+##
+## The AI path commits in `read_shot()` before the ball has gone anywhere, which
+## is what makes its tell honest. A human has no equivalent: their commitment
+## *is* the press, and it lands in the middle of the flight. So this is the one
+## way into ACT that does not go through a prediction -- and it is still bounded
+## by everything that makes the sport fair, because those are properties of the
+## profile rather than of the prediction: the cooldown still applies, the zone
+## still applies, and the ball still has to be somewhere reachable.
+##
+## Whether it connects is **deterministic**, unlike the AI path. A person who
+## timed it right and was told "unlucky" has been given no way to improve, which
+## fails Pillar 2 harder than any camera cut -- and there is no dice roll to
+## record, so a hand-played defence still replays exactly.
+##
+## Returns true on the tick it acts, matching `advance()`, so a caller can apply
+## the impulse through the same code path.
+func act_now(at: Vector3) -> bool:
+	# Not before the ball has been struck. `_elapsed` only starts moving once the
+	# hole begins advancing this brain, which it does at launch and not during
+	# the golfer's backswing -- so pressing early is refused rather than banked.
+	if _acted or _cooldown_left > 0.0 or _elapsed <= 0.0:
+		return false
+	_acted = true
+	alerted = false
+	_act_point = at
+	_act_at = _elapsed
+	_cooldown_left = profile.cooldown
+	_will_connect = can_reach(at)
+	_set_state(State.ACT)
+	return true
+
+
+## Would a shot loosed now connect? The same question `act_now` answers, asked
+## before committing to it -- which is what a person aiming needs and the AI,
+## having decided everything in advance, does not. The body draws its aim line
+## from this, so the line is never promising something the brain would refuse.
+func can_reach(at: Vector3) -> bool:
+	return profile.falloff_at(at, tier) >= HAND_MARGIN
+
+
+## How centred a hand-timed shot has to be to connect. The outer part of the
+## zone is a real blind spot rather than a worse chance: a defender played by
+## hand can be beaten by shaping the ball through the edge of its reach, which
+## is §3's counter for every air sport stated as a number.
+const HAND_MARGIN := 0.3
+
+
 ## Ready for the next lie. Cooldown deliberately survives -- a defender that
 ## just fired is still reloading when the golfer walks up to the ball.
 func rest() -> void:

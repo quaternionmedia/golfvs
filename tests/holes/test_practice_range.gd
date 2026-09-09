@@ -283,3 +283,154 @@ func test_the_defender_framing_is_capped_however_far_away_it_is() -> void:
 		(here.ball.global_position + here.ball.global_position
 			+ Vector3(240.0, 4.0, 0.0)) * 0.5)
 	assert_float(far_back).is_less(near_back + here.THREAT_SPREAD)
+
+
+# ---------------------------------------------------------- the other side ---
+#
+# The contested range: an archer halfway to the pin, a golfer with a backswing,
+# and a switch that puts the player on either end of it. What is worth pinning
+# here is the *placement rule* and the fairness of the hand-played defender --
+# the two things a later hole will get wrong first.
+
+
+func _contested() -> Node3D:
+	var scene := preload("res://holes/range/practice_range.tscn")
+	var here := auto_free(scene.instantiate()) as Node3D
+	here.contested = true
+	add_child(here)
+	return here
+
+
+func test_the_bare_range_has_no_contender() -> void:
+	# The default is the range ADR-017 describes and `demo_round` gates on: golf
+	# and a safety net, nothing in the way. Contesting it is opt-in.
+	assert_object(_range()._contender).is_null()
+	assert_object(_contested()._contender).is_not_null()
+
+
+func test_the_contender_stands_at_twice_the_distance_to_the_pin() -> void:
+	# Mirrored through the hole: as far beyond the pin as the player is short of
+	# it, on the same line. So the archer guards the ground *past* the target
+	# rather than the flight to it, and going long is what it punishes.
+	var here := _contested()
+	here.pin = 0
+	var tee := Vector3(here.BAY_POS.x, 0.0, here.BAY_POS.z)
+	var stand: Vector3 = here.defender_stand()
+
+	assert_vector(stand).is_equal_approx(
+		here.pin_position() * 2.0 - tee, Vector3.ONE * 0.01)
+	# And the node actually went there, rather than the rule merely saying so.
+	here._place_the_contender()
+	assert_vector(here._contender.position).is_equal_approx(stand, Vector3.ONE * 0.01)
+
+
+func test_a_close_putt_is_the_players_to_lose() -> void:
+	# The reason the rule doubles rather than halves. §3 says defenders never
+	# enter the tee box and the first swing is always yours, and halving a
+	# six-metre pin put one at the player's elbow. Doubling puts it well behind
+	# the hole, which is what makes the first stroke of a first run the easiest
+	# thing the game ever asks anybody for.
+	var here := _contested()
+	here.pin = 0
+	var tee := Vector3(here.BAY_POS.x, 0.0, here.BAY_POS.z)
+	var stand: Vector3 = here.defender_stand()
+	var reach := stand.distance_to(tee)
+	assert_float(reach).override_failure_message(
+		"the archer is standing on the mat").is_greater(here.MAT_RADIUS + 4.0)
+	# Further from the player than the hole is, which is the whole claim.
+	assert_float(reach).is_greater(tee.distance_to(here.pin_position()))
+
+
+func test_the_contender_never_stands_outside_the_fence() -> void:
+	# Twice the far pin is a hundred and forty metres and the range stops at
+	# sixty-two. The arithmetic is right and the place it points at is the void.
+	var here := _contested()
+	for i in here.PINS.size():
+		here.pin = i
+		var stand: Vector3 = here.defender_stand()
+		# Against the *range's* fence, not the contender's own -- a contesting
+		# archer guards a zone rather than a boundary, so its profile carries no
+		# bounds worth asking about.
+		assert_float(absf(stand.x - here.BOUNDS_CENTRE.x)).override_failure_message(
+			"pin %d puts the archer at %v" % [i, stand]).is_less_equal(here.BOUNDS_EXTENT.x)
+		assert_float(absf(stand.z - here.BOUNDS_CENTRE.z)).override_failure_message(
+			"pin %d puts the archer at %v" % [i, stand]).is_less_equal(here.BOUNDS_EXTENT.y)
+
+
+func test_the_contender_cannot_touch_a_putt() -> void:
+	# The range teaches the defender in the order it teaches the clubs, and this
+	# is why: an archer owns the air above 2.5 m, a putt never leaves the ground,
+	# so a beginner's first stroke is untouchable without anything saying so.
+	var here := _contested()
+	here.pin = 0
+	here._place_the_contender()
+	var brain: DefenderBrain = here._contender.brain
+	assert_bool(brain.profile.covers(Vector3(0.0, 0.1, -3.0), brain.tier)).is_false()
+	assert_bool(brain.can_reach(Vector3(0.0, 0.1, -3.0))).is_false()
+
+
+func test_the_ball_is_held_for_the_backswing() -> void:
+	# The golfer's tell, and the thing that makes defending possible at all. If
+	# the ball leaves on the frame the stroke is committed, a defender learns the
+	# shot is coming by watching it already gone.
+	var here := _contested()
+	here._enter_aim()
+	here._on_fired(Vector3.FORWARD, 0.8, 0.0)
+	assert_bool(here._held).is_true()
+	assert_int(here.state).is_equal(here.State.FLIGHT)
+	assert_float(here.ball.linear_velocity.length()).is_equal(0.0)
+
+	# Stepped past the backswing, the club arrives and the ball goes.
+	for i in 40:
+		here._physics_process(GolferFigure.windup() / 20.0)
+	assert_bool(here._held).is_false()
+	assert_float(here.ball.linear_velocity.length()).is_greater(0.0)
+
+
+func test_a_hand_played_defender_cannot_fire_before_the_ball_is_struck() -> void:
+	# The press has to beat the ball, not the backswing. Banking a shot during
+	# the golfer's windup would make the tell worthless in exactly the way the
+	# tell exists to prevent.
+	var here := _contested()
+	here.set_defending(true)
+	here._enter_aim()
+	here._on_fired(Vector3.FORWARD, 0.8, 0.0)
+	assert_bool(here._contender.brain.act_now(here.ball.global_position)).is_false()
+
+
+func test_a_hand_played_defender_is_never_told_it_was_unlucky() -> void:
+	# Deterministic on purpose. A person who timed it right and was told "the
+	# dice said no" has been given no way to improve, which fails Pillar 2 harder
+	# than any amount of chaos -- and there would be a roll to record.
+	var here := _contested()
+	here.pin = 2
+	here._place_the_contender()
+	var brain: DefenderBrain = here._contender.brain
+	var centre: Vector3 = here.defender_stand() + Vector3.UP * 12.0
+	assert_bool(brain.can_reach(centre)).is_true()
+	# Out at the rim it is a real blind spot rather than a worse chance.
+	var rim: Vector3 = centre + Vector3(brain.profile.zone_radius * 0.95, 0.0, 0.0)
+	assert_bool(brain.can_reach(rim)).is_false()
+
+
+func test_holding_the_archer_stops_it_playing_itself() -> void:
+	# Both sides may not act on one stroke. While the player holds it, the
+	# archer gets no prediction to commit to -- its commitment is now the press.
+	var here := _contested()
+	here.pin = 2
+	here.set_club(here.suggested_club_index())
+	here.set_defending(true)
+	here._enter_aim()
+	here._on_fired(Vector3(0.0, 0.0, -1.0), 1.0, 0.0)
+	assert_bool(here._contender.brain.is_committed()).is_false()
+
+
+func test_switching_sides_takes_the_stroke_away_from_the_player() -> void:
+	var here := _contested()
+	here._enter_aim()
+	assert_bool(here._gesture.enabled).is_true()
+	here.set_defending(true)
+	assert_bool(here._gesture.enabled).is_false()
+	here.set_defending(false)
+	here._enter_aim()
+	assert_bool(here._gesture.enabled).is_true()
