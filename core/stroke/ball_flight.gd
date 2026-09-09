@@ -48,11 +48,20 @@ static func launch_velocity(heading: Vector3, power: float, putting := false) ->
 
 
 ## Sidespin pushes perpendicular to the line of flight, on the horizontal plane.
-## Positive curve bends right, which is the direction the player dragged.
+##
+## **Positive curve bends right: a fade. Negative bends left: a draw.** That is
+## RECORD_SCHEMA.md §2.1's definition, and it is the one that has to win,
+## because `intent.curve` goes on disk and a stored number whose sign means the
+## opposite of what the schema says is a bug that only shows up on somebody
+## else's phone. This function used to negate here and StrokeGesture used to
+## hand it a value of the opposite sign; the two cancelled, so the ball flew
+## correctly and the recorded number was inverted. The negation now lives in the
+## gesture alone, where it belongs -- screen space is the thing with a flipped
+## axis, not the golf.
 static func curve_acceleration(heading: Vector3, curve: float) -> Vector3:
 	var flat := Vector3(heading.x, 0.0, heading.z).normalized()
 	var right := flat.cross(Vector3.UP).normalized()
-	return right * (-clampf(curve, -1.0, 1.0) * CURVE_ACCEL)
+	return right * (clampf(curve, -1.0, 1.0) * CURVE_ACCEL)
 
 
 ## The arc, sampled until it returns to the ground. Closed form, so this costs

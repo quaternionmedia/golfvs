@@ -28,6 +28,29 @@ const SPIRE_SIZE := Vector3(5.4, 7.0, 3.4)
 const BALL_RADIUS := 0.18
 const BALL_MASS := 0.045
 
+## The hole's id in records. "<biome>/<nn>", stable for the life of the hole.
+const HOLE_ID := "intro/01"
+
+## Where the shooter stands, and the piece of sky it owns.
+##
+## A full-power drive from the tee peaks about 4.4 m up and 21 m out, so the
+## zone is centred there -- and offset three metres to the right of the corridor
+## so that *where* the apex sits inside the zone matters. Dead-straight full
+## power is the shot most at risk; bending it left moves the apex toward the rim
+## where accuracy_at() falls away, and a lower shot passes under the 2.5 m floor
+## entirely. Both of §3's counters for skeet are live on this hole.
+##
+## Radius 7 rather than the profile default of 11: the wider zone makes lateral
+## position almost irrelevant, which test_defender_brain.gd measures and which
+## would make the curve read a lie on this hole.
+const SKEET_STAND := Vector3(11.0, 0.0, -20.0)
+const SKEET_WATCH := Vector3(3.0, 5.0, -21.0)
+const SKEET_RADIUS := 7.0
+
+## Sampling step for the arc the defenders read. Finer than the 0.075 s the
+## ribbon uses, because it decides *when* a shot is fired at.
+const DEFENDER_DT := 0.02
+
 var camera: Camera3D
 var ball: RigidBody3D
 var cup_beacon: Beacon
@@ -225,9 +248,27 @@ var _cam_target := Transform3D.IDENTITY
 var _aiming := false
 var _curve_accel := Vector3.ZERO
 
+## Set false to play the hole as plain golf -- the Scottish Rules control group
+## (§4). Every hole must be a good golf hole before it is a good golfVs hole,
+## and this is the switch that lets someone check.
+@export var defended := true
+
+var _defenders: Array[Skeet] = []
+var _round: Array[StrokeRecord] = []
+var _record: StrokeRecord = null
+var _round_seed := 0
+var _stroke_seed := 0
+
+## Where the finished round was written. Empty until the ball drops.
+var round_path := ""
+
 
 func _setup_play() -> void:
 	_spire_aabb = AABB(SPIRE_POS - SPIRE_SIZE * 0.5, SPIRE_SIZE).grow(BALL_RADIUS)
+	# Drawn once per round and written into every Stroke Record, so a round can
+	# be replayed exactly and a shared one plays the same on the other phone.
+	_round_seed = randi()
+	_build_defenders()
 
 	_ribbon = AimRibbon.new()
 	add_child(_ribbon)
@@ -306,6 +347,104 @@ func _arc_blocked(points: PackedVector3Array) -> bool:
 	return false
 
 
+# -------------------------------------------------------------- defenders ----
+
+func _build_defenders() -> void:
+	if not defended:
+		return
+	var profile := DefenderProfile.skeet(SKEET_STAND, SKEET_WATCH)
+	profile.zone_radius = SKEET_RADIUS
+	# Gentle, because this is the hole a stranger meets first. About a third of
+	# dead-straight full drives get knocked down, which is often enough to be
+	# noticed and rare enough that nobody is stopped from finishing.
+	var shooter := Skeet.with_profile(profile, DifficultyTier.gentle(), "skeet_0")
+	add_child(shooter)
+	_defenders.append(shooter)
+
+
+func _defender_entries() -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	for shooter in _defenders:
+		entries.append(shooter.brain.to_record_entry())
+	return entries
+
+
+## §3: a skeet hit "knocks the ball down in place". Applied as an impulse from
+## the action rather than as a collision with the shooter's mesh, per §6.4 --
+## animated colliders are flaky and nondeterministic, and determinism is what
+## the whole record format rests on.
+func _on_defender_acted(shooter: Skeet) -> void:
+	if not shooter.brain.will_connect():
+		return
+	ball.linear_velocity = Vector3(0.0, minf(ball.linear_velocity.y, 0.0), 0.0)
+	ball.angular_velocity = Vector3.ZERO
+	_curve_accel = Vector3.ZERO
+
+
+# ---------------------------------------------------------------- records ----
+
+## A different hole is a different hash whatever the id says (§2.1), so this
+## covers the geometry a stroke's outcome actually depends on.
+func _layout_hash() -> String:
+	return Canonical.hash_of({
+		"tee": Canonical.vec3_array(TEE_POS),
+		"cup": Canonical.vec3_array(CUP_POS),
+		"green": [Canonical.vec3_array(GREEN_POS), GREEN_RADIUS],
+		"spire": [Canonical.vec3_array(SPIRE_POS), Canonical.vec3_array(SPIRE_SIZE)],
+		"par": PAR,
+		"defended": defended,
+	}).substr(0, 16)
+
+
+## One seed per stroke, derived from the round's. Storing the derivation rather
+## than a fresh draw means a whole round replays from a single number, and a
+## fork from stroke 3 gets the same defender rolls the original did.
+func _seed_for_stroke(number: int) -> int:
+	return hash("%d:%d" % [_round_seed, number])
+
+
+## Which surface the ball is sitting on, in the schema's vocabulary. Read off
+## the same constants the geometry is built from, so the two cannot drift.
+func _lie_at(at: Vector3) -> String:
+	if Vector2(at.x - GREEN_POS.x, at.z - GREEN_POS.z).length() <= GREEN_RADIUS:
+		return "green"
+	if Vector2(at.x - 1.5, at.z + 54.0).length() <= 3.6:
+		return "sand"
+	if Vector2(at.x, at.z).length() <= 2.2:
+		return "tee"
+	if absf(at.x) <= 9.0 and at.z <= 2.0 and at.z >= -56.0:
+		return "fairway"
+	return "rough"
+
+
+## Close the open record with where the ball finished and what the defenders
+## did. Called once per stroke, whether it settled or went in.
+func _finish_stroke(extra := "") -> void:
+	if _record == null:
+		return
+	var events := PackedStringArray()
+	for shooter in _defenders:
+		events.append_array(shooter.brain.events())
+	if extra != "":
+		events.append(extra)
+	_record.resolve(ball.global_position, _lie_at(ball.global_position), events)
+	_round.append(_record)
+	_record = null
+	for shooter in _defenders:
+		shooter.rest()
+
+
+func _save_round() -> String:
+	if _round.is_empty():
+		return ""
+	return RecordStore.save_round(HOLE_ID, _layout_hash(), _round_seed, PAR, _round)
+
+
+## The round so far, as §4.1 notation. Derived; never parsed back.
+func round_notation() -> String:
+	return RecordStore.notation(_round)
+
+
 # ----------------------------------------------------------------- input -----
 
 func _on_gesture_began() -> void:
@@ -338,13 +477,39 @@ func _on_fired(heading: Vector3, power: float, curve: float) -> void:
 	_target.confirm()
 
 	var putting := lesson == Lesson.PUTT
+	# The gesture's raw numbers stop here. From this line on the stroke is
+	# played from the intent's quantized ones, which are also the ones written
+	# to disk -- so a replay feeds the simulation the identical inputs rather
+	# than ones that merely round to the same text (records/canonical.gd).
+	var intent := ShotIntent.make(
+		ShotIntent.Club.PUTTER if putting else ShotIntent.Club.IRON,
+		power, curve, heading)
+
+	var origin := ball.global_position
+	var velocity := BallFlight.launch_velocity(intent.direction, intent.power, putting)
+	_curve_accel = BallFlight.curve_acceleration(intent.direction, intent.curve)
+
+	strokes += 1
+	_stroke_seed = _seed_for_stroke(strokes)
+	_record = StrokeRecord.opened(
+		HOLE_ID, _layout_hash(), _stroke_seed, strokes, origin, _lie_at(origin), intent)
+	_record.defenders = _defender_entries()
+
+	# The defenders read the flight the ball is *about* to take. That arc is
+	# computed from the ball's position and velocity at release and from nothing
+	# else -- no intent, no club, no gesture -- which is how §3's "act on the
+	# ball's actual state, never on input before release" is kept true while
+	# still leaving time for a tell.
+	var arc := BallFlight.sample_arc(
+		origin, velocity, _curve_accel, BALL_RADIUS, 900, DEFENDER_DT)
+	for shooter in _defenders:
+		shooter.read_shot(arc, DEFENDER_DT, _stroke_seed)
+
 	ball.freeze = false
 	ball.linear_damp = ROLL_DAMP if putting else 0.0
 	ball.angular_damp = 1.4
-	ball.linear_velocity = BallFlight.launch_velocity(heading, power, putting)
-	_curve_accel = BallFlight.curve_acceleration(heading, curve)
+	ball.linear_velocity = velocity
 
-	strokes += 1
 	stroke_taken.emit(strokes)
 	state = State.FLIGHT
 	_still_for = 0.0
@@ -354,6 +519,13 @@ func _on_fired(heading: Vector3, power: float, curve: float) -> void:
 func _physics_process(delta: float) -> void:
 	if state != State.FLIGHT:
 		return
+
+	# Stepped on the physics tick, not on the frame, so what the defender does
+	# is a function of the same fixed 60 Hz the ball is integrated on and does
+	# not change with frame rate.
+	for shooter in _defenders:
+		if shooter.advance(delta):
+			_on_defender_acted(shooter)
 
 	var airborne := ball.global_position.y > BALL_RADIUS * 1.8
 	if airborne:
@@ -370,6 +542,7 @@ func _physics_process(delta: float) -> void:
 	if ball.linear_velocity.length() < SETTLE_SPEED:
 		_still_for += delta
 		if _still_for >= SETTLE_TIME:
+			_finish_stroke()
 			_enter_aim()
 	else:
 		_still_for = 0.0
@@ -385,6 +558,10 @@ func _try_hole_out() -> bool:
 	_ribbon.hide_arc()
 	cup_beacon.confirm()
 	_target.visible = false
+	# Closed before the drop tween runs, so the record holds where the ball
+	# actually finished rather than where the flourish puts it.
+	_finish_stroke("holed")
+	round_path = _save_round()
 	_celebrate()
 
 	var drop := create_tween()

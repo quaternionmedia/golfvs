@@ -191,10 +191,15 @@ func to_notation() -> String:
 		intent.to_notation() if intent != null else "?",
 		after_lie.substr(0, 1).to_upper(),
 	]
+	# Only defenders that actually acted are named. Listing a shooter that never
+	# fired as a miss reads as "it tried and failed", which is a different
+	# stroke from the one where the ball went under its zone untouched.
 	var tells := PackedStringArray()
 	for entry in defenders:
 		var id := String(entry.get("id", "?"))
 		var sport := id.split("_")[0]
+		if not events.has("%s_fired" % sport):
+			continue
 		var hit := events.has("%s_hit" % sport)
 		tells.append("%s %s" % [sport, "✓" if hit else "✗"])
 	if not tells.is_empty():

@@ -109,9 +109,13 @@ func _track(pointer: Vector2) -> void:
 	var along := pull.dot(_axis)
 	var across := _axis.cross(pull)
 	_power = clampf((along - LOCK_PX) / (MAX_PULL_PX - LOCK_PX), 0.0, 1.0)
-	# Sign works out so that sliding the finger right bends the ball right; see
-	# BallFlight.curve_acceleration, which negates once more.
-	_curve = clampf(across / MAX_CURVE_PX, -1.0, 1.0)
+	# Screen y grows downward, so a rightward slide gives a negative cross
+	# product. Negating here is what makes "finger right" come out as a positive
+	# curve -- a fade, per RECORD_SCHEMA.md §2.1 -- so the number that reaches
+	# the record already means what the schema says it means. The flip belongs
+	# here, in the one place that deals in screen coordinates, and not in
+	# BallFlight, where it used to hide.
+	_curve = clampf(-across / MAX_CURVE_PX, -1.0, 1.0)
 	aim_updated.emit(_heading, _power, _curve)
 
 

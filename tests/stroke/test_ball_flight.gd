@@ -47,17 +47,23 @@ func test_full_power_does_not_overshoot_the_hole() -> void:
 	assert_float(carry).is_between(30.0, 50.0)
 
 
-func test_curve_bends_the_way_the_player_dragged() -> void:
-	# Dragging right must bend the ball right, in the camera's terms. Getting
-	# this backwards is invisible in a still frame and infuriating in the hand.
+func test_curve_signs_match_the_record_schema() -> void:
+	# RECORD_SCHEMA.md §2.1: "Negative is a draw (left), positive a fade
+	# (right), for a right-handed golfer." `intent.curve` goes on disk, so this
+	# is not a matter of taste -- a stored number whose sign means the opposite
+	# of what the schema says is a bug that surfaces on somebody else's phone,
+	# after the schema has frozen and can no longer be corrected.
+	#
+	# Both signs used to be inverted, here and in StrokeGesture, and cancelled:
+	# the ball flew correctly and the recorded value was backwards.
 	var heading := Vector3.FORWARD
 	var right_of_flight := heading.cross(Vector3.UP).normalized()
 
-	var accel := BallFlight.curve_acceleration(heading, -1.0)
-	assert_float(accel.dot(right_of_flight)).is_greater(0.0)
+	var fade := BallFlight.curve_acceleration(heading, 1.0)
+	assert_float(fade.dot(right_of_flight)).is_greater(0.0)
 
-	accel = BallFlight.curve_acceleration(heading, 1.0)
-	assert_float(accel.dot(right_of_flight)).is_less(0.0)
+	var draw := BallFlight.curve_acceleration(heading, -1.0)
+	assert_float(draw.dot(right_of_flight)).is_less(0.0)
 
 	assert_float(BallFlight.curve_acceleration(heading, 0.0).length()).is_less(EPS)
 
