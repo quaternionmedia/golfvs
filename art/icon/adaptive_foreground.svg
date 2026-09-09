@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 512 512">
+  <!--
+    golfVs — Android adaptive icon, foreground layer.
+
+    Transparent, and everything sits inside the central safe zone. Android
+    reserves the outer 18% of an adaptive icon for masking and parallax, so a
+    subject drawn to the same bounds as the standalone icon would lose its ball
+    on a circular launcher. The whole figure is therefore scaled about its own
+    centre to roughly two thirds, which is what that reserve works out to.
+
+    The shot and the ball only. The deck is the background layer's job.
+  -->
+  <g transform="translate(256 238) scale(.62) translate(-252 -277)">
+    <g fill="none" stroke="#ffd46b">
+      <ellipse cx="356" cy="352" rx="74" ry="26" stroke-width="6" opacity=".45"/>
+      <ellipse cx="356" cy="352" rx="30" ry="11" stroke-width="8"/>
+    </g>
+
+    <path d="M136 418Q232 74 356 344" fill="none" stroke="#21d4ff"
+          stroke-width="40" opacity=".14" stroke-linecap="round"/>
+    <path d="M136 418Q232 74 356 344" fill="none" stroke="#21d4ff"
+          stroke-width="15" stroke-linecap="round"/>
+
+    <circle cx="136" cy="418" r="62" fill="#21d4ff" opacity=".16"/>
+    <circle cx="136" cy="418" r="44" fill="#9fd8e8" opacity=".4"/>
+    <circle cx="136" cy="418" r="31" fill="#fdfdf6"/>
+  </g>
+</svg>

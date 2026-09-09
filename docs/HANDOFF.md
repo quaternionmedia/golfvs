@@ -327,6 +327,52 @@ settling before a build goes anywhere other than a personal phone.
 **Gates:** suite 161/161 green, docs check green, `demo_round` PASS, and both exports succeed from a clean
 `build/`.
 
+### build-05, part seven — ready to be published, not ready to be released (ADR-025)
+
+**Asked for:** a review of the gaps to publishing an open v0.0.1, then a logo from the game art, the rest of
+the gaps closed, and a round of polish.
+
+**Three of the gaps were not cosmetic.**
+
+1. **The icon was Godot's logo.** `icon.svg` had been the stock robot since the repository was created, and
+   with `launcher_icons` and `application/icon` empty, both artifacts inherited it. It told anyone who saw it
+   that the application *is* Godot, and it used the Godot Foundation's mark as this project's identity.
+2. **Godot's licence travelled with nothing.** The engine is statically linked into both binaries and MIT
+   requires the notice to accompany the distribution. `NOTICE` covered gdUnit4 — which does not ship — and
+   not the engine, which does. `THIRDPARTY.md` now carries it.
+3. **The export packed the whole workshop.** gdUnit4 (2.1 MB of source), `tests/`, `tools/`, against 355 KB
+   of game. An `exclude_filter` took the data pack **from 1.9 MB to 232 KB**, which is the plainest possible
+   statement of how much of what shipped was not the game.
+
+**The icon is drawn from the game.** Every colour is a constant in `hole_builder.gd` and every shape is
+something the game actually draws: the deck grid, the amber boundary, a target ring, the flight arc the club
+selector uses as a label, and the ball as the one lit solid object. It was rebalanced after looking at it at
+48 px, where the first draft turned to mush — the grid is texture, and texture is the first thing to go. SVG
+rather than PNG throughout, because `.gitattributes` sends every PNG through Git LFS and the LFS path has
+never been proven end to end; an icon is not worth being the file that discovers LFS is misconfigured.
+Android accepts the SVGs directly. Windows needs an `.ico`, which cannot be text, so that one is generated
+and committed, and `build.sh` fetches `rcedit` to apply it.
+
+**`window/handheld/orientation=4` is load-bearing, not tidiness.** The project was landscape only because
+that is Godot's default, and Godot strips defaults on save — so the single thing the game most assumes about
+a phone was recorded nowhere and would have vanished if written plainly. Sensor-landscape is both the better
+behaviour and a value that survives.
+
+**Also:** `config/version` is `0.0.1` in all three places that have to agree; `in_bounds()` in
+`defender_profile.gd` had lost a line continuation and was one 130-column line; and the community files
+GitHub looks for now exist.
+
+**Two placeholders a human has to fill.** `CODE_OF_CONDUCT.md` and `SECURITY.md` route reports through
+GitHub rather than an email address, deliberately — publishing somebody's personal address is not a decision
+an assistant gets to take. And `.github/ISSUE_TEMPLATE/config.yml` has no contact links, because they need
+absolute URLs and there is still no remote to point at.
+
+**Still not a release.** Debug builds, provisional package id, CI that has never run, and nobody has launched
+either binary. `docs/RELEASE.md` is the checklist and the standing list of what stands in the way.
+
+**Gates:** suite 161/161 green, docs check green, `demo_round` PASS, both exports clean from an empty
+`build/`, APK verified to carry our icon and no permissions.
+
 ### build-04
 **A defended hole that writes records, and a demo that checks them.** Four commits; the suite went from 22
 cases to 66.

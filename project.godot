@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="golfVs"
-config/version="0.0.1-m0"
+config/version="0.0.1"
 run/main_scene="res://ui/menu/main_menu.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 run/flush_stdout_on_print=true
@@ -19,8 +19,20 @@ config/icon="res://icon.svg"
 
 [display]
 
+window/size/viewport_width=1152
+window/size/viewport_height=648
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+; Landscape, said out loud, and sensor-landscape rather than plain landscape so
+; the phone can be held either way up. ADR-007 makes the phone the reference
+; device; a golf shot is a horizontal thing and the range is wider than deep.
+;
+; It was already landscape, because that is Godot's default -- and Godot strips
+; settings equal to their default when the editor saves, so writing plain
+; landscape here would have silently vanished, the way
+; `physics/common/physics_ticks_per_second` was found to. 4 is sensor-landscape,
+; which is both the better behaviour and a value that survives.
+window/handheld/orientation=4
 
 [editor_plugins]
 

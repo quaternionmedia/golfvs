@@ -1,0 +1,5 @@
+# No contact_links yet: they need absolute URLs, and this repository does not
+# have a remote to point at. Add them once it does — `docs/CONTRIBUTING.md` and
+# `docs/DESIGN.md` are the two worth linking, so that "how this works" and "most
+# of the pitch is not built yet" both land before somebody opens an issue.
+blank_issues_enabled: true

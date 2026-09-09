@@ -123,7 +123,8 @@ func reach(tier: DifficultyTier) -> float:
 
 ## Is this point still on the course? Bounds guards only.
 func in_bounds(point: Vector3) -> bool:
-	return absf(point.x - bounds_centre.x) <= bounds_extent.x 		and absf(point.z - bounds_centre.z) <= bounds_extent.y
+	return absf(point.x - bounds_centre.x) <= bounds_extent.x \
+		and absf(point.z - bounds_centre.z) <= bounds_extent.y
 
 
 ## True when `point` is somewhere this defender could act on at all. Position

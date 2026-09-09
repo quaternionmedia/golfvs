@@ -153,6 +153,15 @@ keystore="${GODOT_ANDROID_KEYSTORE_DEBUG_PATH:-$HOME/.android/debug.keystore}"
 export GODOT_ANDROID_KEYSTORE_DEBUG_USER="${GODOT_ANDROID_KEYSTORE_DEBUG_USER:-androiddebugkey}"
 export GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD="${GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD:-android}"
 
+# ---------------------------------------------------------------- icons ------
+#
+# Rendered from the SVGs every build. They are cheap, and an icon that has
+# quietly stopped matching its source is exactly the kind of thing nobody
+# notices until it is on a store page.
+
+say "Rendering icons"
+"$GODOT_BIN" --headless --path . --script tools/make_icons.gd >/dev/null
+
 # ---------------------------------------------------------------- exports ----
 
 export_one() {
@@ -167,6 +176,19 @@ export_one() {
 }
 
 if [ "$target" = "all" ] || [ "$target" = "windows" ]; then
+  # rcedit is how the icon and the version strings get into a Windows
+  # executable. Godot will export perfectly well without it and the result keeps
+  # the icon baked into Godot's own template -- which is Godot's logo, on a
+  # binary that is not Godot. A 1.5 MB download is a cheap way not to ship that.
+  rcedit="$data_dir/rcedit-x64.exe"
+  if [ ! -f "$rcedit" ]; then
+    say "Fetching rcedit (once)"
+    curl -fL --retry 3 --retry-delay 5 -o "$rcedit" \
+      https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe \
+      || printf '  could not fetch rcedit; the exe will keep Godot\047s icon\n'
+  fi
+  [ -f "$rcedit" ] && set_editor_path "export/windows/rcedit" "$(winpath "$rcedit")"
+
   export_one "Windows Desktop" "build/windows/golfVs.exe"
   # An export that produced a file is not the same as an export that produced a
   # game: a pack missing its resources, or a main scene that no longer

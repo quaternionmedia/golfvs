@@ -15,9 +15,18 @@ Caricatured, chunky low-poly characters, one-thumb controls, thirty-second holes
 
 ## Status
 
-**M0 — Bootstrap,** with M1 to M3 work running ahead of it. The intro hole is playable: it is the menu, it
-is guarded by an archer that shoots only balls leaving the course, and every stroke it plays is written as a
-portable, self-verifying record. What M0 still owes is an Android build on a real phone.
+**M0 — Bootstrap,** with M1 to M3 work running ahead of it.
+
+> **What is actually in the box.** Everything above is the pitch. What builds
+> today is a **practice range**: three pins, three clubs, one archer, and box art
+> standing in for meshes that do not exist. There is **no audio at all**, no
+> course, no scoring beyond the card, and no multiplayer of any kind. One of the
+> twelve sports in §3 is built. Builds before v0.1.0 are **debug builds** meant
+> for finding out what breaks. [`CHANGELOG.md`](CHANGELOG.md) has the honest list.
+
+What is real is the spine: the stroke, the defender framework, a camera you can
+orbit, a side you can switch to, and a portable hash-verified record for every
+stroke played. What M0 still owes is somebody launching the APK on a phone.
 
 The honest question the project is built toward is still M1's: *is it fun to hit balls at nothing, on a
 phone?* Nothing here has been played on one yet.
@@ -74,7 +83,8 @@ engine. `.github/workflows/build.yml` runs the same script on demand or on a
 `v*` tag, and uploads the two artifacts.
 
 Nothing is signed for release. There is no release keystore, and there will not
-be one until there is something to release.
+be one until there is something to release. [`docs/RELEASE.md`](docs/RELEASE.md)
+is the checklist, and the standing list of what is not ready to be a release yet.
 
 CI runs both on every pull request, plus a check that `DESIGN.md` and `DECISIONS.md` stay in step.
 
@@ -104,6 +114,9 @@ CI runs both on every pull request, plus a check that `DESIGN.md` and `DECISIONS
 | [`docs/RECORD_SCHEMA.md`](docs/RECORD_SCHEMA.md) | The record format, frozen at M1 exit. |
 | [`docs/ART_PIPELINE.md`](docs/ART_PIPELINE.md) | Blender to Godot: budgets, vertex colours, export settings, art cards. |
 | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | How to work here. Assistants draft, humans ratify. |
+| [`docs/RELEASE.md`](docs/RELEASE.md) | Getting a build out, and what still stands in the way of a real one. |
+| [`CHANGELOG.md`](CHANGELOG.md) | What is in a given build — including what is not. |
+| [`THIRDPARTY.md`](THIRDPARTY.md) | Everything redistributed in a build, and its licence. |
 
 ## Design pillars
 

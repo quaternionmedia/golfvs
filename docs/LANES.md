@@ -240,8 +240,12 @@ the action means the defender silently never acts, which looks exactly like one 
 - [ ] Matrix the test job across Linux, Windows and macOS. **Lane B's gate needs it to mean anything**
 - [x] Export presets for Android and desktop, keystore path out of the repo (ADR-024). `tools/build.sh`
       produces both; `.github/workflows/build.yml` runs the same script on demand or on a `v*` tag
+- [x] Publishing hygiene (ADR-025): own icon, `THIRDPARTY.md`, the workshop excluded from exports, community
+      files, `CHANGELOG.md`, and `docs/RELEASE.md` as the checklist
 - [ ] A release build and a release keystore. Needs a decision about where the secret lives, and something
       worth releasing
+- [ ] **Push to a remote and cut v0.0.1-test.** Everything the tag needs is in place; what is missing is a
+      remote, one green CI run, and somebody launching both binaries
 - [ ] A check that the engine pin and the autoload list survived the last editor save
 - [ ] Note-level check that gdUnit4's supported-Godot range still contains the pin. It currently does not —
       6.2.1 lists up to 4.7.1 and the pin is 4.7.2
