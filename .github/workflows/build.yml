@@ -1,0 +1,103 @@
+name: Build
+
+# Test builds for Windows and Android.
+#
+# Deliberately *not* on every pull request. It downloads 1.3 GB of export
+# templates and produces a 130 MB pair of artifacts, and `ci.yml` already gates
+# every change on the suite and the demo round. This runs when somebody wants a
+# build to put on a phone -- by hand, or by tagging one.
+#
+# ADR-002 makes GitHub releases the canonical distribution. This is the job that
+# will eventually feed one; today it produces debug builds and nothing is signed
+# for release, because there is no release keystore and that is its own decision.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Windows and Android (debug)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Read the engine pin
+        id: pin
+        run: echo "version=$(cat .godot-version)" >> "$GITHUB_OUTPUT"
+
+      # Android signing needs a JDK even for a template build, because the APK
+      # still has to be signed. 17 is the floor Godot's Android tooling asks for.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Cache Godot ${{ steps.pin.outputs.version }}
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ steps.pin.outputs.version }}-linux-x86_64
+
+      # The templates are the slow part and they never change for a given pin,
+      # so they are cached against exactly that.
+      - name: Cache export templates
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/godot/export_templates
+          key: godot-templates-${{ steps.pin.outputs.version }}
+
+      - name: Install Godot ${{ steps.pin.outputs.version }}
+        run: |
+          set -euo pipefail
+          version='${{ steps.pin.outputs.version }}'
+          binary="$HOME/godot/Godot_v${version}_linux.x86_64"
+          if [ ! -x "$binary" ]; then
+            mkdir -p "$HOME/godot"
+            url="https://github.com/godotengine/godot/releases/download/${version}/Godot_v${version}_linux.x86_64.zip"
+            curl -fsSL -o /tmp/godot.zip "$url"
+            unzip -q /tmp/godot.zip -d "$HOME/godot"
+            chmod +x "$binary"
+          fi
+          echo "GODOT_BIN=$binary" >> "$GITHUB_ENV"
+
+      # The project has to be imported before it can be exported: a cold clone
+      # has no .godot/, and an export of an unimported project produces a pack
+      # with no resources in it.
+      - name: Import project
+        run: '"$GODOT_BIN" --headless --path . --import'
+
+      # Everything platform-specific lives in the script, so this job and a
+      # person's laptop run the same build. That is the whole point of it being
+      # a script rather than a page of instructions.
+      - name: Build
+        run: tools/build.sh
+
+      - name: What was built
+        run: |
+          ls -la build/windows build/android
+          echo "--- APK ---"
+          unzip -p build/android/golfVs.apk AndroidManifest.xml > /dev/null && echo "APK is readable"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: golfVs-windows-debug
+          path: build/windows/
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: golfVs-android-debug
+          path: build/android/golfVs.apk
+          if-no-files-found: error

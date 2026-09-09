@@ -291,6 +291,42 @@ interception and not the engine.
 **Gates:** suite 161/161 green (3 new), docs check green, `demo_round` PASS, ten screenshots re-rendered —
 `10-defending` now shows the sighted ribbon reaching the ball rather than stopping at the bow.
 
+### build-05, part six — it builds for Windows and Android (ADR-024)
+
+**Asked for:** a test build for Android and Windows. Both now exist and both come out of `tools/build.sh`.
+
+**`project.godot` was edited** — the shared-file rule says announce it, so: `textures/vram_compression/
+import_etc2_astc=true` was added, because the Android export refuses to run without it. The Godot editor was
+**not** open at the time. The pin and the gdUnit4 plugin line were checked afterwards and are intact.
+
+- **`export_presets.cfg` is tracked now** (ADR-024). It was ignored because it "carries local keystore
+  paths", which was answering half the problem by giving up the other half — it kept the whole preset out of
+  the repo. The keystore fields are blank and `GODOT_ANDROID_KEYSTORE_DEBUG_*` supplies them at build time.
+- **M0's exit was not blocked on hardware**, or not mostly, and this file has said it was since the first
+  session. What was in the way: export templates, a Java path, a keystore. All three are in the script now.
+  The genuinely hardware part is one line — somebody installing the APK on a phone.
+- **The trap, and it cost the most time: the Steam build of Godot runs self-contained.** A `._sc_` file
+  beside the binary moves the entire editor data directory to `<godot>/editor_data/`. So the export templates
+  were already installed and invisible, a settings file written to `%APPDATA%/Godot` did nothing at all, and
+  the export kept reporting "A valid Java SDK path is required in Editor Settings" while a perfectly good one
+  sat in a file Godot was never going to read. `build.sh` detects it. **If an export complains about
+  something you can see is configured, check this first.**
+- **Second trap: Git Bash hands out MSYS paths** and Godot is a native Windows binary that cannot read
+  `/c/Program Files/...`. Same error message, different cause. `winpath()` runs everything through `cygpath`.
+- **Verified rather than asserted:** `aapt2 dump badging` reports `native-code: 'arm64-v8a'`, no
+  `uses-permission` lines at all, and `apksigner verify` reports the debug certificate. The game asks the
+  phone for nothing, which is Pillar 4 as a fact about the artifact.
+
+**Artifacts:** `build/windows/golfVs.exe` (99 MB, plus the .pck and a console wrapper) and
+`build/android/golfVs.apk` (30 MB). Both debug. Both gitignored.
+
+**Note for whoever ratifies:** `package/unique_name` is `org.golfvs.test` and Open Question 1 — the name — is
+still open. A package id change is an uninstall for anybody who has the old one, so the real id wants
+settling before a build goes anywhere other than a personal phone.
+
+**Gates:** suite 161/161 green, docs check green, `demo_round` PASS, and both exports succeed from a clean
+`build/`.
+
 ### build-04
 **A defended hole that writes records, and a demo that checks them.** Four commits; the suite went from 22
 cases to 66.

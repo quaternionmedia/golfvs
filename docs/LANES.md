@@ -62,7 +62,9 @@ five bugs found in session build-04 were invisible to unit tests and obvious wit
       as a static class rather than an autoload
 - [ ] Confirm the `CODEOWNERS` names before enabling code-owner review
 - [ ] Close Open Question 1 — the name. The Android package ID must be final by M4
-- [ ] **Android debug APK on a physical phone** (hardware)
+- [x] **Android debug APK builds** (ADR-024). `org.golfvs.test`, arm64, 30 MB, signed with the debug key
+- [ ] **Install that APK on a physical phone and play it.** This is the part that really was hardware, and
+      it is now the only part: M0's gate, M1's gate and every tuning number in Lane C are waiting on it
 
 ---
 
@@ -231,12 +233,15 @@ the action means the defender silently never acts, which looks exactly like one 
 ## Lane H — Infrastructure
 
 **Owns:** `.github/` · `tools/`
-**Status:** the docs check has six enforcement rules; the demo is a gate.
+**Status:** the docs check has six enforcement rules; the demo is a gate; both targets build from one script.
 
 - [x] Documents-exist and proposals-agree checks
 - [x] The demo round as a CI job
 - [ ] Matrix the test job across Linux, Windows and macOS. **Lane B's gate needs it to mean anything**
-- [ ] Export presets for Android and desktop, keystore path out of the repo
+- [x] Export presets for Android and desktop, keystore path out of the repo (ADR-024). `tools/build.sh`
+      produces both; `.github/workflows/build.yml` runs the same script on demand or on a `v*` tag
+- [ ] A release build and a release keystore. Needs a decision about where the secret lives, and something
+      worth releasing
 - [ ] A check that the engine pin and the autoload list survived the last editor save
 - [ ] Note-level check that gdUnit4's supported-Godot range still contains the pin. It currently does not —
       6.2.1 lists up to 4.7.1 and the pin is 4.7.2

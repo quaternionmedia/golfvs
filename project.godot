@@ -38,3 +38,7 @@ engine/pinned_godot_version="4.7.2.stable"
 
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="mobile"
+; Required for the Android export, which refuses to run without it, and correct
+; regardless: ETC2/ASTC is what mobile GPUs sample natively (ADR-007 makes a
+; phone the reference device). Desktop keeps S3TC/BPTC through the same import.
+textures/vram_compression/import_etc2_astc=true
