@@ -15,9 +15,12 @@ Caricatured, chunky low-poly characters, one-thumb controls, thirty-second holes
 
 ## Status
 
-**M0 — Bootstrap.** The repository, the engine pin, CI and the planning documents exist. There is no
-gameplay yet; the first playable thing is M1's Practice Range, whose gate is the honest question *is it fun
-to hit balls at nothing, on a phone?*
+**M0 — Bootstrap,** with M1 to M3 work running ahead of it. The intro hole is playable: it is the menu, it
+is guarded by an archer that shoots only balls leaving the course, and every stroke it plays is written as a
+portable, self-verifying record. What M0 still owes is an Android build on a real phone.
+
+The honest question the project is built toward is still M1's: *is it fun to hit balls at nothing, on a
+phone?* Nothing here has been played on one yet.
 
 The plan of record is [`docs/DESIGN.md`](docs/DESIGN.md). What is actually in progress is
 [`docs/HANDOFF.md`](docs/HANDOFF.md).
@@ -48,23 +51,30 @@ test panel is available on first open.
 GODOT_BIN=/path/to/godot ./addons/gdUnit4/runtest.sh --add res://tests --continue
 ```
 
-CI runs the same suite headless on every pull request, plus a check that `DESIGN.md` and `DECISIONS.md`
-stay in step.
+Then play a round headless. It is a gate, not a showcase — it exits non-zero if a stroke fails to replay to
+its own hash, if the round on disk differs from the round played, or if a defender's verdict is not
+reproducible from its seed.
+
+```sh
+$GODOT_BIN --headless --fixed-fps 120 --path . res://tools/demo_round.tscn
+```
+
+CI runs both on every pull request, plus a check that `DESIGN.md` and `DECISIONS.md` stay in step.
 
 ## Layout
 
 | Path | What lives there |
 |---|---|
-| `docs/` | The plan of record, the ADR log, the session handoff, and the two pipeline documents |
+| `docs/` | The plan of record, the ADR log, the session handoff, the work board, and the two pipeline documents |
 | `core/` | `GameState`, `EventBus`, `ShotIntent`, `BallController` — the deterministic simulation |
 | `records/` | Stroke, Round and Match Records, `RecordStore`, text notation |
 | `async/` | `DefensePlan`, commit-reveal, transports |
 | `replay/` | `ReplayController`, ghosts, fork UI |
 | `defenders/` | `_base/` plus one folder per sport (scene, profile, models, art card) |
+| `tools/` | CI helpers, and `demo_round.tscn` — a whole round played headless |
 | `holes/` · `clubs/` | `HoleLayout` and `ClubProfile` resources |
 | `art/` · `audio/` | CC-BY-4.0 assets; `.blend` sources under Git LFS |
 | `tests/` | gdUnit4 suites and the record fixtures |
-| `tools/` | CI helpers |
 
 ## Documents
 
@@ -73,6 +83,7 @@ stay in step.
 | [`docs/DESIGN.md`](docs/DESIGN.md) | The plan of record. Scope lives here. Every decision carries a status tag. |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | The ADR log — one entry per ratified decision, with its rationale. |
 | [`docs/HANDOFF.md`](docs/HANDOFF.md) | Session handoff. The only cross-session memory. If it is not here, it did not happen. |
+| [`docs/LANES.md`](docs/LANES.md) | The work board. Lanes own disjoint paths, so several sessions can run at once. |
 | [`docs/RECORD_SCHEMA.md`](docs/RECORD_SCHEMA.md) | The record format, frozen at M1 exit. |
 | [`docs/ART_PIPELINE.md`](docs/ART_PIPELINE.md) | Blender to Godot: budgets, vertex colours, export settings, art cards. |
 | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | How to work here. Assistants draft, humans ratify. |

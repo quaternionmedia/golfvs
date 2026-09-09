@@ -21,6 +21,32 @@ A decision only becomes real when a human ratifier merges it. Tool involvement i
 2. Read `docs/DECISIONS.md`. Every ratified decision is there with its rationale. If your change
    contradicts one, that is a conversation, not a pull request.
 3. Read `docs/HANDOFF.md`. It says what is actually in progress right now.
+4. Read `docs/LANES.md` and pick a lane. It says what is free to start, what is blocked, and on what.
+
+## Working a lane
+
+Work is split into lanes that own **disjoint sets of paths**, so several people or sessions can run at once
+and merge without conflicts. `docs/LANES.md` is the board.
+
+- **Stay inside your lane's paths.** If a change wants a file another lane owns, that is a signal the work
+  belongs in the other lane — say so in `HANDOFF.md` and let that lane take it, rather than reaching across.
+- **Three files are shared.** `project.godot` is one lane at a time and never with the Godot editor open —
+  it silently overwrites the file on save. `DESIGN.md` and `DECISIONS.md` must move in the same commit; CI
+  enforces it. `HANDOFF.md` is append-only: add your session's section, never rewrite another's.
+- **Nothing is ratified by writing code.** If your work implies a decision, add it to `DECISIONS.md` under
+  *Pending ratification*, put the reasoning in `HANDOFF.md`, and carry on. Flagged, not blocked. Deviating
+  from `DESIGN.md` silently is the one failure mode this project has already had — four such divergences
+  went unrecorded for a whole session, and the next reader would have built on the document instead.
+- **Leave both gates green.** The suite, and the demo round:
+
+  ```sh
+  GODOT_BIN=/path/to/godot ./addons/gdUnit4/runtest.sh --add res://tests --continue
+  "$GODOT_BIN" --headless --fixed-fps 120 --path . res://tools/demo_round.tscn
+  ```
+
+  The demo exits non-zero if a stroke fails to replay to its own hash, if the round on disk differs from the
+  round played, or if a defender's verdict is not reproducible from its seed. It is fast, and it catches a
+  whole class of bug the unit suite cannot see.
 
 ## Changing the plan
 
@@ -67,7 +93,8 @@ Tests use [gdUnit4](https://github.com/MikeSchulze/gdUnit4), vendored under `add
 GODOT_BIN=/path/to/godot ./addons/gdUnit4/runtest.sh --add res://tests --continue
 ```
 
-CI runs the same suite headless on every pull request. A red suite blocks a merge.
+CI runs the same suite headless on every pull request, then plays a round through `tools/demo_round.tscn`.
+Either one red blocks a merge.
 
 New fixtures go in `tests/fixtures/records/`. Add one whenever a physics or defender change is ratified —
 the fixture set is the record of what the simulation used to do.

@@ -58,6 +58,9 @@ built on the last two.
 `RECORD_SCHEMA.md` §2.1, and every test passed anyway. See §7.
 
 ## 5. Next three tasks
+**The full board is `docs/LANES.md`** — what is free to start, what is blocked, and on what. These three
+are the ones that unblock other people.
+
 1. **Ratify or reject the three new proposals** (§3), and the four M1 blockers — human. Float precision is
    the urgent one: anything recorded before it settles is scrap.
 2. **Rule on the built-vs-planned divergences.** Four were found last session and recorded only in this file,
