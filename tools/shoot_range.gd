@@ -58,22 +58,43 @@ func _shoot() -> void:
 		await _save(shot["name"])
 
 	await _shoot_spin_dial()
+	await _shoot_putt_aim()
 	await _shoot_orbit()
 	await _shoot_swing()
 	await _shoot_defending()
 	await _shoot_impact()
 
 
-## The whole flat layer at once: the club selector in its corner, and the spin
-## dial mid-gesture. Neither exists at rest, so a static shot of the range shows
-## neither the one control the game has nor the only reading it gives back.
+## The aim aids for a club that flies: the ribbon stub, the spin dial, and the
+## flat direction line that was added after the first pre-alpha feedback asked
+## for "more live side-to-side feedback".
+##
+## Shot from behind and above rather than from the side. The golfer now stands
+## at the ball, and a camera down at shoulder height puts a figure between the
+## lens and everything worth photographing.
 func _shoot_spin_dial() -> void:
 	_range.set_process(false)
+	_range.pin = 1
+	_range.set_club(_range.suggested_club_index())
+	_range._enter_aim()
 	_range._on_gesture_began()
-	_range._on_aim_updated(Vector3(0.0, 0.0, -1.0), 0.85, -0.7)
-	_range.camera.global_transform = Transform3D(Basis.IDENTITY, Vector3(-3.5, 3.0, 6.5)) \
-		.looking_at(Vector3(0.0, 0.4, -8.0), Vector3.UP)
-	await _save("6-spin-dial")
+	_range._on_aim_updated(Vector3(-0.25, 0.0, -1.0).normalized(), 0.85, -0.7)
+	_range.camera.global_transform = Transform3D(Basis.IDENTITY, Vector3(3.2, 5.4, 8.0)) 		.looking_at(Vector3(-1.5, 0.4, -10.0), Vector3.UP)
+	await _save("6-aim-aids")
+
+
+## And the club that does not fly. A putt was previewed as a projectile, which
+## landed within a metre and left a stub about six centimetres long -- reported
+## as the putter simply not having an aiming graphic. It rolls now.
+func _shoot_putt_aim() -> void:
+	_range.set_process(false)
+	_range.pin = 0
+	_range.set_club(_range.suggested_club_index())
+	_range._enter_aim()
+	_range._on_gesture_began()
+	_range._on_aim_updated(Vector3(0.35, 0.0, -1.0).normalized(), 1.0, 0.0)
+	_range.camera.global_transform = Transform3D(Basis.IDENTITY, Vector3(2.6, 4.0, 6.2)) 		.looking_at(Vector3(1.2, 0.3, -5.0), Vector3.UP)
+	await _save("6b-putt-aim")
 
 
 ## The orbit, off the line of play. The point of the shot is that the framing

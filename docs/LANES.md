@@ -121,8 +121,14 @@ what it promises.
 playable. What is left is tuning, which needs a thumb.
 **Gate:** is it fun to hit balls at nothing, on a phone?
 
+- [x] **Aiming correctness** (ADR-026): the drag unprojected through the camera, the line locking only where
+      there is curve to bend, the putt previewed as roll, a flat direction line. Three tests pin it and they
+      fail against the code that shipped
 - [ ] **Tune the gesture on a real thumb.** `LOCK_PX`, `MAX_PULL_PX`, `MAX_CURVE_PX` are all mouse guesses,
-      and ADR-007 makes touch the reference feel (hardware)
+      and ADR-007 makes touch the reference feel (hardware). Correctness is settled; this is feel
+- [ ] **Second round of feedback on the aim**, at a low camera angle specifically. The first round found
+      three things the suite could not, and the fix is measured rather than felt — somebody still has to say
+      whether it now feels like it responds
 - [x] `ClubProfile` — long, short, putt (ADR-018), as named constructors. `BallFlight`'s hardcoded
       `MIN_SPEED` / `MAX_SPEED` / `LAUNCH_DEG` now live in them
 - [ ] `ClubProfile` as `.tres`, once the numbers stop moving every session. See the note in the file

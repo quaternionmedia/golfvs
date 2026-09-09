@@ -541,6 +541,7 @@ func set_defending(value: bool) -> void:
 		return
 	_defending = value
 	_gesture.enabled = true
+	_aim_the_gesture()
 	_ribbon.hide_arc()
 	_spin.hide_dial()
 	_stow_the_arrow()
@@ -577,6 +578,19 @@ func _play_the_games_shot() -> void:
 	_ai_is_playing = false
 
 
+## Tell the gesture what it is reading a drag against.
+##
+## Two facts, and both of them were assumptions until the first pre-alpha
+## feedback found them. The **plane** is what the drag is unprojected onto, so it
+## has to be whatever the player is aiming at -- the ball, or the ball's live
+## height when it is in the air and being shot at. The **lock** is the second
+## half of the stroke gesture, which bends the shot; a bow has nothing to bend,
+## so locking its line means the drag stops responding halfway through.
+func _aim_the_gesture() -> void:
+	_gesture.locks_line = not _defending
+	_gesture.aim_plane_y = ball.global_position.y
+
+
 ## The bow, drawn. Reuses the golfer's own preview: §2.1 makes the ribbon
 ## "accurate on an empty hole and blind to defenders", and an arrow's arc is
 ## exactly as honest a thing to draw as a ball's.
@@ -585,9 +599,12 @@ func _aim_the_bow(heading: Vector3, power: float) -> void:
 	if archer == null or power <= 0.0:
 		_ribbon.hide_arc()
 		return
+	# The ball is the thing being aimed at and it is moving, so the plane the
+	# drag is measured on follows it.
+	_gesture.aim_plane_y = ball.global_position.y
 	var from := archer.nock_at()
 	_ribbon.show_arc(from, _arrow_velocity(heading, power), Vector3.ZERO, 0.0, false,
-		AimRibbon.SIGHTED_FRACTION)
+		AimRibbon.SIGHTED_FRACTION, false)
 	archer.aim_at(from + heading * 14.0 + Vector3.UP * 2.0)
 
 
@@ -764,6 +781,7 @@ func _enter_aim() -> void:
 	# Live on both sides now. Defending, the same drag draws a bow instead of a
 	# club, which is the whole of ADR-021.
 	_gesture.enabled = true
+	_aim_the_gesture()
 	_ai_beat = AI_ADDRESS
 	_light_pins()
 	state_changed.emit(state)
@@ -807,15 +825,18 @@ func _on_aim_updated(heading: Vector3, power: float, curve: float) -> void:
 		return
 	var profile := club()
 	var origin := ball.global_position
+	# A putt cannot be shaped, so the dial has nothing to report and showing an
+	# empty one would read as a control that is broken rather than absent. It
+	# also has no arc: previewed as a projectile it lands within a metre and the
+	# stub came to six centimetres, which is why it read as having no preview.
+	if profile.is_putter:
+		_spin.hide_dial()
+		_ribbon.show_roll(origin, heading, profile.rolls() * power)
+		return
 	var velocity := BallFlight.launch_velocity(heading, power, false, profile)
 	var accel := BallFlight.curve_acceleration(heading, curve, profile)
 	_ribbon.show_arc(origin, velocity, accel, BALL_RADIUS, false)
-	# A putt cannot be shaped, so the dial has nothing to report and showing an
-	# empty one would read as a control that is broken rather than absent.
-	if profile.is_putter:
-		_spin.hide_dial()
-	else:
-		_spin.show_spin(origin, heading, curve, false)
+	_spin.show_spin(origin, heading, curve, false)
 
 
 func _on_fired(heading: Vector3, power: float, curve: float) -> void:

@@ -26,6 +26,30 @@ const DOTS := 16
 const SAMPLE_DT := 0.012
 const MAX_SAMPLES := 900
 
+## A flat line in the aim plane, saying which way and nothing else.
+##
+## The stub above says *shape*, and shape is drawn in the air, where perspective
+## is doing the most work -- at a low camera angle a short 3D arc is a smudge
+## pointing at nothing in particular. The first pre-alpha feedback asked for
+## "more live side-to-side feedback", and this is it: a line lying in the same
+## plane the aim lives in cannot be foreshortened out of legibility, because the
+## player is looking at that plane already.
+##
+## **Fixed length on purpose.** It says direction and refuses to say distance,
+## which keeps §2.1's bargain -- where it lands stays the player's problem.
+const GROUND_DOTS := 10
+const GROUND_REACH := 4.2
+
+## How far a putt would run, previewed as roll rather than as flight.
+##
+## A putt has no arc. Sampled as a projectile it lands within a metre, so the
+## VISIBLE_FRACTION stub of it came to about six centimetres and the club that
+## most needs a distance read had no preview at all -- reported in the first
+## pre-alpha feedback as simply missing. Rolling it out along the ground applies
+## exactly the same rule, "a fraction of the path travelled", to a path that is
+## a line instead of a parabola.
+const ROLL_SAMPLES := 48
+
 const CLEAR := Color("21d4ff")
 const BLOCKED := Color("ff7a2f")
 
@@ -54,7 +78,7 @@ func _ready() -> void:
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	multimesh.use_colors = true
 	multimesh.mesh = dot
-	multimesh.instance_count = DOTS
+	multimesh.instance_count = DOTS + GROUND_DOTS
 	# The dots are written in world space while this node sits at the origin, so
 	# the automatically-derived bounds do not contain them and the whole batch
 	# gets frustum-culled. A generous manual box is the documented way out.
@@ -66,9 +90,29 @@ func _ready() -> void:
 ## colour. With only a stub on screen, colour is the only channel left for "this
 ## line does not get there" -- which is how the curve beat teaches itself.
 func show_arc(origin: Vector3, velocity: Vector3, accel: Vector3, ground_y: float,
-		blocked := false, fraction := VISIBLE_FRACTION) -> void:
-	_blocked = blocked
+		blocked := false, fraction := VISIBLE_FRACTION, ground_line := true) -> void:
 	var path := _dense_arc(origin, velocity, accel, ground_y)
+	_show_path(origin, path, blocked, fraction, ground_line)
+
+
+## A putt, previewed as what it is. Straight, in the plane the ball is already
+## rolling in, and truncated by the same fraction as everything else.
+func show_roll(origin: Vector3, heading: Vector3, distance: float,
+		blocked := false) -> void:
+	var flat := Vector3(heading.x, 0.0, heading.z)
+	if flat.length() < 0.0001 or distance <= 0.0:
+		visible = false
+		return
+	flat = flat.normalized()
+	var path := PackedVector3Array()
+	for i in ROLL_SAMPLES + 1:
+		path.append(origin + flat * (distance * float(i) / float(ROLL_SAMPLES)))
+	_show_path(origin, path, blocked, VISIBLE_FRACTION, true)
+
+
+func _show_path(origin: Vector3, path: PackedVector3Array, blocked: bool,
+		fraction: float, ground_line: bool) -> void:
+	_blocked = blocked
 	if path.size() < 2:
 		visible = false
 		return
@@ -90,6 +134,23 @@ func show_arc(origin: Vector3, velocity: Vector3, accel: Vector3, ground_y: floa
 		xform = xform.scaled_local(Vector3.ONE * (0.45 + 0.55 * taper))
 		multimesh.set_instance_transform(i, xform)
 		multimesh.set_instance_color(i, Color(tint, pow(taper, 1.35)))
+	# The direction line, in the aim plane, after the arc's own dots.
+	var heading := stub[stub.size() - 1] - origin
+	heading.y = 0.0
+	for i in GROUND_DOTS:
+		var slot := DOTS + i
+		if not ground_line or heading.length() < 0.0001:
+			# Parked at zero scale rather than left holding the last frame's
+			# transform: a multimesh has no way to draw fewer instances.
+			multimesh.set_instance_transform(slot, Transform3D().scaled(Vector3.ZERO))
+			continue
+		var along := float(i + 1) / float(GROUND_DOTS)
+		var point := origin + heading.normalized() * (GROUND_REACH * along)
+		var mark := Transform3D(Basis.IDENTITY, point)
+		mark = mark.scaled_local(Vector3.ONE * (0.42 - 0.22 * along))
+		multimesh.set_instance_transform(slot, mark)
+		multimesh.set_instance_color(slot, Color(tint, 0.5 * (1.0 - along * 0.7)))
+
 	visible = true
 	if OS.is_stdout_verbose():
 		print("ribbon: %d pts, stub %d, first %v" % [path.size(), stub.size(), stub[0]])

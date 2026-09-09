@@ -373,6 +373,44 @@ either binary. `docs/RELEASE.md` is the checklist and the standing list of what 
 **Gates:** suite 161/161 green, docs check green, `demo_round` PASS, both exports clean from an empty
 `build/`, APK verified to carry our icon and no permissions.
 
+### build-05, part eight — the first pre-alpha feedback, and what it was really saying (ADR-026)
+
+**Three reports, one failure.** The aiming model was specified for a fixed camera, one club and one side, and
+everything built since reached outside it. Each addition was individually sound and each quietly widened the
+domain of a function nobody had restated.
+
+1. *"With the camera at a lower angle, it starts to feel like it's not responding to the direction I'm
+   choosing."* The heading was built by mixing the camera's **flattened** right and forward vectors, which
+   is exact only looking straight down. Everywhere else the ground is foreshortened and the error grows as
+   the angle drops. **Measured: 2.8 degrees off at a steep camera, 32.9 at a shallow one.** ADR-001's orbit
+   is what made every angle reachable. The drag is unprojected through the camera now.
+2. *"I expected more live side-to-side feedback."* Worse than drift: the line **locks** after 26 px so that
+   sliding across it becomes curve — correct for a stroke, and a bow has no curve, so the archer's aim was
+   frozen for the rest of the drag and the sideways movement was discarded. `locks_line` is a switch now.
+   Plus a flat direction line in the aim plane, which is the one part of the aid perspective cannot ruin.
+3. *"The putter doesn't have the aiming graphic when winding up."* It had one, about six centimetres long: a
+   putt was previewed as a projectile, and a projectile at zero degrees from ball height lands within a
+   metre, so VISIBLE_FRACTION of it was nothing. `show_roll()` draws it as roll, same truncation rule.
+
+**The tests are the point, not the three fixes.** They were written from the report and they *fail against
+the code that shipped* — verified by temporarily restoring the old mapping and watching them go red with the
+exact numbers above. A green suite of 161 cases had nothing to say about any of this.
+
+**Goals moved, not just code.** ADR-026 makes aiming a subsystem with three stated correctness properties
+rather than a feel to be tuned, and M1's gate gains a precondition: *does the control do what it looks like
+it does?* A player fighting the aim is not answering "is it fun to hit balls at nothing on a phone". Pillar 2
+— the player always knows why — had only ever been read as a rule about defenders; it applies first to the
+player's own aim.
+
+**Feedback from playing is now a first-class input** alongside the suite and the demo. Nothing here was
+findable from either, and the first round found three real defects in an afternoon.
+
+**Next:** somebody has to say whether it now *feels* right at a low angle. The fix is measured; feel is not.
+Lane C carries that as its own task.
+
+**Gates:** suite 169/169 green (8 new), docs check green, `demo_round` PASS, screenshots re-rendered —
+`6-aim-aids` and `6b-putt-aim` are new and exist to show the two previews that were wrong.
+
 ### build-04
 **A defended hole that writes records, and a demo that checks them.** Four commits; the suite went from 22
 cases to 66.

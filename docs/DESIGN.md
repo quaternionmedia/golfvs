@@ -44,7 +44,15 @@ The atomic unit is one stroke. It must be fun on an empty hole before anything e
 - **Club** chosen with a tap before the pull: **long**, **short**, **putt** (ADR-018). The putter is picked like the other two rather than applied to the player on the green — an auto-putter is a rule you have to notice is happening to you. The selector is a small mark in the top-left corner (ADR-019), not a bar across the bottom.
 - **Rationale:** one gesture keeps the floor low for kids and touch; curve-on-the-same-gesture gives skilled players expression without a second input. Timing-bar golf was rejected: it rewards reflexes over reading the hole, against Pillar 1.
 
-**Aiming aid:** a 3D ribbon predicting the arc, *accurate on an empty hole* and *blind to defenders*. It tells the truth about physics and lies about the world — that is the core tension.
+**Aiming aid:** a 3D ribbon predicting the arc, *accurate on an empty hole* and *blind to defenders*. It tells the truth about physics and lies about the world — that is the core tension. It is joined by a flat direction line lying in the aim plane, which is the only part of the aid that survives a low camera angle intact.
+
+**Aiming is a subsystem, and it has correctness requirements** (`ADR-026`). Not a feel to be tuned — three properties that hold or do not, and each is a test:
+
+1. **The shot leaves opposite the drag, as seen on screen, at every camera angle.** The drag is unprojected onto the aim plane through the camera. Building the heading from the camera's flattened basis instead is exact only looking straight down, and drifts further the shallower the angle gets — measured at 2.8° of error steep and 32.9° shallow, which is a control that wanders as you orbit.
+2. **The drag responds all the way through.** The line locks only where there is a second phase to lock for. A stroke has curve to bend; a bow does not, and locking its line means the second half of every drag does nothing.
+3. **Every club is previewed in the terms it actually moves.** A putt rolls, so it is drawn as roll. Sampled as a projectile it lands within a metre and its stub comes to six centimetres, which is no preview at all for the club whose whole skill is distance.
+
+These were found by playing, not by testing, and the tests that hold them now were written from the report.
 
 **Camera** (ADR-001): free orbit, decoupled from aim. Two-finger drag on touch so it never collides with the one-finger stroke. One-tap "reset to line of play"; auto-snap to putt view on the green; zoom limited so the cup is always findable. Consequences: defender tells must read from any angle (silhouette + audio), and holes are authored without a hero angle.
 
@@ -333,7 +341,7 @@ Each ends at its gate; the next begins when the gate is ratified.
 | # | Name | Exit criteria |
 |---|---|---|
 | **M0** | Bootstrap | Repo, version pin, CI green on an empty test, `DESIGN` / `DECISIONS` / `HANDOFF` / `ART_PIPELINE` / `RECORD_SCHEMA` seeded, placeholder capsule golfer, Android debug APK launches on a phone |
-| **M1** | The Stroke | Practice Range: gesture, 3 clubs, ball physics, aim ribbon, determinism test passing, every stroke written as a Stroke Record and replayable from it, on-device touch tuning. Ghost-gesture demo (§2.6) so a stranger can swing without being told how. **Gate: is it fun to hit balls at nothing, on a phone?** Schema v1 frozen at exit. |
+| **M1** | The Stroke | Practice Range: gesture, 3 clubs, ball physics, aim ribbon, determinism test passing, every stroke written as a Stroke Record and replayable from it, on-device touch tuning. Ghost-gesture demo (§2.6) so a stranger can swing without being told how. **Gate: is it fun to hit balls at nothing, on a phone?** — which cannot be asked before its precondition: **does the control do what it looks like it does** (`ADR-026`, §2.1)? A player fighting the aim is not answering the question the gate poses. Schema v1 frozen at exit. |
 | **M2** | First Defender + Scottish Rules | Skeet with full Idle→Tell→Act→Cooldown, data-driven profile, difficulty tiers, defender state in records; Scottish Rules on the same holes. **Gate: does the player feel outsmarting the shooter, and is the hole still good golf with the shooter gone?** |
 | **M3** | Vertical Slice | 3 holes, 4 MVP defenders, scorecard, HUD, first real low-poly set, one biome, music loop. **The intro hole and the wordless tutorial layer (§2.6)** — the external playtest is the gate for both. External playtest with kids and adults in Course Play and Scottish Rules. **Gate: can a stranger who was handed the phone with no explanation hole out, and did they smile?** |
 | **M4** | Course Play + Replay & Fork | 9 holes, save/load, settings, accessibility; Replay browser, scrubber, Retry / Defend / Ghost forks; record export/import via clipboard, QR, file, deep link. Android release export at 60 fps; desktop exports with mouse + gamepad adaptations. |
