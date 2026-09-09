@@ -45,19 +45,15 @@ func _ready() -> void:
 	# par: you are done with a pin when you have put a ball on it, and how many
 	# it took is counted but never held against you.
 	_scorecard.par = range_.PINS.size()
-	# Clear of the club selector along the bottom. Two things drawn in the same
-	# strip made both unreadable, and the selector is the one that has to be
-	# hittable.
-	_scorecard.lift = ClubSelector.HEIGHT
 	overlay.add_child(_scorecard)
 
 	# The one control in the game. It is a Control rather than world geometry so
 	# that a tap landing on it is marked handled and never reaches StrokeGesture,
 	# which listens on _unhandled_input -- no rectangle checks and no special
 	# case in the gesture.
-	# No anchor preset here: the selector pins itself to the bottom strip in its
-	# own _ready. Giving it a full-rect preset first is what left it covering the
-	# whole screen and eating every press.
+	# No anchor preset here: the selector pins itself into the top-left corner in
+	# its own _ready. Giving it a full-rect preset first is what left it covering
+	# the whole screen and eating every press.
 	_clubs = ClubSelector.new()
 	overlay.add_child(_clubs)
 	_clubs.club_chosen.connect(_on_club_chosen)

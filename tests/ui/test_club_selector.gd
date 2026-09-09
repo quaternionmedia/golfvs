@@ -29,31 +29,57 @@ func _press_at(local: Vector2) -> InputEventMouseButton:
 	return event
 
 
-func test_it_covers_only_the_strip_it_draws() -> void:
-	# The regression. A selector as tall as the screen swallows every press and
+func test_it_covers_only_the_corner_it_draws() -> void:
+	# The regression. A selector as big as the screen swallows every press and
 	# the game becomes unplayable with nothing on screen to explain why.
 	var menu := _menu()
 	await await_idle_frame()
 	var selector: ClubSelector = menu._clubs
 	var screen: Vector2 = menu._clubs.get_viewport_rect().size
 
+	assert_float(selector.size.x).is_equal(ClubSelector.WIDTH)
 	assert_float(selector.size.y).is_equal(ClubSelector.HEIGHT)
-	assert_float(selector.size.y).is_less(screen.y * 0.25)
-	# Pinned to the bottom edge, not floating in the middle of the play area.
-	assert_float(selector.position.y + selector.size.y).is_equal_approx(screen.y, 1.0)
+	# Parked in the top-left corner, not floating in the middle of the play area.
+	assert_vector(selector.position).is_equal(
+		Vector2(ClubSelector.MARGIN, ClubSelector.MARGIN))
+	# And it is a corner rather than a band: a twentieth of the frame, where the
+	# bottom strip it replaced took a sixth.
+	var share := (selector.size.x * selector.size.y) / (screen.x * screen.y)
+	assert_float(share) \
+		.override_failure_message("the selector takes %.1f%% of the screen" % [share * 100.0]) \
+		.is_less(0.05)
+
+
+func test_the_rows_stay_a_finger_tall() -> void:
+	# The one thing "make it subtle" must not be allowed to shrink. Subtle is a
+	# claim about ink; ADR-007 makes touch the reference input, and a control
+	# that is quiet and unhittable has solved the wrong half of the problem. The
+	# drawn rule inside a row is a hairline, and the row it lives in is not.
+	var menu := _menu()
+	await await_idle_frame()
+	var selector: ClubSelector = menu._clubs
+	for cell in selector._cells():
+		assert_float(cell.size.y).is_greater_equal(36.0)
 
 
 func test_the_play_area_is_not_covered() -> void:
-	# Everything above the strip has to reach StrokeGesture. This is the same
+	# Everything outside the corner has to reach StrokeGesture. This is the same
 	# fact as above, said the way the player experiences it.
 	var menu := _menu()
 	await await_idle_frame()
 	var selector: ClubSelector = menu._clubs
 	var screen: Vector2 = selector.get_viewport_rect().size
-	var middle := Vector2(screen.x * 0.5, screen.y * 0.5)
-	assert_bool(selector.get_global_rect().has_point(middle)) \
-		.override_failure_message("the selector covers the middle of the screen") \
-		.is_false()
+	var rect := selector.get_global_rect()
+	var must_be_clear := {
+		"the middle of the screen": Vector2(screen.x * 0.5, screen.y * 0.5),
+		"the bottom strip a thumb rests on": Vector2(screen.x * 0.5, screen.y - 40.0),
+		"the ball on the mat": menu.range_.camera.unproject_position(
+			menu.range_.ball.global_position),
+	}
+	for where in must_be_clear:
+		assert_bool(rect.has_point(must_be_clear[where])) \
+			.override_failure_message("the selector covers %s" % where) \
+			.is_false()
 
 
 func test_tapping_a_cell_chooses_that_club() -> void:

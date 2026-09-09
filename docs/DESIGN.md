@@ -41,7 +41,7 @@ The atomic unit is one stroke. It must be fun on an empty hole before anything e
 - **Pull back** from the ball to set power (distance = power, capped).
 - **Drag sideways** while pulled to set curve (draw/fade). Small offset = subtle shape; large = banana.
 - **Release** to swing.
-- **Club** chosen with a tap before the pull: **Driver** (low loft, long), **Iron** (mid), **Wedge** (high loft, stops fast). **Putter** auto-selects on the green.
+- **Club** chosen with a tap before the pull: **long**, **short**, **putt** (ADR-018). The putter is picked like the other two rather than applied to the player on the green — an auto-putter is a rule you have to notice is happening to you. The selector is a small mark in the top-left corner (ADR-019), not a bar across the bottom.
 - **Rationale:** one gesture keeps the floor low for kids and touch; curve-on-the-same-gesture gives skilled players expression without a second input. Timing-bar golf was rejected: it rewards reflexes over reading the hole, against Pillar 1.
 
 **Aiming aid:** a 3D ribbon predicting the arc, *accurate on an empty hole* and *blind to defenders*. It tells the truth about physics and lies about the world — that is the core tension.
@@ -101,9 +101,19 @@ on it, and the strokes it took are counted but never held against you.
 
 There are three clubs, **long**, **short** and **putt**, and the player picks between them (`ADR-018`). The
 pin suggests one when it comes up and never insists: taking the long club to the putting pin is a perfectly
-good way to find out what the long club is. The selector runs along the bottom of the screen and has no words
-on it either — each club is a bar as long as that club is far, which is legible faster than a name would be
-readable and needs no translating.
+good way to find out what the long club is. The selector sits quietly in the top-left corner (`ADR-019`) and
+has no words on it either — each club is drawn as the shot it hits: the putt a flat line because it rolls, the
+short club a small steep arc, the long club a long shallow one, with both the length and the height taken from
+the club's own numbers. That is legible faster than a name would be readable, needs no translating, and says
+the thing a bar could not — which club gets a ball *over* something. It is drawn faint, on a small black panel
+local to the corner: the range is what is being looked at and the club in hand is a note in the margin. Its
+rows stay a fingertip tall regardless, because subtle is a claim about ink and not about what a thumb has to
+hit.
+
+The camera is the free orbit of `ADR-001`, and it is an offset rather than a mode: the range still frames the
+shot — behind the ball on the line to the pin, trailing the flight, wide on the archer as it draws — and two
+fingers swing that framing around whatever it chose to look at. One finger is the stroke and always was, so
+the two never meet. A tap that never became a stroke puts the camera back on the line of play.
 
 This replaced "The Handshake", a par-4 dogleg that taught power, shaping and the putt through a lie-driven
 lesson machine. That was good work for a hole and the wrong first thing to show: it taught three lessons with

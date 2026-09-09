@@ -184,3 +184,102 @@ func test_the_camera_is_placed_before_anything_can_look_through_it() -> void:
 
 func test_a_defended_range_is_a_different_range() -> void:
 	assert_str(_range(true)._layout_hash()).is_not_equal(_range(false)._layout_hash())
+
+
+## Frames per simulated second, for the camera tests below. They step `_process`
+## by hand rather than waiting: what is being measured is how far the camera
+## moves *per frame*, and a test that waited on real frames would measure the
+## machine it is running on instead.
+const CAM_DT := 1.0 / 60.0
+
+
+func _in_flight(here: Node3D, velocity: Vector3) -> void:
+	here.state = here.State.FLIGHT
+	here.ball.freeze = false
+	here.ball.linear_velocity = velocity
+	var away := Vector3(velocity.x, 0.0, velocity.z)
+	here._trail = -away.normalized()
+	for i in 5:
+		here._process(CAM_DT)
+
+
+func test_the_camera_does_not_whip_round_when_the_arrow_reverses_the_ball() -> void:
+	# The reported bug, and the reason `_trail` exists. The archer's arrow does
+	# not stop the ball, it *reverses* it -- so a camera that recomputes "behind
+	# the ball" from the raw velocity every frame teleports to the far side of it
+	# on the frame the arrow lands. Off screen, with a shake on top, that reads
+	# as the camera breaking rather than as a defender having done something.
+	var here := _range()
+	_in_flight(here, Vector3(0.0, 6.0, -30.0))
+	var before: Vector3 = here._frame_flight().origin
+
+	# What the arrow does: velocity against the flight, and the ball pinned.
+	here.ball.linear_velocity = Vector3(0.0, -4.0, 26.0)
+	here._pinned = true
+	here._process(CAM_DT)
+
+	assert_float(here._frame_flight().origin.distance_to(before)) \
+		.override_failure_message("the flight camera jumped %.1f m in one frame"
+			% here._frame_flight().origin.distance_to(before)) \
+		.is_less(1.0)
+
+
+func test_the_camera_turns_rather_than_cuts_when_the_ball_changes_line() -> void:
+	# The same guarantee without the arrow: any reversal has to be a turn. It is
+	# bounded by TRAIL_TURN, so one frame can only ever be a slice of it.
+	var here := _range()
+	_in_flight(here, Vector3(0.0, 6.0, -30.0))
+	var before: Vector3 = here._trail
+
+	here.ball.linear_velocity = Vector3(0.0, 6.0, 30.0)
+	here._process(CAM_DT)
+	assert_float(before.angle_to(here._trail)) \
+		.is_less_equal(here.TRAIL_TURN * CAM_DT + 0.001)
+	# And it does turn: a limit that never moves is just a frozen camera.
+	assert_float(before.angle_to(here._trail)).is_greater(0.0)
+
+
+func test_a_defender_is_blended_into_frame_and_not_cut_to() -> void:
+	# The other half of the same jump. The defender framing used to be a branch:
+	# present or absent, with the whole width of the range between the two.
+	var here := _range()
+	_in_flight(here, Vector3(0.0, 6.0, -30.0))
+	assert_float(here._threat).is_equal(0.0)
+
+	# Stand a defender up mid-act and let one frame pass.
+	var archer: Node3D = here._defenders[0]
+	archer.brain.state = DefenderBrain.State.ACT
+	var before: Vector3 = here._frame_flight().origin
+	here._process(CAM_DT)
+
+	assert_float(here._threat).is_greater(0.0)
+	assert_float(here._threat).is_less(1.0)
+	assert_float(here._frame_flight().origin.distance_to(before)) \
+		.override_failure_message("cutting to the defender moved the camera %.1f m"
+			% here._frame_flight().origin.distance_to(before)) \
+		.is_less(3.0)
+
+
+func test_the_defender_framing_is_capped_however_far_away_it_is() -> void:
+	# Uncapped, the pull-back was proportional to the gap between ball and
+	# defender, so a strike at the far end of the range threw the camera sixty
+	# metres backwards. The cap is what keeps a distant hit from being a
+	# different shot to a near one.
+	var here := _range()
+	_in_flight(here, Vector3(0.0, 6.0, -30.0))
+	here._threat = 1.0
+
+	here._threat_at = here.ball.global_position + Vector3(12.0, 4.0, 0.0)
+	var near: Vector3 = here._frame_flight().origin
+	here._threat_at = here.ball.global_position + Vector3(240.0, 4.0, 0.0)
+	var far: Vector3 = here._frame_flight().origin
+
+	# The midpoint moves with the defender and that is intended; what must not
+	# grow without limit is how far back the camera stands from it.
+	var near_back := near.distance_to(
+		(here.ball.global_position + here.ball.global_position
+			+ Vector3(12.0, 4.0, 0.0)) * 0.5)
+	var far_back := far.distance_to(
+		(here.ball.global_position + here.ball.global_position
+			+ Vector3(240.0, 4.0, 0.0)) * 0.5)
+	assert_float(far_back).is_less(near_back + here.THREAT_SPREAD)

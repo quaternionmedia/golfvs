@@ -1,13 +1,21 @@
 extends Node
-## Renders the intro hole from fixed vantage points, and from two live states.
+## Renders the first run from fixed vantage points, and from three live states.
 ##
 ## A look change that nobody looks at is a guess. This is the cheapest way to
 ## put eyes on one without a person launching the game and walking around it.
 ##
-## The last two shots are not static: one dials curve into the gesture so the
-## spin dial is on screen, and one plays a shot off the course so the archer's
-## interception can be caught mid-impact. Those are the two moments most likely
-## to be wrong and least likely to be noticed, because neither exists at rest.
+## It loads the **menu** rather than the range, which is the difference between
+## photographing the game and photographing half of it: the club selector, the
+## scorecard and the ghost are all on a flat layer the menu owns, so a tool that
+## instantiated `practice_range.tscn` could never see the one control the game
+## has. It did exactly that for four shots while claiming otherwise in a comment
+## two lines from the `preload` that proved it wrong.
+##
+## The last three shots are not static: one dials curve into the gesture so the
+## spin dial is on screen, one swings the orbit camera off the line of play, and
+## one plays a shot off the course so the archer's interception can be caught
+## mid-impact. Those are the moments most likely to be wrong and least likely to
+## be noticed, because none of them exists at rest.
 ##
 ##   godot --path . --resolution 1280x720 res://tools/shoot_range.tscn
 ##
@@ -21,12 +29,14 @@ const SHOTS := [
 	{"name": "5-far-pin", "eye": Vector3(2.0, 5.0, -52.0), "at": Vector3(10.0, 0.5, -70.0)},
 ]
 
+var _menu: Node
 var _range: Node3D
 
 
 func _ready() -> void:
-	_range = preload("res://holes/range/practice_range.tscn").instantiate()
-	add_child(_range)
+	_menu = preload("res://ui/menu/main_menu.tscn").instantiate()
+	add_child(_menu)
+	_range = _menu.range_
 	await _shoot()
 	get_tree().quit()
 
@@ -35,6 +45,11 @@ func _shoot() -> void:
 	DirAccess.make_dir_recursive_absolute("user://shots")
 	for i in 20:
 		await get_tree().process_frame
+	# The flat layer fades up over its first second. Stepping it by hand rather
+	# than waiting a number of frames keeps the tool from photographing a
+	# half-faded selector on a slow machine and a solid one on a fast machine.
+	for i in 20:
+		_menu._process(0.1)
 
 	for shot in SHOTS:
 		_range.set_process(false)
@@ -43,12 +58,13 @@ func _shoot() -> void:
 		await _save(shot["name"])
 
 	await _shoot_spin_dial()
+	await _shoot_orbit()
 	await _shoot_impact()
 
 
-## The whole flat layer at once: the club selector along the bottom, the card,
-## and the spin dial mid-gesture. None of it exists at rest, so a static shot of
-## the range never shows the one control the game has.
+## The whole flat layer at once: the club selector in its corner, and the spin
+## dial mid-gesture. Neither exists at rest, so a static shot of the range shows
+## neither the one control the game has nor the only reading it gives back.
 func _shoot_spin_dial() -> void:
 	_range.set_process(false)
 	_range._on_gesture_began()
@@ -56,6 +72,28 @@ func _shoot_spin_dial() -> void:
 	_range.camera.global_transform = Transform3D(Basis.IDENTITY, Vector3(-3.5, 3.0, 6.5)) \
 		.looking_at(Vector3(0.0, 0.4, -8.0), Vector3.UP)
 	await _save("6-spin-dial")
+
+
+## The orbit, off the line of play. The point of the shot is that the framing
+## underneath is unchanged -- still behind the ball, still holding the pin -- and
+## only the angle onto it has moved. If this looks like a different camera rather
+## than the same one from elsewhere, `CameraOrbit.apply` is doing too much.
+func _shoot_orbit() -> void:
+	_range.set_process(true)
+	_range.pin = 1
+	# The pin hands over its club on the way in, so the shot also shows the
+	# selector reading something other than its opening putt.
+	_range.set_club(_range.suggested_club_index())
+	_range._enter_aim()
+	_range._look.yaw = -0.85
+	_range._look.pitch = 0.16
+	_range._look.zoom = 0.8
+	# Long enough for the camera easing to settle onto the orbited framing.
+	for i in 60:
+		await get_tree().process_frame
+	_range.set_process(false)
+	await _save("7-orbit")
+	_range._look.recentre()
 
 
 ## The interception, caught on the frame the arrow lands. Plays a shot far
@@ -86,7 +124,7 @@ func _shoot_impact() -> void:
 	for i in 2:
 		await get_tree().physics_frame
 	_range.set_process(false)
-	await _save("7-impact")
+	await _save("8-impact")
 
 
 func _save(name: String) -> void:

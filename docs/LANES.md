@@ -90,7 +90,7 @@ what it promises.
 
 ## Lane B — Determinism spine
 
-**Owns:** `core/` except `core/stroke/` · `tests/core/`
+**Owns:** `core/` except `core/stroke/` and `core/camera/` · `tests/core/`
 **Status:** not started. **The largest unquantified risk in the project.**
 **Gate:** one recorded stroke replays to its own hash, twice, on two platforms.
 
@@ -103,7 +103,8 @@ what it promises.
 - [ ] `BallController` — apply a `ShotIntent` through a `ClubProfile`, track spin, detect rest. Currently
       the intro hole does this inline
 - [ ] Seed plumbing audit: a test that fails on any bare `randf()` in gameplay code
-- [ ] `SurfaceTable` and collider metadata for lie detection, replacing `intro_hole._lie_at`'s hardcoded radii
+- [ ] `SurfaceTable` and collider metadata for lie detection, replacing `practice_range._lie_at`'s hardcoded
+      radii
 - [ ] `GameState` and `EventBus` autoloads (§6.2). **Takes the `project.godot` lock**
 - [ ] Promote the CCD sweep in `m0_physics_smoke.gd` to an optional CI gate
 
@@ -113,29 +114,38 @@ what it promises.
 
 ## Lane C — The stroke (M1)
 
-**Owns:** `core/stroke/` · `clubs/` · `tests/stroke/` · the Practice Range scene
-**Status:** blocked. **Do not start `ClubProfile` until three-clubs is ratified** (Lane 0).
+**Owns:** `core/stroke/` · `core/camera/` · `clubs/` · `holes/range/` · `tests/stroke/` · `tests/camera/`
+**Status:** unblocked and largely built. ADR-018 ratified three clubs, `ClubProfile` exists, and the range is
+playable. What is left is tuning, which needs a thumb.
 **Gate:** is it fun to hit balls at nothing, on a phone?
 
 - [ ] **Tune the gesture on a real thumb.** `LOCK_PX`, `MAX_PULL_PX`, `MAX_CURVE_PX` are all mouse guesses,
       and ADR-007 makes touch the reference feel (hardware)
-- [ ] `ClubProfile` as `.tres` — driver, iron, wedge, auto-putter. Move `BallFlight`'s hardcoded
-      `MIN_SPEED` / `MAX_SPEED` / `LAUNCH_DEG` into them. **Blocked on ratification**
-- [ ] Practice Range: one hole, no defenders, unlimited balls
+- [x] `ClubProfile` — long, short, putt (ADR-018), as named constructors. `BallFlight`'s hardcoded
+      `MIN_SPEED` / `MAX_SPEED` / `LAUNCH_DEG` now live in them
+- [ ] `ClubProfile` as `.tres`, once the numbers stop moving every session. See the note in the file
+- [x] Practice Range: three pins, unlimited balls, `defended` togglable
+- [x] The orbit camera (ADR-001) — two fingers, a tap to recentre, zoom and elevation limited
 - [ ] Preview accuracy test — 50 random shots, preview landing within 5 % of the sim (§6.6)
 - [ ] Write and replay a Stroke Record for every range shot (needs A and B)
 
-**Note for whoever takes this:** `intent.club` currently records `iron` for every full shot, because there
-is one club. That is deliberate and commented in `intro_hole._on_fired`; this lane is what makes it true.
+**Note for whoever takes this:** `intent.club` now records what was actually in hand, because there is now
+more than one club to be in it. The orbit means the aim mapping is no longer fixed either —
+`StrokeGesture._screen_pull_to_heading` reads the camera basis, so "pull back" is relative to wherever the
+player has orbited to, which is the behaviour you want and the one to check first on a phone.
 
 ---
 
 ## Lane D — First run
 
-**Owns:** `holes/intro/` · `ui/menu/` · `ui/signals/`
+**Owns:** `ui/` · `tests/ui/`
 **Status:** playable, defended, and writing records. What remains needs a person and a phone.
 
-- [x] The hole, the lesson picker, the wordless signalling
+**Lane C owns the range itself** (`holes/range/`), so the two do not overlap: this lane is the flat layer
+drawn over it — the selector, the card, the ghost and the signals.
+
+- [x] The wordless signalling: the ghost, the beacons, the ribbon stub, the spin dial
+- [x] The club selector, moved into the corner and quietened (ADR-019)
 - [x] The archer (ADR-015)
 - [ ] **Play it on a phone.** The ghost is placed by `unproject_position` and its `PULL_PX` is a desktop guess
 - [ ] **Watch a stranger play it, and watch one thing:** can they judge *distance* from a 7 % ribbon stub and

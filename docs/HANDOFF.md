@@ -6,16 +6,19 @@
 ## 1. Where we are
 - **Phase:** M0, with M1/M2/M3 work running well ahead of it. Appendix A steps 1–4 are done. **Step 5 is done
   except its device leg**; step 6 is not started. The M0 blocker is unchanged and is hardware.
-- **Repo: now committed.** Four commits on `main`, no remote. `c777564` is the bootstrap baseline —
-  everything sessions 01–03 produced, unchanged from the tree the tests were run against — and `d85e247`,
-  `cfc572e`, `2e9e0fe` are this session's. This file reserved the first commit for the ratifier; Peter asked
-  for it directly, so that is the instruction carried out rather than the convention broken.
+- **Repo: committed, still no remote.** Eighteen commits on `main`. `c777564` is the bootstrap baseline —
+  everything sessions 01–03 produced, unchanged from the tree the tests were run against. This file reserved
+  the first commit for the ratifier; Peter asked for it directly, so that is the instruction carried out
+  rather than the convention broken.
 - **Engine:** pinned to **Godot 4.7.2.stable** (ADR-008), unchanged. Steam install; set `GODOT_BIN` to
   `godot.windows.opt.tools.64.exe` under `Steam/steamapps/common/Godot Engine/`.
-- **Tests: 66 cases, 0 failures, 0 orphans** (was 22), headless on the pinned engine.
-- **There is a playable vertical slice.** The intro hole hosts a skeet shooter, every stroke is written as a
-  schema-v1 Stroke Record, and the round is saved under `user://records/`. `tools/demo_round.tscn` plays the
-  hole headless and verifies what it wrote:
+- **Tests: 135 cases, 0 failures, 0 orphans** (was 22 at bootstrap, 66 at build-04), headless on the pinned
+  engine.
+- **There is a playable vertical slice.** It is the **practice range**, not the intro hole: ADR-017 replaced
+  the par-4 with three pins and three clubs, ADR-018 made the player choose between them, and the skeet
+  shooter gave way to the archer of ADR-015. Every stroke is written as a schema-v1 Stroke Record and the
+  session is saved under `user://records/`. `tools/demo_round.tscn` plays it headless and verifies what it
+  wrote:
 
       godot --headless --fixed-fps 120 --path . res://tools/demo_round.tscn
 
@@ -76,11 +79,8 @@ Then the unchanged hardware task: **the Android debug APK on a physical phone**,
   templates.
 - **CI has still never run,** because there is no remote. Treat "CI green" as unproven — what is actually
   known is "the suite is green on this machine".
-- **`DESIGN.md` §2.6 and `docs/ONBOARDING.md`.** The document is cited four times and does not exist.
-  `check_docs_consistency.py` now catches this class of problem and carries `ONBOARDING.md` in an explicit
-  `GRANDFATHERED_DOCS` list so the suite stays green. The entry names the decision that removes it, and the
-  check fails if the file ever appears without the entry being deleted. **Finish the purge or write the
-  document** — it is no longer invisible, but it is still unresolved.
+- **`docs/ONBOARDING.md` — closed by ADR-014.** The citations were removed rather than the document
+  written, and `GRANDFATHERED_DOCS` is empty again. The check that caught it stands.
 - **The Godot editor was open for this whole session,** so `project.godot` was deliberately not touched. That
   is why `RecordStore` is a static class rather than an autoload.
 - **CODEOWNERS names are carried from `qm`,** unverified for this repository. Unchanged.
@@ -88,7 +88,67 @@ Then the unchanged hardware task: **the Android debug APK on a physical phone**,
 
 ## 7. Artifacts produced this session
 
-### build-04 (this session)
+### build-05 (this session)
+
+**Asked for:** review the repo, clean up, make the club selector much more subtle and move it to the top
+left, and add orbit controls.
+
+- **`ui/club_selector.gd` — rewritten, and ADR-019 logged for the move.** It was a full-width bar along the
+  bottom with three filled trays; it is now a corner mark: one hairline per club against a faint rail, the
+  two clubs not in hand at about a quarter of the live one's alpha. **The tap targets did not shrink** — the
+  rows are still 36 px, and `test_the_rows_stay_a_finger_tall` exists so that "subtle" cannot later be
+  traded against ADR-007. Moving it also freed the bottom strip, so `Scorecard.lift` is gone: it existed
+  only to dodge the selector.
+- **`core/camera/camera_orbit.gd` — new, and it builds ADR-001 rather than deciding anything.** The orbit is
+  an *offset*: the range still frames the shot and `apply()` swings that eye around that focus, so a centred
+  orbit returns the framing untouched and every existing camera is unchanged until somebody drags. Two
+  fingers on touch, right-drag and wheel on mouse. Elevation is clamped out of the deck and off the pole;
+  zoom is clamped both ways.
+- **The one-finger / two-finger collision, and how it is resolved.** `StrokeGesture` starts a stroke on a
+  press *anywhere*, deliberately, so the orbit had to take the second finger without the first ever playing
+  a shot. `CameraOrbit` listens on `_input` — before GUI, before `_unhandled_input` — so it sees the second
+  touch land first, marks it handled, and emits `engaged`; the range wires that to `StrokeGesture.abort()`.
+  Ordering in the scene tree is not load-bearing, which was the point.
+- **`tapped` is a new signal, and it is not `cancelled`.** ADR-001 asks for a one-tap reset to the line of
+  play. A press that goes down and comes up without leaving the deadzone is the only screen-wide gesture
+  nothing else claims, so that is the reset. It has to be separate from `cancelled`: `abort()` reports
+  `cancelled` so the ribbon comes down, and if the two were one signal, taking hold of the camera would
+  instantly recentre it. There is a test for exactly that.
+- **`tools/shoot_range.gd` now photographs the game rather than half of it.** It loaded
+  `practice_range.tscn`, which has no flat layer, while a comment two lines below the `preload` claimed the
+  shot showed "the club selector along the bottom". It loads `main_menu.tscn` now, and there is a new
+  `7-orbit` shot whose whole purpose is to show that the framing underneath is unchanged.
+- **Docs trued up against the tree.** `DESIGN.md` §2.1 still specified driver/iron/wedge and an auto-putter,
+  which ADR-018 superseded. `LANES.md` pointed three times at `intro_hole`, a file ADR-017 deleted, and
+  blocked Lane C on a ratification that has happened; Lane C and Lane D also both claimed the range, which
+  the lane rules forbid. ADR-018's row contained an unescaped pipe inside backticks and had been rendering
+  as a seven-column table row since it was written.
+- **The flight camera no longer whips when the archer connects.** Reported as "too chaotic when the defender
+  hits off screen", and it was three separate teleports landing on the same frame:
+  1. `back = -vel.normalized()` was recomputed every frame, and the arrow *reverses* the ball rather than
+     stopping it — so the camera cut to the far side of the ball the instant it landed. There is a `_trail`
+     now, turned at `TRAIL_TURN` rad/s and frozen outright while `_pinned`: a ball being buried is travelling
+     the arrow's direction, not the shot's, and chasing it is wrong as well as violent.
+  2. The defender framing was a branch — present or absent, with the width of the range between the two
+     positions, and an *uncapped* pull-back proportional to the ball-to-defender gap. It is a blend now
+     (`_threat`, 0→1, in at 2.6/s and out at 0.9/s) with the spread capped at `THREAT_SPREAD`.
+  3. The shake ran at 97/71/59 rad/s — 9 to 16 Hz, under four samples per cycle at 60 fps. That does not
+     render as a shake, it renders as noise. Now 41/33/27, with the fov kick cut from 26° to 9°.
+  Four tests in `test_practice_range.gd` pin all of it, measuring metres of camera movement per frame.
+- **The selector draws flight shapes, not bars** (ADR-019 amended, not yet committed when it was first
+  drafted this session). The putt is a flat line because it rolls; the short club is a small steep arc; the
+  long club a long shallow one. Span comes from `carry()` and height from `launch_deg`, so the picture is the
+  club rather than an illustration of it — retune a club and the mark redraws. It sits on a black panel local
+  to the corner, which is the only opaque thing the game draws: the first corner draft was quiet enough to be
+  unreadable over a lit deck, and that is being quiet in the wrong place.
+- **Gates:** suite 139/139 green, docs check green, `demo_round` PASS, and eight screenshots re-rendered and
+  looked at.
+
+**Not done, deliberately:** the orbit is tuned on a mouse. `YAW_PER_PX`, `PITCH_PER_PX` and `ZOOM_PER_PX`
+are guesses in exactly the way `LOCK_PX` is, and ADR-007 makes the thumb the arbiter. Lane C's tuning task
+now covers both.
+
+### build-04
 **A defended hole that writes records, and a demo that checks them.** Four commits; the suite went from 22
 cases to 66.
 
@@ -301,8 +361,8 @@ Copied verbatim from the planning-01 packet: `docs/DESIGN.md`, `docs/DECISIONS.m
 - **Run the demo, not just the suite.** Three of build-04's five bugs were invisible to unit tests and
   obvious within one headless round. `--fixed-fps 120` matters: without it the run happens in wall-clock
   time and a few strokes take minutes.
-- **Do not record a fixture until the float precision proposal is ratified.** Anything written before it
-  settles is scrap, and RECORD_SCHEMA.md §6 says so.
+- **Float precision is settled** (ADR-012) and fixtures are safe to record. The warning that used to stand
+  here — do not record anything before it settles — has been discharged, not forgotten.
 - **When adding the second defender, check its tell against the flight time first.** A tell longer than the
   time to the action means the defender silently never acts, which looks exactly like a defender that is
   working and missing.
@@ -312,12 +372,11 @@ Copied verbatim from the planning-01 packet: `docs/DESIGN.md`, `docs/DECISIONS.m
 - **`physics/common/physics_ticks_per_second` is deliberately not written to `project.godot`.** 60 is Godot's
   default, and the editor strips settings equal to their default on save — a line there would vanish and read as
   sabotage later. The tick is asserted at runtime instead, in `tests/core/test_physics_guarantees.gd`.
-- **The first run is designed but not built.** `ONBOARDING.md` is a specification, not an implementation:
-  there is no `holes/intro.tres`, no `TutorialLayer`, and no glyph art. Nothing in `core/` knows about any
-  of it. Do not read §2.6 as describing something that exists.
-- **The first-run design leans on two things that are themselves unratified** — the stroke gesture and the
-  aim ribbon. If the gesture proposal changes, beats 1 and 2 change with it. This is drafting on sand by
-  necessity, not by oversight; it is cheap to redraw while it is only a document.
+- **The first run is built, and it is the practice range** (ADR-017, ADR-018). There is no `TutorialLayer`
+  and no glyph art, and there never will be: ADR-014 rejected the vocabulary, and teaching falls through the
+  world, the ribbon and the ghost instead. Do not go looking for `ONBOARDING.md`.
+- **The first run still leans on the unratified stroke gesture and aim ribbon.** If the gesture proposal
+  changes, the range changes with it — and now there is code to change and not only a document.
 - **The CCD sweep is not run by CI**, only the three static assertions are. The sweep takes ~15 s and wants a
   real physics step; if it is ever wanted as a gate, run
   `godot --headless --path . --quit-after 6000 res://core/m0_physics_smoke.tscn` and check the exit code.

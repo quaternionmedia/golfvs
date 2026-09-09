@@ -18,11 +18,24 @@ extends Node
 ## Pressing anywhere also starts a stroke -- asking a new player to find and hit
 ## a 40-pixel target before the game responds is a menu with extra steps
 ## (Pillar 3).
+##
+## It is a *one-finger* gesture, and that is now load-bearing rather than
+## incidental: ADR-001's orbit camera takes two fingers, so pressing anywhere can
+## keep meaning "play a shot" without the two colliding. When a second finger
+## lands, CameraOrbit takes the gesture over and calls `abort()` -- see there for
+## why it has to see the touch first.
 
 signal began
 signal aim_updated(heading: Vector3, power: float, curve: float)
 signal fired(heading: Vector3, power: float, curve: float)
 signal cancelled
+## A press that went down and came up without ever becoming a stroke. Reported
+## separately from `cancelled`, which also covers a pull that was taken back and
+## an orbit that interrupted one: those are strokes that did not happen, and this
+## is the player not having tried to play one. CameraOrbit takes it as ADR-001's
+## one-tap reset to the line of play, which is the only reason it exists -- a
+## deliberate tap is otherwise the one screen-wide gesture nothing was using.
+signal tapped
 
 ## Screen distance at which the line stops following the finger and locks, so
 ## that the sideways half of the gesture is read as curve and not as re-aiming.
@@ -135,13 +148,32 @@ func _screen_pull_to_heading(axis: Vector2) -> Vector3:
 	return (-pull_world).normalized()
 
 
+## Drop a drag in progress without playing it. The camera calls this the instant
+## a second finger lands: a one-finger gesture that becomes a two-finger one was
+## a player reaching to look around, and finishing it would launch a ball they
+## were not aiming. It reports `cancelled` because that is what happened to the
+## stroke -- the ribbon has to come down either way -- but never `tapped`, or
+## taking hold of the camera would instantly snap it back.
+func abort() -> void:
+	if not _dragging:
+		return
+	_reset()
+	cancelled.emit()
+
+
 func _release() -> void:
 	if not _dragging:
 		return
 	_dragging = false
 	if not _locked or _power < MIN_POWER:
+		# Never left the deadzone at all: a tap, not a fumbled stroke. A pull
+		# taken back past LOCK_PX and released short is the second of those, and
+		# is not somebody asking for anything.
+		var was_tap := not _locked
 		_reset()
 		cancelled.emit()
+		if was_tap:
+			tapped.emit()
 		return
 	var heading := _heading
 	var power := _power

@@ -78,7 +78,23 @@ const ARROW_SPEED := 82.0
 const ARROW_AGAINST_FLIGHT := 0.88
 const ARROW_DOWNWARD := 0.48
 const PINNED_DAMP := 2.1
-const SHAKE_ON_HIT := 0.95
+const SHAKE_ON_HIT := 0.62
+
+## How fast the flight camera may swing round to a new direction, in radians per
+## second. It needs a limit because the ball can *reverse*: an arrow does exactly
+## that, and a camera that recomputes "behind the ball" from the raw velocity
+## teleports to the far side of it on the frame the arrow lands.
+const TRAIL_TURN := 2.4
+## How fast a defender is admitted into frame, and let go of again. Asymmetric on
+## purpose: quick enough in that the tell is seen, slow enough out that coming
+## back is not a second cut.
+const THREAT_IN := 2.6
+const THREAT_OUT := 0.9
+## However far apart the ball and the defender actually are, the camera pulls
+## back as though they were at most this far. Uncapped, a strike at the far end
+## of the range threw the camera sixty metres backwards and then hauled it in
+## again, which is most of what made an off-screen hit feel like a malfunction.
+const THREAT_SPREAD := 30.0
 
 const SETTLE_SPEED := 0.5
 const SETTLE_TIME := 0.35
@@ -111,6 +127,10 @@ var club_index := 0
 var round_path := ""
 
 var _gesture: StrokeGesture
+## ADR-001's orbit, as an offset on whatever the state below framed. The range
+## still chooses what is worth looking at; this is the player choosing from
+## where. See `_framed()`.
+var _look: CameraOrbit
 var _ribbon: AimRibbon
 var _spin: SpinDial
 var _beacons: Array[Beacon] = []
@@ -130,7 +150,15 @@ var _cam_target := Transform3D.IDENTITY
 var _cam_smooth := Transform3D.IDENTITY
 var _shake := 0.0
 var _shake_t := 0.0
-var _orbit := 0.0
+var _drift := 0.0
+## Which way the flight camera is trailing from, eased rather than read straight
+## off the velocity. See `_ease_the_flight_camera()`.
+var _trail := Vector3.BACK
+## How much of the frame the acting defender currently owns, 0 to 1, and where it
+## was when it last owned any. The position is remembered so that letting go of a
+## defender does not also lose the point the blend is easing away from.
+var _threat := 0.0
+var _threat_at := Vector3.ZERO
 
 @export var defended := true
 
@@ -284,6 +312,15 @@ func _setup_play() -> void:
 	_gesture.fired.connect(_on_fired)
 	_gesture.cancelled.connect(_on_cancelled)
 
+	_look = CameraOrbit.new()
+	add_child(_look)
+	# The two halves of keeping one finger and two fingers out of each other's
+	# way. A second finger landing mid-drag drops the stroke rather than playing
+	# it, and a press that never became a stroke is ADR-001's one-tap reset --
+	# the gesture reports the two separately so that neither has to guess.
+	_look.engaged.connect(_gesture.abort)
+	_gesture.tapped.connect(_look.recentre)
+
 	club_index = suggested_club_index()
 	_enter_aim()
 	state = State.ATTRACT
@@ -418,6 +455,12 @@ func _on_fired(heading: Vector3, power: float, curve: float) -> void:
 	ball.angular_damp = 1.4
 	ball.linear_velocity = velocity
 
+	# Start the camera already behind the shot. Easing into it from wherever the
+	# last one finished would swing the camera through the tee on every stroke.
+	var away := Vector3(velocity.x, 0.0, velocity.z)
+	_trail = -away.normalized() if away.length() > 0.01 else Vector3.BACK
+	_threat = 0.0
+
 	stroke_taken.emit(strokes)
 	state = State.FLIGHT
 	_still_for = 0.0
@@ -481,6 +524,11 @@ func _settle() -> void:
 		state_changed.emit(state)
 		return
 
+	# A new pin is a new line of play, so the angle the player chose for the old
+	# one has stopped meaning anything. This is ADR-001's "auto-snap to putt
+	# view" generalised: the camera resets when what it was framed against does,
+	# and not merely because time passed.
+	_look.recentre()
 	set_club(suggested_club_index())
 	pin_changed.emit(pin)
 	_enter_aim()
@@ -613,9 +661,17 @@ func _celebrate(at: Vector3, holed: bool) -> void:
 # ---------------------------------------------------------------- camera -----
 
 func _process(delta: float) -> void:
+	# The idle drift and the player's orbit are the same degree of freedom, and a
+	# camera that keeps sliding while somebody is holding it is broken. So the
+	# drift only advances while the orbit is centred: taking hold stops it, and
+	# the one-tap reset sets it going again.
+	var idle := _look.is_centred()
+	_ease_the_flight_camera(delta)
+
 	match state:
 		State.ATTRACT:
-			_orbit += delta * 0.14
+			if idle:
+				_drift += delta * 0.14
 			_frame_attract()
 			return
 		State.AIM:
@@ -623,7 +679,8 @@ func _process(delta: float) -> void:
 		State.FLIGHT:
 			_cam_target = _frame_flight()
 		State.DONE:
-			_orbit += delta * 0.2
+			if idle:
+				_drift += delta * 0.2
 			_cam_target = _frame_done()
 
 	_cam_smooth = _cam_smooth.interpolate_with(_cam_target, clampf(delta * 3.4, 0.0, 1.0))
@@ -631,22 +688,65 @@ func _process(delta: float) -> void:
 	_apply_shake(delta)
 
 
+## The two things the flight camera is not allowed to do instantly: change which
+## side of the ball it sits on, and cut to a defender. Both used to be recomputed
+## from the current frame's facts and nothing else, so both were a teleport -- and
+## an arrow strike sets off both at once, which is why a hit the player could not
+## see read as the camera breaking rather than as something having happened.
+func _ease_the_flight_camera(delta: float) -> void:
+	var threat := _acting_defender()
+	if threat != null:
+		_threat_at = threat.global_position
+		_threat = move_toward(_threat, 1.0, delta * THREAT_IN)
+	else:
+		_threat = move_toward(_threat, 0.0, delta * THREAT_OUT)
+
+	# A pinned ball is being buried, and the direction it is travelling now is
+	# the arrow's rather than the shot's. Holding the trail keeps the camera on
+	# the place the ball is dying instead of whipping round to chase it back up
+	# the range.
+	if _pinned:
+		return
+	var flat := Vector3(ball.linear_velocity.x, 0.0, ball.linear_velocity.z)
+	if flat.length() < 0.5:
+		return
+
+	var want := -flat.normalized()
+	var axis := _trail.cross(want)
+	# Exactly reversed leaves no axis to turn about, and that is precisely the
+	# case worth handling rather than guarding against: pick the vertical one, so
+	# the camera sweeps round the ball at a level height instead of over the top.
+	var turn_about := axis.normalized() if axis.length() > 0.001 else Vector3.UP
+	_trail = _trail.rotated(
+		turn_about, minf(_trail.angle_to(want), TRAIL_TURN * delta)).normalized()
+
+
+## A knock, not a burst of noise. The frequencies used to be 97, 71 and 59 rad/s
+## -- between nine and sixteen cycles a second, which at 60 fps is fewer than
+## four samples each. That does not render as a shake, it renders as the camera
+## position being replaced with a random number every frame, and it landed at the
+## same instant as the two cuts above.
 func _apply_shake(delta: float) -> void:
 	camera.fov = 58.0
 	if _shake <= 0.0:
 		return
 	_shake_t += delta
-	_shake = maxf(0.0, _shake - delta * 1.4)
+	_shake = maxf(0.0, _shake - delta * 2.0)
 	var k := _shake * _shake
 	camera.global_position += Vector3(
-		sin(_shake_t * 97.0) * k,
-		sin(_shake_t * 71.0 + 1.7) * k * 0.7,
-		sin(_shake_t * 59.0 + 3.1) * k)
-	camera.fov = 58.0 - k * 26.0
+		sin(_shake_t * 41.0) * k,
+		sin(_shake_t * 33.0 + 1.7) * k * 0.7,
+		sin(_shake_t * 27.0 + 3.1) * k)
+	camera.fov = 58.0 - k * 9.0
 
 
-func _look_from(eye: Vector3, at: Vector3) -> Transform3D:
-	return Transform3D(Basis.IDENTITY, eye).looking_at(at, Vector3.UP)
+## Every camera in the range goes through here, which is what makes the orbit a
+## modifier rather than a mode. A framing says what is worth looking at and from
+## roughly where; `_look` swings that eye around that focus by however far the
+## player has dragged. Centred, it returns exactly the transform the framing
+## asked for -- so the orbit costs nothing until it is used.
+func _framed(eye: Vector3, at: Vector3) -> Transform3D:
+	return Transform3D(Basis.IDENTITY, _look.apply(eye, at)).looking_at(at, Vector3.UP)
 
 
 ## Stands behind the mat, on the line to the live pin, far enough back that the
@@ -657,27 +757,27 @@ func _frame_aim() -> Transform3D:
 	to_pin.y = 0.0
 	var dir := to_pin.normalized() if to_pin.length() > 0.01 else Vector3.FORWARD
 	var reach := clampf(to_pin.length(), 20.0, 80.0)
-	return _look_from(
+	return _framed(
 		ball.global_position - dir * (7.0 + reach * 0.08) + Vector3.UP * (3.4 + reach * 0.045),
 		ball.global_position + dir * (reach * 0.55) + Vector3.UP * 1.0)
 
 
+## Trails the ball, and widens to take in a defender that is acting. The widening
+## is a *blend* rather than a branch: `_threat` runs from 0 to 1 and back, and
+## both the eye and the point it looks at cross over together, so there is no
+## frame on which the camera is somewhere it was not heading.
 func _frame_flight() -> Transform3D:
-	var vel := ball.linear_velocity
-	vel.y = 0.0
-	var back := -vel.normalized() if vel.length() > 0.5 else Vector3.BACK
+	var eye := ball.global_position + _trail * 10.5 + Vector3.UP * 4.8
+	var focus := ball.global_position + Vector3.UP * 0.6
+	if _threat <= 0.001:
+		return _framed(eye, focus)
 
-	var threat := _acting_defender()
-	if threat != null:
-		var mid := (ball.global_position + threat.global_position) * 0.5
-		var spread := ball.global_position.distance_to(threat.global_position)
-		return _look_from(
-			mid + back * (10.0 + spread * 0.62) + Vector3.UP * (5.0 + spread * 0.26),
-			mid + Vector3.UP * 1.2)
-
-	return _look_from(
-		ball.global_position + back * 10.5 + Vector3.UP * 4.8,
-		ball.global_position + Vector3.UP * 0.6)
+	var mid := (ball.global_position + _threat_at) * 0.5
+	var spread := minf(ball.global_position.distance_to(_threat_at), THREAT_SPREAD)
+	return _framed(
+		eye.lerp(mid + _trail * (10.0 + spread * 0.62)
+			+ Vector3.UP * (5.0 + spread * 0.26), _threat),
+		focus.lerp(mid + Vector3.UP * 1.2, _threat))
 
 
 func _acting_defender() -> Node3D:
@@ -690,12 +790,17 @@ func _acting_defender() -> Node3D:
 
 func _frame_done() -> Transform3D:
 	var centre := Vector3(0.0, 0.0, -44.0)
-	return _look_from(
-		centre + Vector3(sin(_orbit) * 34.0, 16.0, cos(_orbit) * 34.0), centre)
+	return _framed(
+		centre + Vector3(sin(_drift) * 34.0, 16.0, cos(_drift) * 34.0), centre)
 
 
+## The attract camera is placed rather than eased into: it runs before the player
+## has done anything, so there is no previous frame worth interpolating from, and
+## `_cam_smooth` is kept in step so that the first stroke eases out of what is
+## actually on screen. The orbit still applies -- looking around is allowed
+## before you have swung, and is a decent way to find out you can.
 func _frame_attract() -> void:
-	var drift := sin(_orbit) * 5.0
-	camera.position = Vector3(drift, 5.6, 12.0)
-	camera.look_at(Vector3(2.0 + drift * 0.25, 1.4, -40.0))
+	var drift := sin(_drift) * 5.0
+	camera.global_transform = _framed(
+		Vector3(drift, 5.6, 12.0), Vector3(2.0 + drift * 0.25, 1.4, -40.0))
 	_cam_smooth = camera.global_transform
