@@ -172,6 +172,9 @@ playable. What is left is tuning, which needs a thumb.
 - [x] **The range never ends** (ADR-029): `State.DONE` removed, the next pin is π's next ternary digit
       (`PIN_ORDER`, `pin_at`), a round of three writes the session and carries on. The idle camera:
       `IDLE_AFTER` without a touch and the view goes round the line of play from where it was. Ten tests
+- [x] **The camera turns about the player** (ADR-030): `_framed(eye, at, pivot)`, pivot always the active
+      player; defend view pulled back and `DEFEND_YAW` right; the tour is the framing eased, never a mode.
+      `test_the_tour_never_jumps` steps sixty frames a second through the whole cycle and bounds every step
 - [x] The orbit camera (ADR-001) — two fingers, a tap to recentre, zoom and elevation limited
 - [ ] Preview accuracy test — 50 random shots, preview landing within 5 % of the sim (§6.6)
 - [ ] Write and replay a Stroke Record for every range shot (needs A and B)

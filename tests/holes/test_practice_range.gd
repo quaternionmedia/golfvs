@@ -800,51 +800,101 @@ func test_a_made_pin_is_the_next_line_of_play() -> void:
 	assert_vector(here._contender.position).is_equal_approx(here.defender_stand(), Vector3.ONE * 0.01)
 
 
+func _settle_the_camera(here: Node3D, seconds: float) -> void:
+	# Frame by frame, the way the game runs it. A single large delta would let
+	# move_toward and the easing take one stride each, which is not what a
+	# player sees and not what these tests are about.
+	var t := 0.0
+	while t < seconds:
+		here._process(1.0 / 60.0)
+		t += 1.0 / 60.0
+
+
 func test_an_idle_player_gets_the_tour() -> void:
 	# A defender who is only watching, or a golfer who wandered off: after
-	# IDLE_AFTER the camera leaves the over-the-shoulder view and goes round
-	# the line of play. The first touch brings it back.
+	# IDLE_AFTER the tour fades in -- the view turns about the player and pulls
+	# back -- and the first touch fades it out again.
 	var here := _range()
 	here.set_defending(true)
-	here._process(here.IDLE_AFTER + 0.1)
-	var eye_on_tour: Vector3 = here._cam_target.origin
-	assert_vector(eye_on_tour) \
-		.override_failure_message("idle past IDLE_AFTER and the camera is still standing behind the archer") \
-		.is_equal_approx(here._frame_idle().origin, Vector3.ONE * 0.01)
-	assert_vector(eye_on_tour).is_not_equal(here._frame_defend().origin)
+	var pivot: Vector3 = here._pivot()
+	here._process(1.0 / 60.0)
+	var at_rest: float = here._cam_target.origin.distance_to(pivot)
+
+	_settle_the_camera(here, here.IDLE_AFTER + here.IDLE_FADE_IN + 0.5)
+	assert_float(here._idle).is_equal_approx(1.0, 0.001)
+	assert_float(absf(here._tour_yaw)).override_failure_message("idle and not turning").is_greater(0.05)
+	assert_float(here._cam_target.origin.distance_to(pivot)) \
+		.override_failure_message("the tour did not pull back from the player") \
+		.is_greater(at_rest * 1.3)
 
 	here._touched()
-	here._process(0.016)
+	# Less than IDLE_AFTER, or the tour begins again -- which is correct, and
+	# the first version of this test found out the hard way.
+	_settle_the_camera(here, here.IDLE_AFTER - 0.2)
+	assert_float(here._idle).is_equal_approx(0.0, 0.001)
+	assert_float(absf(here._tour_yaw)).is_less(0.01)
 	assert_vector(here._cam_target.origin) \
-		.override_failure_message("the player touched the screen and the tour carried on") \
-		.is_equal_approx(here._frame_defend().origin, Vector3.ONE * 0.01)
+		.override_failure_message("the player touched the screen and the tour did not come home") \
+		.is_equal_approx(here._frame_defend().origin, Vector3.ONE * 0.05)
 
 
 func test_the_tour_keeps_moving_while_the_player_is_idle() -> void:
 	var here := _range()
 	here.set_defending(true)
-	here._process(here.IDLE_AFTER + 0.1)
+	_settle_the_camera(here, here.IDLE_AFTER + here.IDLE_FADE_IN + 0.5)
 	var a: Vector3 = here._cam_target.origin
-	here._process(1.0)
+	_settle_the_camera(here, 1.0)
 	var b: Vector3 = here._cam_target.origin
 	assert_float(a.distance_to(b)).override_failure_message("the tour is standing still").is_greater(0.5)
 
 
-func test_the_tour_starts_where_the_eye_already_is() -> void:
-	# Departure, not cut: the orbit's first frame is on the bearing the camera
-	# already had from the centre of the line of play, so the tour eases away
-	# from the view rather than swinging to an arbitrary phase of it.
+func test_the_tour_never_jumps() -> void:
+	# The ratifier's rule for the camera: no jumps, no sudden mode shifts, just
+	# input or not. So: sixty frames a second, from standing still, through the
+	# idle threshold, through the fade-in, a while on tour, a touch, and all the
+	# way home -- and on no frame does the camera on screen move further than a
+	# bound that a cut would blow through by a hundred times. The target is
+	# checked as well as the eased camera, because the target is what used to
+	# jump; easing a jump is still a jump, only blurred.
 	var here := _range()
 	here.set_defending(true)
-	here._process(0.016)
-	var centre: Vector3 = (here.ball.global_position + here.pin_position()) * 0.5
-	var before: Vector3 = here.camera.global_position - centre
-	var bearing_before := atan2(before.x, before.z)
-	here._process(here.IDLE_AFTER + 0.1)
-	var after: Vector3 = here._cam_target.origin - centre
-	var bearing_after := atan2(after.x, after.z)
-	# One tick of drift is allowed; a quarter turn is a cut.
-	assert_float(absf(angle_difference(bearing_before, bearing_after))).is_less(0.6)
+	# Let the side switch's own swing finish first: that is the state changing
+	# because the player changed it, and it is eased the way it always was. The
+	# clock is then restarted so the measured run begins from a still camera.
+	_settle_the_camera(here, 2.5)
+	here._touched()
+	var worst_target := 0.0
+	var worst_eye := 0.0
+	var last_target: Vector3 = here._cam_target.origin
+	var last_eye: Vector3 = here._cam_smooth.origin
+	var frames := int((here.IDLE_AFTER + here.IDLE_FADE_IN + 6.0) * 60.0)
+	var touch_at := int((here.IDLE_AFTER + here.IDLE_FADE_IN + 3.0) * 60.0)
+	for i in frames:
+		if i == touch_at:
+			here._touched()
+		here._process(1.0 / 60.0)
+		worst_target = maxf(worst_target, here._cam_target.origin.distance_to(last_target))
+		worst_eye = maxf(worst_eye, here._cam_smooth.origin.distance_to(last_eye))
+		last_target = here._cam_target.origin
+		last_eye = here._cam_smooth.origin
+	assert_float(worst_target) \
+		.override_failure_message("the camera target moved %.2f m in one frame" % worst_target) \
+		.is_less(1.0)
+	assert_float(worst_eye) \
+		.override_failure_message("the camera moved %.2f m in one frame" % worst_eye) \
+		.is_less(1.0)
+
+
+func test_the_tour_turns_from_the_view_it_leaves() -> void:
+	# A turn from the view, not a view of its own: on the frame the tour begins
+	# the eye is where it was, and only then starts to move. There is no bearing
+	# to capture and no phase to match, because there is nothing to switch to.
+	var here := _range()
+	here.set_defending(true)
+	_settle_the_camera(here, here.IDLE_AFTER - 0.1)
+	var before: Vector3 = here._cam_target.origin
+	_settle_the_camera(here, 0.2)
+	assert_float(here._cam_target.origin.distance_to(before)).is_less(0.5)
 
 
 func test_a_player_holding_the_camera_is_never_idle() -> void:
@@ -879,3 +929,48 @@ func test_reaching_for_a_club_is_a_touch() -> void:
 	here._process(here.IDLE_AFTER + 0.1)
 	here.set_club((here.club_index + 1) % ClubProfile.all().size())
 	assert_float(here._idle_for).is_equal(0.0)
+
+
+func test_the_defend_view_is_seven_degrees_right_and_pulled_back() -> void:
+	# The ratifier's numbers. Right is positive about UP from behind the archer,
+	# which is the camera's own right: the archer ends up left of centre and the
+	# ball it is aiming at is not behind its head.
+	var here := _range()
+	here.set_defending(true)
+	here._process(1.0 / 60.0)
+	var stand: Vector3 = here.held().global_position
+	var to_ball: Vector3 = here.ball.global_position - stand
+	to_ball.y = 0.0
+	var dir := to_ball.normalized()
+	var rel: Vector3 = here._frame_defend().origin - stand
+	rel.y = 0.0
+	var off_the_spine := (-dir).signed_angle_to(rel.normalized(), Vector3.UP)
+	assert_float(rad_to_deg(off_the_spine)).is_equal_approx(7.0, 0.05)
+	# Further back than the aim camera stands from the ball, because a bow is
+	# aimed at something a long way off.
+	var golfer_eye: float = here._frame_aim().origin.distance_to(here.ball.global_position)
+	assert_float(rel.length()).is_greater(golfer_eye)
+
+
+func test_the_orbit_swings_around_the_player_and_not_the_line() -> void:
+	# Two fingers turn the eye about whoever the player is: the archer holding
+	# the bow, the ball under the club. It used to turn about a point thirty
+	# metres down the line, which put the person orbiting at the edge of their
+	# own orbit.
+	var here := _range()
+	here.set_defending(true)
+	here._process(1.0 / 60.0)
+	var archer: Vector3 = here.held().global_position
+	var centred: float = here._frame_defend().origin.distance_to(archer)
+	here._look.yaw = 1.2
+	var swung: float = here._frame_defend().origin.distance_to(archer)
+	assert_float(swung).override_failure_message("the orbit changed the distance to the archer, so it is not about the archer").is_equal_approx(centred, 0.05)
+
+	here._look.recentre()
+	here.set_defending(false)
+	here._process(1.0 / 60.0)
+	var ball: Vector3 = here.ball.global_position
+	centred = here._frame_aim().origin.distance_to(ball)
+	here._look.yaw = 1.2
+	swung = here._frame_aim().origin.distance_to(ball)
+	assert_float(swung).is_equal_approx(centred, 0.05)

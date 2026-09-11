@@ -11,13 +11,13 @@
   push sequence is in §7; Lane 0 carries the adoption steps. `c777564` is still the bootstrap baseline.
 - **Engine:** pinned to **Godot 4.7.2.stable** (ADR-008), unchanged. Steam install; set `GODOT_BIN` to
   `godot.windows.opt.tools.64.exe` under `Steam/steamapps/common/Godot Engine/`.
-- **Tests: 186 cases, 0 failures, 0 orphans** (was 22 at bootstrap, 66 at build-04, 169 at build-05),
+- **Tests: 189 cases, 0 failures, 0 orphans** (was 22 at bootstrap, 66 at build-04, 169 at build-05),
   headless on the pinned engine. CI will run them on Linux, Windows and macOS (ADR-027) once there is a CI.
 - **Builds: four targets from one script** — Windows, Linux, macOS, Android, all debug (ADR-027). All four
   exported from a clean tree on this machine at the end of build-06.
 - **The first run opens on defence** (ADR-028), the loading screen is ours, and **the range never ends**
   (ADR-029): the game's golfer keeps golfing, the pins follow π in ternary, and an idle player's camera
-  tours the line of play.
+  tours — about the player, as every turn of the camera now is (ADR-030), and without ever cutting.
 - **There is a playable vertical slice.** It is the **practice range**, not the intro hole: ADR-017 replaced
   the par-4 with three pins and three clubs, ADR-018 made the player choose between them, and the skeet
   shooter gave way to the archer of ADR-015. Every stroke is written as a schema-v1 Stroke Record and the
@@ -192,6 +192,55 @@ golfVs off the house pattern. Noted, not argued.
 
 Then a throwaway PR editing `DESIGN.md` alone, to watch the coupling check fail for the first time; then
 branch protection as above; then Lane 0's QM steps 1–3.
+
+### build-06, part four — the camera turns about the player, and nothing cuts (ADR-030)
+
+**Three asks in one line:** orbit always around the active player; the defender's view zoomed out and 7°
+right; the shift into and out of the idle tour always smooth, "no jumps or sudden mode shifts, just input
+or not."
+
+**The pivot was the finding.** `CameraOrbit.apply(eye, focus)` swings about `focus`, and every framing
+handed it the point it was *looking at* — for the defender, `stand + dir * reach * 0.6`, thirty metres
+down the line. Two fingers orbited empty grass with the archer at the rim. `_framed()` now takes
+`(eye, at, pivot)` and `_pivot()` is the active player: `held()` when defending, the ball otherwise. One
+argument fixes the manual orbit and the tour together. `test_the_orbit_swings_around_the_player_and_not_the_line`
+checks the eye's distance to the player is unchanged under a yaw, on both sides.
+
+**7° right, pulled back.** `_frame_defend` replaces the `shoulder * 2.4` nudge with `(-dir).rotated(UP,
+DEFEND_YAW)` — an angle survives the orbit where a lateral step would not — and stands a third further
+out. Positive about UP from behind is the camera's right; the test measures the signed angle off the spine
+and gets 7.00. "A third" is my number, one constant, easy to move.
+
+**"No jumps" was built, not tuned.** Part three's tour was a second framing (`_frame_idle`) eased into by
+`_cam_smooth` — a cut, blurred. It is gone. The tour is now the framing in force, turned by `_tour_yaw`
+about the pivot, pulled back `IDLE_PULL_BACK` and raised `IDLE_RISE`, look-at sliding onto the player, all
+inside `_framed()` and all scaled by `_idle` (0→1 over `IDLE_FADE_IN` after the clock runs out, 1→0 over
+`IDLE_FADE_OUT` on a touch). At zero it *is* the framing, so there is nothing to switch to, and the tour
+starts where the eye is by construction — the bearing-capture trick from part three is deleted. Then the
+same bug one derivative down: `_idle` is linear so the fades take the seconds they say, but a linear ramp
+steps from rest to ~5 m/s in one frame, which *reads* as a jump. So `_tour_blend()` is `_idle`
+smoothstepped, and the eye, the pull-back, the look-at and the turn's own rate are all keyed off that. The
+unwind on return is `move_toward` at `TOUR_RETURN * (1 - blend)`, capped to `4 * |yaw|` — starts from rest
+as the blend falls, arrives at rest rather than stopping dead, and a long tour comes home at the same rate
+as a short one, never as a whip.
+
+**Measured, sixty frames a second, defender's camera, whole cycle:** onset 1.1 m/s, fade-in peak 6.7 m/s,
+touring 4.9 m/s, return peak 17.8 m/s, worst single frame 0.30 m. `test_the_tour_never_jumps` steps the
+whole cycle — still, threshold, fade-in, tour, touch, home — and bounds every frame of both the target and
+the eased eye at 1.0 m. A cut would be thirty. The return is brisker than the departure on purpose; the
+numbers are in the ADR for whoever wants to move them.
+
+**Two test mistakes worth knowing about.** The first "gets the tour" test waited 4 s after the touch —
+longer than `IDLE_AFTER` — so the tour had correctly begun again before the assertion. And the first
+"never jumps" run measured from the side-switch swing, which is the state changing because the player
+changed it; that is eased as it always was and is not the tour. Both tests now say so.
+
+**`_frame_attract` gets the tour too**, since it goes through `_framed`. A golfer-side attract screen that
+nobody touches for three seconds eases out and round the ball. Consistent with the rule, and rarely seen
+now that the first run opens on defence.
+
+**Gates:** suite 189/189 (three new, three rewritten), `demo_round` PASS, docs check green at 31 ADRs,
+version check green, four exports from a clean tree.
 
 ### build-06, part three — the range never ends, and π picks the pin (ADR-029)
 

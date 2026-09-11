@@ -15,9 +15,12 @@ deciding whether to download a build.
   π's ternary digits -- putt, short, putt, long, short, short, and never the same three twice.
   Every three pins made is written to disk as a round; nothing stops for it. On the first run
   the golfer is the game, and it just keeps golfing.
-- **Leave it alone and the camera goes for a walk** (ADR-029). A few seconds without a touch
-  and the view leaves the archer's shoulder to circle the line of play, from wherever it was.
-  Touch anything and it comes back.
+- **Leave it alone and the camera goes for a walk** (ADR-029, ADR-030). A few seconds without a
+  touch and the view eases out and round the player -- you, whichever end of the swing you are
+  on -- from wherever it was. Touch anything and it eases home. Nothing cuts.
+- **The camera orbits you** (ADR-030). Two fingers now turn the view around the archer you are
+  holding, or the ball you are about to hit, rather than a point down the range. The defender's
+  view stands further back and seven degrees to the right.
 - **The first run opens on defence** (ADR-028). The first thing a new player sees is the game's
   golfer addressing a ball and a bow in their own hands; the switch in the corner still hands them
   the club. The range itself still opens as the golfer -- the menu scene is what says otherwise.

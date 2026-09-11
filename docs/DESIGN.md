@@ -144,11 +144,16 @@ golfer, which left a defender reading a shot from a ball that had already gone.
 The camera is the free orbit of `ADR-001`, and it is an offset rather than a mode: the range still frames the
 shot — behind the ball on the line to the pin, trailing the flight, wide on the archer as it draws — and two
 fingers swing that framing around whatever it chose to look at. One finger is the stroke and always was, so
-the two never meet. A tap that never became a stroke puts the camera back on the line of play. And a player
-who touches nothing for a few seconds is shown the range instead of a viewpoint (`ADR-029`): the camera
-leaves the shoulder it was standing over and goes round the line of play, slowly, from wherever it already
-was. The first touch brings it back. A defender who is only watching gets the tour; one about to shoot does
-not have the view pulled out from under them.
+the two never meet. A tap that never became a stroke puts the camera back on the line of play. **Every
+turn of the camera is about the player** (`ADR-030`) — the archer under a held bow, the ball under a held
+club — never about a point down the line: two fingers swing the view around whoever is doing the swinging,
+and the defender's own view stands pulled back and seven degrees round to the right of the archer, an
+angle rather than a sideways step so that it survives the orbit. A player who touches nothing for a few
+seconds is shown themselves in the round instead of a viewpoint (`ADR-029`, `ADR-030`): the tour is not a
+second camera but the state's own framing turned about the player and eased outward, by an amount that
+fades in and fades out; at zero it *is* the framing, so leaving and returning are changes of speed and
+never of shot. The first touch brings it home. A defender who is only watching gets the tour; one about to
+shoot does not have the view pulled out from under them.
 
 This replaced "The Handshake", a par-4 dogleg that taught power, shaping and the putt through a lie-driven
 lesson machine. That was good work for a hole and the wrong first thing to show: it taught three lessons with
@@ -166,7 +171,8 @@ cannot lose a ball and has no failure state at all.
 - `[RATIFIED ADR-017]` The first run is a private practice range: three pins, three clubs, unlimited balls, no par.
 - `[RATIFIED ADR-015]` Guarded by an archer that only stops balls leaving the range.
 - `[RATIFIED ADR-028]` The first run opens on defence. The range itself opens as the golfer; the menu scene that owns the first run says otherwise.
-- `[RATIFIED ADR-029]` The range never ends. The next pin is the next ternary digit of π; a round of three is a record, not a stop; an idle player's camera tours the line of play.
+- `[RATIFIED ADR-029]` The range never ends. The next pin is the next ternary digit of π; a round of three is a record, not a stop; an idle player's camera tours.
+- `[RATIFIED ADR-030]` The camera turns about the player, always; the defender's view is pulled back and seven degrees right; the idle tour is the framing eased, not a mode, so nothing ever cuts.
 
 ---
 

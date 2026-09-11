@@ -266,8 +266,13 @@ var _ai_is_playing := false
 var _still_for := 0.0
 ## Seconds since the player last touched anything: a drag, an orbit, a tap, a
 ## switch. Past `IDLE_AFTER` the camera stops standing where they left it and
-## goes round the range instead (ADR-029). See `_frame_idle()`.
+## goes round the player instead (ADR-029, ADR-030). See `_framed()`.
 var _idle_for := 0.0
+## How far into the tour the camera is, 0 to 1, and how far round it has turned.
+## Both continuous, both applied inside `_framed()`, so there is no frame on
+## which the camera is anywhere the previous frame was not heading.
+var _idle := 0.0
+var _tour_yaw := 0.0
 var _aiming := false
 var _curve_accel := Vector3.ZERO
 var _cam_target := Transform3D.IDENTITY
@@ -646,6 +651,27 @@ const AI_ADDRESS := 1.1
 ## not have the view pulled out from under them.
 const IDLE_AFTER := 3.0
 const IDLE_ORBIT_RATE := 0.16
+## The tour is not a second camera. It is the state's own framing, turned about
+## the active player and pulled back, by an amount that fades in over
+## `IDLE_FADE_IN` seconds once the clock has run out and fades out over
+## `IDLE_FADE_OUT` the moment anything is touched. At zero it *is* the framing,
+## exactly -- which is what makes leaving and returning a change of speed and
+## never a change of shot. `IDLE_PULL_BACK` is how much further out the eye ends
+## up; `IDLE_RISE` how much higher. `TOUR_RETURN` is the rate, in radians a
+## second, at which the turn unwinds when the player comes back -- a rate and
+## not a proportion, so a tour that had got half way round comes back at the
+## same speed as one that had barely started, and never as a whip.
+const IDLE_FADE_IN := 2.5
+const IDLE_FADE_OUT := 1.0
+const IDLE_PULL_BACK := 0.55
+const IDLE_RISE := 3.0
+const TOUR_RETURN := 0.9
+
+## The defender's camera sits this far round to the right of the archer, rather
+## than straight up the spine. An angle and not a lateral offset, because the
+## eye orbits the archer and an angle survives the orbit where a sideways nudge
+## would not. Seven degrees is the ratifier's number.
+const DEFEND_YAW := deg_to_rad(7.0)
 
 
 ## The game plays a shot at the pin, so that the player has something to defend.
@@ -1253,6 +1279,31 @@ func _process(delta: float) -> void:
 		if _ai_beat <= 0.0:
 			_play_the_games_shot()
 
+	# Idle is a fact about the player, not the state: a defender watching the
+	# game golf and a golfer who wandered off look the same from here. The clock
+	# only runs while the orbit is centred -- a player holding the camera is not
+	# idle, whatever else they are doing. Past IDLE_AFTER the tour fades in and
+	# the turn starts; on a touch the tour fades out and the turn unwinds. Both
+	# are rates, never states, and `_framed()` applies them every frame in every
+	# state -- which is the whole of how "no jumps" is kept: there is nothing to
+	# jump between.
+	_idle_for = _idle_for + delta if idle else 0.0
+	var touring := _idle_for >= IDLE_AFTER
+	_idle = move_toward(_idle, 1.0 if touring else 0.0,
+		delta / (IDLE_FADE_IN if touring else IDLE_FADE_OUT))
+	var blend := _tour_blend()
+	if touring:
+		# The turn's speed follows the blend, so it too starts from rest.
+		_tour_yaw = wrapf(_tour_yaw + delta * IDLE_ORBIT_RATE * blend, -PI, PI)
+	else:
+		# Home the short way round -- wrapped to [-PI, PI] while touring, so
+		# toward zero is that by construction. The rate rises as the blend falls,
+		# so the unwind starts from rest as the pull-back does; and it is capped
+		# in proportion to what is left, so it arrives at rest rather than
+		# stopping dead.
+		var rate := minf(TOUR_RETURN * (1.0 - blend), 4.0 * absf(_tour_yaw))
+		_tour_yaw = move_toward(_tour_yaw, 0.0, delta * rate)
+
 	match state:
 		State.ATTRACT:
 			if idle:
@@ -1263,24 +1314,6 @@ func _process(delta: float) -> void:
 			_cam_target = _frame_defend() if _defending else _frame_aim()
 		State.FLIGHT:
 			_cam_target = _frame_defend() if _defending else _frame_flight()
-
-	# Idle is a fact about the player, not the state: a defender watching the
-	# game golf and a golfer who wandered off look the same from here. The clock
-	# only runs while the orbit is centred -- a player holding the camera is not
-	# idle, whatever else they are doing -- and the tour begins from wherever the
-	# eye already is, so that starting it is a departure rather than a cut.
-	if idle:
-		var was_idle := _idle_for >= IDLE_AFTER
-		_idle_for += delta
-		if _idle_for >= IDLE_AFTER:
-			if not was_idle:
-				var centre := (ball.global_position + pin_position()) * 0.5
-				var from := camera.global_position - centre
-				_drift = atan2(from.x, from.z)
-			_drift += delta * IDLE_ORBIT_RATE
-			_cam_target = _frame_idle()
-	else:
-		_idle_for = 0.0
 
 	_cam_smooth = _cam_smooth.interpolate_with(_cam_target, clampf(delta * 3.4, 0.0, 1.0))
 	camera.global_transform = _cam_smooth
@@ -1340,12 +1373,46 @@ func _apply_shake(delta: float) -> void:
 
 
 ## Every camera in the range goes through here, which is what makes the orbit a
-## modifier rather than a mode. A framing says what is worth looking at and from
-## roughly where; `_look` swings that eye around that focus by however far the
-## player has dragged. Centred, it returns exactly the transform the framing
-## asked for -- so the orbit costs nothing until it is used.
-func _framed(eye: Vector3, at: Vector3) -> Transform3D:
-	return Transform3D(Basis.IDENTITY, _look.apply(eye, at)).looking_at(at, Vector3.UP)
+## modifier rather than a mode. A framing says what is worth looking at, from
+## roughly where, and **whom the eye swings around** -- the active player, always
+## (ADR-030): the archer when the player holds the bow, the ball when they hold
+## the club. `at` and `pivot` used to be the same point, which put the two-finger
+## orbit's centre thirty metres down the line from the person doing the
+## orbiting.
+##
+## Two things turn the eye about that pivot, in this order. The idle tour first:
+## `_tour_yaw` round, then out by `IDLE_PULL_BACK` and up by `IDLE_RISE`, each
+## scaled by `_idle`, with the look-at sliding onto the player as the tour takes
+## hold. Then `_look`, the player's own orbit. Centred and untoured, this returns
+## exactly the transform the framing asked for, so neither costs anything until
+## it is used -- and the tour, being a turn *from* the view rather than a view
+## of its own, starts and ends where the eye already is.
+func _framed(eye: Vector3, at: Vector3, pivot: Vector3) -> Transform3D:
+	var blend := _tour_blend()
+	var rel := (eye - pivot).rotated(Vector3.UP, _tour_yaw)
+	var out := 1.0 + IDLE_PULL_BACK * blend
+	rel = Vector3(rel.x * out, rel.y + IDLE_RISE * blend, rel.z * out)
+	var look_at := at.lerp(pivot + Vector3.UP * 1.4, blend)
+	return Transform3D(Basis.IDENTITY, _look.apply(pivot + rel, pivot)).looking_at(look_at, Vector3.UP)
+
+
+## `_idle` eased. `_idle` itself runs linearly so that the fades take exactly
+## the seconds their constants say; everything the eye actually does is keyed
+## off this instead, because a linear ramp starts and stops with a step in
+## velocity, and a step in velocity is what a camera "jumping" looks like even
+## when its position never does. Smoothstep starts from rest and arrives at
+## rest, at both ends of both fades.
+func _tour_blend() -> float:
+	return _idle * _idle * (3.0 - 2.0 * _idle)
+
+
+## Who the camera swings around: the player, whichever end of the swing they are
+## on. Everything else -- the pin, the flight, the other side's figure -- is what
+## it looks at, never what it turns about.
+func _pivot() -> Vector3:
+	if _defending and held() != null:
+		return held().global_position
+	return ball.global_position
 
 
 ## Stands behind the mat, on the line to the live pin, far enough back that the
@@ -1358,7 +1425,8 @@ func _frame_aim() -> Transform3D:
 	var reach := clampf(to_pin.length(), 20.0, 80.0)
 	return _framed(
 		ball.global_position - dir * (7.0 + reach * 0.08) + Vector3.UP * (3.4 + reach * 0.045),
-		ball.global_position + dir * (reach * 0.55) + Vector3.UP * 1.0)
+		ball.global_position + dir * (reach * 0.55) + Vector3.UP * 1.0,
+		_pivot())
 
 
 ## Over the archer's shoulder, exactly as `_frame_aim` stands over the golfer's.
@@ -1379,15 +1447,21 @@ func _frame_defend() -> Transform3D:
 	to_ball.y = 0.0
 	var dir := to_ball.normalized() if to_ball.length() > 0.01 else Vector3.FORWARD
 	var reach := clampf(to_ball.length(), 18.0, 80.0)
-	# Over one shoulder rather than straight up the spine. Directly behind, the
+	# Round to one side rather than straight up the spine. Directly behind, the
 	# figure sits in the middle of the frame and the ball it is being aimed at is
 	# behind its head -- and the archer is drawn 1.6x human on purpose, so it
-	# takes more getting out of the way than the golfer does.
-	var shoulder := dir.cross(Vector3.UP).normalized()
+	# takes more getting out of the way than the golfer does. It used to be a
+	# lateral nudge; it is `DEFEND_YAW` about the archer now, because the eye
+	# orbits the archer and an angle is the thing that survives that. Positive
+	# about UP from behind is the camera's right, which is the ratifier's "7
+	# degrees right of the player". Pulled back by a third at the same request:
+	# a bow is aimed at something a long way off, and the extra distance is what
+	# puts the archer, the line and the ball in one frame.
+	var back := (-dir).rotated(Vector3.UP, DEFEND_YAW)
 	return _framed(
-		stand - dir * (11.0 + reach * 0.09) + shoulder * 2.4
-			+ Vector3.UP * (6.5 + reach * 0.06),
-		stand + dir * (reach * 0.6) + Vector3.UP * 2.0)
+		stand + back * (15.0 + reach * 0.12) + Vector3.UP * (8.0 + reach * 0.075),
+		stand + dir * (reach * 0.6) + Vector3.UP * 2.0,
+		_pivot())
 
 
 ## Trails the ball, and widens to take in a defender that is acting. The widening
@@ -1398,14 +1472,15 @@ func _frame_flight() -> Transform3D:
 	var eye := ball.global_position + _trail * 10.5 + Vector3.UP * 4.8
 	var focus := ball.global_position + Vector3.UP * 0.6
 	if _threat <= 0.001:
-		return _framed(eye, focus)
+		return _framed(eye, focus, _pivot())
 
 	var mid := (ball.global_position + _threat_at) * 0.5
 	var spread := minf(ball.global_position.distance_to(_threat_at), THREAT_SPREAD)
 	return _framed(
 		eye.lerp(mid + _trail * (10.0 + spread * 0.62)
 			+ Vector3.UP * (5.0 + spread * 0.26), _threat),
-		focus.lerp(mid + Vector3.UP * 1.2, _threat))
+		focus.lerp(mid + Vector3.UP * 1.2, _threat),
+		_pivot())
 
 
 func _acting_defender() -> Node3D:
@@ -1414,23 +1489,6 @@ func _acting_defender() -> Node3D:
 		if brain.state == DefenderBrain.State.TELL or brain.state == DefenderBrain.State.ACT:
 			return defender
 	return null
-
-
-## What an idle player is shown: the line of play, going round. Centred between
-## the ball and the live pin and sized to the distance between them, so a putt
-## is a close slow circle and the long pin a wide one, and the game's golfer,
-## the flight and the pin all stay in frame while it turns.
-##
-## This is the old end-of-round camera with the end taken away. It used to
-## orbit the range once the third pin was made and nothing was left to do; now
-## nothing is ever left to do, and it orbits whenever nobody is doing anything.
-func _frame_idle() -> Transform3D:
-	var centre := (ball.global_position + pin_position()) * 0.5
-	var span := maxf(ball.global_position.distance_to(pin_position()), 12.0)
-	var radius := 14.0 + span * 0.7
-	return _framed(
-		centre + Vector3(sin(_drift) * radius, 7.0 + span * 0.18, cos(_drift) * radius),
-		centre + Vector3.UP * 1.0)
 
 
 ## Any input at all. The idle orbit is a thing that happens to a player who is
@@ -1448,5 +1506,5 @@ func _touched() -> void:
 func _frame_attract() -> void:
 	var drift := sin(_drift) * 5.0
 	camera.global_transform = _framed(
-		Vector3(drift, 5.6, 12.0), Vector3(2.0 + drift * 0.25, 1.4, -40.0))
+		Vector3(drift, 5.6, 12.0), Vector3(2.0 + drift * 0.25, 1.4, -40.0), ball.global_position)
 	_cam_smooth = camera.global_transform
