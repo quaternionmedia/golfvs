@@ -11,11 +11,13 @@
   push sequence is in §7; Lane 0 carries the adoption steps. `c777564` is still the bootstrap baseline.
 - **Engine:** pinned to **Godot 4.7.2.stable** (ADR-008), unchanged. Steam install; set `GODOT_BIN` to
   `godot.windows.opt.tools.64.exe` under `Steam/steamapps/common/Godot Engine/`.
-- **Tests: 176 cases, 0 failures, 0 orphans** (was 22 at bootstrap, 66 at build-04, 169 at build-05),
+- **Tests: 186 cases, 0 failures, 0 orphans** (was 22 at bootstrap, 66 at build-04, 169 at build-05),
   headless on the pinned engine. CI will run them on Linux, Windows and macOS (ADR-027) once there is a CI.
 - **Builds: four targets from one script** — Windows, Linux, macOS, Android, all debug (ADR-027). All four
   exported from a clean tree on this machine at the end of build-06.
-- **The first run opens on defence** (ADR-028), and the loading screen is ours.
+- **The first run opens on defence** (ADR-028), the loading screen is ours, and **the range never ends**
+  (ADR-029): the game's golfer keeps golfing, the pins follow π in ternary, and an idle player's camera
+  tours the line of play.
 - **There is a playable vertical slice.** It is the **practice range**, not the intro hole: ADR-017 replaced
   the par-4 with three pins and three clubs, ADR-018 made the player choose between them, and the skeet
   shooter gave way to the archer of ADR-015. Every stroke is written as a schema-v1 Stroke Record and the
@@ -190,6 +192,51 @@ golfVs off the house pattern. Noted, not argued.
 
 Then a throwaway PR editing `DESIGN.md` alone, to watch the coupling check fail for the first time; then
 branch protection as above; then Lane 0's QM steps 1–3.
+
+### build-06, part three — the range never ends, and π picks the pin (ADR-029)
+
+**One line from the ratifier:** *the golfer just keeps golfing, picking holes following π in ternary; idle
+player should mean orbity camera.* Taken literally, which turned out to be three changes and one bug.
+
+**No more `DONE`.** The enum is `ATTRACT, AIM, FLIGHT`. `_settle()` on a made pin increments `pins_made`,
+writes the session and fires `finished` every `PINS.size()` of them, then calls `_next_pin()` — which is
+the old advance code with `pin = pin_at(pins_made)` in place of `pin += 1`. `_frame_done()` and
+`main_menu.gd`'s tap-to-restart are gone; there is nothing to restart. The scorecard fills through each
+round of three and clears.
+
+**`PIN_ORDER`** is 360 fractional ternary digits of π, computed with Machin's formula at 520 digits of
+precision and converted — `10.010211012222…₃`, checked against the decimal expansion on the way. Balanced
+104/130/126. `test_the_pins_come_up_in_the_order_of_pi_in_ternary` pins the first twelve so a
+regeneration cannot quietly be something else. Deterministic on purpose: a random pin would be the one
+thing on the range a record could not replay.
+
+**The records stay whole.** First draft cleared `_round` after each save; the demo compares the file on
+disk against `_range._round` and would have found a 3-stroke file against an empty list. So `_round` is
+the session, growing, and every completed round writes all of it as a new numbered file. `round_path` is
+the latest. **Lane A note:** which pin was live for stroke *n* is not in the record — it is
+`pin_at(pins made before n)`, and a replay of round *k* of a session would need *k*. The layout hash covers
+the pin positions but not the sequence position. Not a schema change today; worth a line in
+`RECORD_SCHEMA.md` §6 when Lane A next opens it.
+
+**The idle camera.** `_idle_for` runs while `_look.is_centred()`; `_touched()` zeroes it, and is wired to
+the gesture's `began`, `aim_updated` and `tapped`, the orbit's `engaged`, `set_defending`, and `set_club`
+— which is now the player's door only, with `_hand_club` underneath it for the range's own use, so a new
+pin handing over its club does not count as the player doing anything. Past `IDLE_AFTER` (3 s) the target
+becomes `_frame_idle()`: an orbit centred between ball and pin, radius and height from their distance, at
+`IDLE_ORBIT_RATE`. On the frame it begins, `_drift` is set to the camera's current bearing from that
+centre, so the first idle frame is a departure from the view and not a cut to a phase. `_cam_target` is
+eased as it always was, so the return on touch is eased too.
+
+**The bug: GDScript lambdas capture by value.** The demo's `var done := false` was set to `true` inside
+`func(_s): done = true` and read `false` outside it, so the demo played all fourteen strokes it was allowed
+— fourteen pins, in the order `01021101222201`, which was at least a fine demonstration of the sequence —
+and then failed its own disk check against a file written at pin twelve. It is a member, `_round_done`,
+with a comment that says why. **If you ever write `connect(func(): flag = true)` in this codebase, it does
+not work.**
+
+**Gates, on the tip of the branch:** suite 186/186 (10 new in the range suite), `demo_round` PASS — three
+pins in the order `010`, one round written, range already on pin 2 — docs check green, version check green,
+four exports from a clean tree.
 
 ### build-06, part two — the first run opens on defence, and the loading screen is ours (ADR-028)
 

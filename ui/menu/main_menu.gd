@@ -46,6 +46,7 @@ func _ready() -> void:
 	# par: you are done with a pin when you have put a ball on it, and how many
 	# it took is counted but never held against you.
 	_scorecard.par = range_.PINS.size()
+	_scorecard.strokes = range_.pins_made % range_.PINS.size()
 	overlay.add_child(_scorecard)
 
 	# The one control in the game. It is a Control rather than world geometry so
@@ -117,13 +118,6 @@ func _process(delta: float) -> void:
 	_clubs.modulate.a = 1.0 if not range_.defending() else 0.45
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	var pressed := (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed) \
-		or (event is InputEventMouseButton and (event as InputEventMouseButton).pressed)
-	if pressed and range_.state == range_.State.DONE:
-		_restart()
-
-
 ## The moment the player takes over, the demo stops competing with them. This
 ## arrives as a signal rather than as raw input, because StrokeGesture marks the
 ## press handled and nothing downstream of it ever sees the event.
@@ -167,10 +161,8 @@ func _on_club_changed(index: int) -> void:
 	_clubs.selected = index
 
 
-## The card counts pins made, not strokes taken.
-func _on_pin_made(index: int, _holed: bool) -> void:
-	_scorecard.strokes = index + 1
-
-
-func _restart() -> void:
-	get_tree().reload_current_scene()
+## The card counts pins made, not strokes taken -- through the current round of
+## three, and then from the start again. The range does not end (ADR-029), so
+## the row filling and clearing is the only sense in which anything does.
+func _on_pin_made(_index: int, _holed: bool) -> void:
+	_scorecard.strokes = (range_.pins_made - 1) % range_.PINS.size() + 1

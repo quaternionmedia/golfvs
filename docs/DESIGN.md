@@ -105,7 +105,10 @@ depends on a vendor's emoji set rendering the same on two devices.
 
 The first run is a **private practice range** (`ADR-017`): a mat, and three pins at three distances, one for
 each club. Unlimited balls, and nothing scored against par — you are done with a pin when you have put a ball
-on it, and the strokes it took are counted but never held against you.
+on it, and the strokes it took are counted but never held against you. **The range never ends** (`ADR-029`):
+when a pin is made the next one comes up, and the next one is the next ternary digit of π — putt, short,
+putt, long, short, short, and never the same three twice. Every three pins made is a round, written to disk
+as a record; nothing stops for it. On the first run the golfer is the game, and the game just keeps golfing.
 
 There are three clubs, **long**, **short** and **putt**, and the player picks between them (`ADR-018`). The
 pin suggests one when it comes up and never insists: taking the long club to the putting pin is a perfectly
@@ -141,7 +144,11 @@ golfer, which left a defender reading a shot from a ball that had already gone.
 The camera is the free orbit of `ADR-001`, and it is an offset rather than a mode: the range still frames the
 shot — behind the ball on the line to the pin, trailing the flight, wide on the archer as it draws — and two
 fingers swing that framing around whatever it chose to look at. One finger is the stroke and always was, so
-the two never meet. A tap that never became a stroke puts the camera back on the line of play.
+the two never meet. A tap that never became a stroke puts the camera back on the line of play. And a player
+who touches nothing for a few seconds is shown the range instead of a viewpoint (`ADR-029`): the camera
+leaves the shoulder it was standing over and goes round the line of play, slowly, from wherever it already
+was. The first touch brings it back. A defender who is only watching gets the tour; one about to shoot does
+not have the view pulled out from under them.
 
 This replaced "The Handshake", a par-4 dogleg that taught power, shaping and the putt through a lie-driven
 lesson machine. That was good work for a hole and the wrong first thing to show: it taught three lessons with
@@ -159,6 +166,7 @@ cannot lose a ball and has no failure state at all.
 - `[RATIFIED ADR-017]` The first run is a private practice range: three pins, three clubs, unlimited balls, no par.
 - `[RATIFIED ADR-015]` Guarded by an archer that only stops balls leaving the range.
 - `[RATIFIED ADR-028]` The first run opens on defence. The range itself opens as the golfer; the menu scene that owns the first run says otherwise.
+- `[RATIFIED ADR-029]` The range never ends. The next pin is the next ternary digit of π; a round of three is a record, not a stop; an idle player's camera tours the line of play.
 
 ---
 

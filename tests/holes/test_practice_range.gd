@@ -719,3 +719,163 @@ func test_a_harder_draw_needs_less_lead() -> void:
 	assert_float(fast.angle_to(straight)) \
 		.override_failure_message("the draw did not change the lead") \
 		.is_less(slow.angle_to(straight))
+
+
+# ------------------------------------------------------------ the sequence ---
+#
+# The range never ends (ADR-029): a round of three is a file, not a stop, and
+# the pin that comes up next is the next ternary digit of pi. These pin the
+# arithmetic, the endlessness, and the camera that goes for a walk when nobody
+# is holding it.
+
+
+func _make_the_pin(here: Node3D) -> void:
+	# The shortest honest route to a made pin: the ball is on it and has come to
+	# rest. No record is opened, so nothing is written -- the demo round covers
+	# the disk; this covers what the range does next.
+	here.state = here.State.FLIGHT
+	here.ball.global_position = here.pin_position() + Vector3(0.2, 0.0, 0.0)
+	here._settle()
+
+
+func test_the_pins_come_up_in_the_order_of_pi_in_ternary() -> void:
+	# pi = 10.010211012222...  in base three. The digits after the point, read
+	# as pin indices. If PIN_ORDER is ever regenerated, this is what checks it
+	# was regenerated as pi and not as something that looked like it.
+	var here := _range()
+	var first_twelve := []
+	for n in 12:
+		first_twelve.append(here.pin_at(n))
+	assert_array(first_twelve).contains_exactly([0, 1, 0, 2, 1, 1, 0, 1, 2, 2, 2, 2])
+	# Putt first, as ADR-017 asked; the long pin is the fourth to come up.
+	assert_int(here.pin).is_equal(0)
+	assert_str(String(here.PINS[here.pin_at(0)]["suggests"])).is_equal("putt")
+	assert_str(String(here.PINS[here.pin_at(3)]["suggests"])).is_equal("long")
+
+
+func test_every_digit_is_a_pin() -> void:
+	var here := _range()
+	for n in here.PIN_ORDER.length():
+		var index: int = here.pin_at(n)
+		assert_bool(index >= 0 and index < here.PINS.size()) \
+			.override_failure_message("digit %d of PIN_ORDER is %d, and there is no such pin" % [n, index]) \
+			.is_true()
+	# Past the end it wraps rather than crashing or sticking.
+	assert_int(here.pin_at(here.PIN_ORDER.length())).is_equal(here.pin_at(0))
+
+
+func test_the_range_never_ends() -> void:
+	# Three pins made used to be DONE: gesture off, camera on a victory lap,
+	# tap to start over. Now it is a round written and the fourth pin coming up.
+	var here := _range()
+	var rounds := []
+	here.finished.connect(func(strokes: int) -> void: rounds.append(strokes))
+
+	for n in 3:
+		assert_int(here.pin).is_equal(here.pin_at(n))
+		_make_the_pin(here)
+
+	assert_int(here.pins_made).is_equal(3)
+	assert_array(rounds).override_failure_message("three pins made should be exactly one round").has_size(1)
+	assert_int(here.state) \
+		.override_failure_message("the range stopped after three pins") \
+		.is_equal(here.State.AIM)
+	assert_bool(here._gesture.enabled).is_true()
+	assert_int(here.pin).override_failure_message("the fourth pin is pi's fourth digit").is_equal(here.pin_at(3))
+
+	for n in range(3, 6):
+		_make_the_pin(here)
+	assert_array(rounds).has_size(2)
+	assert_int(here.pin).is_equal(here.pin_at(6))
+
+
+func test_a_made_pin_is_the_next_line_of_play() -> void:
+	# Everything a new pin resets, still reset: the club the pin suggests, the
+	# orbit recentred, the contender moved to the new line.
+	var here := _contested()
+	here._look.yaw = 0.7
+	_make_the_pin(here)
+	assert_bool(here._look.is_centred()).is_true()
+	assert_int(here.club_index).is_equal(here.suggested_club_index())
+	assert_vector(here._contender.position).is_equal_approx(here.defender_stand(), Vector3.ONE * 0.01)
+
+
+func test_an_idle_player_gets_the_tour() -> void:
+	# A defender who is only watching, or a golfer who wandered off: after
+	# IDLE_AFTER the camera leaves the over-the-shoulder view and goes round
+	# the line of play. The first touch brings it back.
+	var here := _range()
+	here.set_defending(true)
+	here._process(here.IDLE_AFTER + 0.1)
+	var eye_on_tour: Vector3 = here._cam_target.origin
+	assert_vector(eye_on_tour) \
+		.override_failure_message("idle past IDLE_AFTER and the camera is still standing behind the archer") \
+		.is_equal_approx(here._frame_idle().origin, Vector3.ONE * 0.01)
+	assert_vector(eye_on_tour).is_not_equal(here._frame_defend().origin)
+
+	here._touched()
+	here._process(0.016)
+	assert_vector(here._cam_target.origin) \
+		.override_failure_message("the player touched the screen and the tour carried on") \
+		.is_equal_approx(here._frame_defend().origin, Vector3.ONE * 0.01)
+
+
+func test_the_tour_keeps_moving_while_the_player_is_idle() -> void:
+	var here := _range()
+	here.set_defending(true)
+	here._process(here.IDLE_AFTER + 0.1)
+	var a: Vector3 = here._cam_target.origin
+	here._process(1.0)
+	var b: Vector3 = here._cam_target.origin
+	assert_float(a.distance_to(b)).override_failure_message("the tour is standing still").is_greater(0.5)
+
+
+func test_the_tour_starts_where_the_eye_already_is() -> void:
+	# Departure, not cut: the orbit's first frame is on the bearing the camera
+	# already had from the centre of the line of play, so the tour eases away
+	# from the view rather than swinging to an arbitrary phase of it.
+	var here := _range()
+	here.set_defending(true)
+	here._process(0.016)
+	var centre: Vector3 = (here.ball.global_position + here.pin_position()) * 0.5
+	var before: Vector3 = here.camera.global_position - centre
+	var bearing_before := atan2(before.x, before.z)
+	here._process(here.IDLE_AFTER + 0.1)
+	var after: Vector3 = here._cam_target.origin - centre
+	var bearing_after := atan2(after.x, after.z)
+	# One tick of drift is allowed; a quarter turn is a cut.
+	assert_float(absf(angle_difference(bearing_before, bearing_after))).is_less(0.6)
+
+
+func test_a_player_holding_the_camera_is_never_idle() -> void:
+	# The orbit and the tour are the same degree of freedom. Somebody who has
+	# dragged the camera somewhere is looking at something; the tour would take
+	# it away from them.
+	var here := _range()
+	here.set_defending(true)
+	here._look.yaw = 0.5
+	here._process(here.IDLE_AFTER * 4.0)
+	assert_float(here._idle_for).is_equal(0.0)
+	assert_vector(here._cam_target.origin).is_equal_approx(here._frame_defend().origin, Vector3.ONE * 0.01)
+
+
+func test_a_new_pin_resets_the_idle_clock_as_a_touch_would_not() -> void:
+	# A made pin recentres the orbit (ADR-001 generalised), and the tour does
+	# not restart from zero because of it: the player is exactly as idle as
+	# they were. Only the player's own input resets the clock.
+	var here := _range()
+	here.set_defending(true)
+	here._process(here.IDLE_AFTER + 0.1)
+	_make_the_pin(here)
+	here._process(0.016)
+	assert_float(here._idle_for).is_greater(here.IDLE_AFTER)
+
+
+func test_reaching_for_a_club_is_a_touch() -> void:
+	# The selector's tap never reaches the gesture -- it marks itself handled --
+	# so the range has to count the club change itself.
+	var here := _range()
+	here.set_defending(true)
+	here._process(here.IDLE_AFTER + 0.1)
+	here.set_club((here.club_index + 1) % ClubProfile.all().size())
+	assert_float(here._idle_for).is_equal(0.0)

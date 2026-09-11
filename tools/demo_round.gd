@@ -26,6 +26,12 @@ const MAX_TICKS_PER_STROKE := 900
 
 var _range: Node3D
 var _failures: PackedStringArray = []
+## Set when the range reports a round of three made. A member rather than a
+## local captured by a lambda, because GDScript lambdas capture by value and the
+## first version of this flag was set to true inside one and read as false
+## outside it -- the demo played fourteen strokes looking for an ending it had
+## already been told about.
+var _round_done := false
 
 
 func _ready() -> void:
@@ -35,6 +41,10 @@ func _ready() -> void:
 		await get_tree().process_frame
 		await _play()
 		get_tree().quit(0 if _failures.is_empty() else 1)
+
+
+func _on_round_finished(_strokes: int) -> void:
+	_round_done = true
 
 
 func _is_headless() -> bool:
@@ -60,16 +70,20 @@ func _play() -> void:
 		print("  marshal      %s on the tower at %v, guarding the boundary" % [
 			defender.brain.id, profile.stand])
 
+	# The range never stops (ADR-029): a round is three pins made, written to
+	# disk, and then the next pin comes up. So the demo plays until the range
+	# says a round is finished, not until it has nothing left to do.
+	_range.finished.connect(_on_round_finished)
 	_rule("strokes")
-	while _range.state != _range.State.DONE and _range.strokes < MAX_STROKES:
+	while not _round_done and _range.strokes < MAX_STROKES:
 		await _take_stroke()
 
 	_rule("card")
-	print("  pins made    %d of %d" % [_range.pin, _range.PINS.size()])
+	print("  pins made    %d, in the order %s" % [_range.pins_made,
+		_range.PIN_ORDER.substr(0, _range.pins_made)])
 	print("  strokes      %d" % _range.strokes)
-	var done: bool = _range.state == _range.State.DONE
-	print("  finished     %s" % ("yes" if done
-		else "no -- gave up after %d strokes" % MAX_STROKES))
+	print("  round        %s" % (("finished -- and the range is already on pin %d" % _range.pin) if _round_done
+		else ("not finished -- gave up after %d strokes" % MAX_STROKES)))
 
 	_rule("notation (RECORD_SCHEMA.md 4.1 -- derived, never parsed back)")
 	for line in _range.round_notation().split("\n"):

@@ -169,6 +169,9 @@ playable. What is left is tuning, which needs a thumb.
 - [x] `start_defending` on the range, and taking the bow now leaves `ATTRACT` (ADR-028). The second is
       a fix: the attract screen only ever left on the golfer's drag, so a defender there was stuck with a
       golfer who never played. Three tests go red without it. Done from Lane D at the ratifier's direction
+- [x] **The range never ends** (ADR-029): `State.DONE` removed, the next pin is π's next ternary digit
+      (`PIN_ORDER`, `pin_at`), a round of three writes the session and carries on. The idle camera:
+      `IDLE_AFTER` without a touch and the view goes round the line of play from where it was. Ten tests
 - [x] The orbit camera (ADR-001) — two fingers, a tap to recentre, zoom and elevation limited
 - [ ] Preview accuracy test — 50 random shots, preview landing within 5 % of the sim (§6.6)
 - [ ] Write and replay a Stroke Record for every range shot (needs A and B)
@@ -194,6 +197,8 @@ drawn over it — the selector, the card, the ghost and the signals.
 - [x] **The first run opens on defence** (ADR-028) -- `start_defending` on the range instance in
       `main_menu.tscn`, pinned by `tests/ui/test_first_run.gd`. The ghost stays quiet for a defender
 - [x] The loading screen is the icon, not Godot's logo (ADR-028)
+- [x] No more tap-to-restart: there is nothing to restart (ADR-029). The card fills through each round of
+      three and clears
 - [ ] **Play it on a phone.** The ghost is placed by `unproject_position` and its `PULL_PX` is a desktop guess
 - [ ] **Watch a stranger play it, and watch one thing:** can they judge *distance* from a 7 % ribbon stub and
       a target ring? That is the known weak point. The cheap fix is a landing ring, which gives back most of

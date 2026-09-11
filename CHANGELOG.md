@@ -11,6 +11,13 @@ deciding whether to download a build.
 ## [Unreleased]
 
 ### Changed
+- **The range never ends** (ADR-029). Make a pin and the next one comes up, in the order of
+  π's ternary digits -- putt, short, putt, long, short, short, and never the same three twice.
+  Every three pins made is written to disk as a round; nothing stops for it. On the first run
+  the golfer is the game, and it just keeps golfing.
+- **Leave it alone and the camera goes for a walk** (ADR-029). A few seconds without a touch
+  and the view leaves the archer's shoulder to circle the line of play, from wherever it was.
+  Touch anything and it comes back.
 - **The first run opens on defence** (ADR-028). The first thing a new player sees is the game's
   golfer addressing a ball and a bow in their own hands; the switch in the corner still hands them
   the club. The range itself still opens as the golfer -- the menu scene is what says otherwise.

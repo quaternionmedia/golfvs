@@ -48,6 +48,32 @@ const PINS := [
 	{"suggests": "long", "at": Vector3(9.0, 0.0, -70.0), "radius": 9.0},
 ]
 
+## The order the pins come up in: **the ternary digits of π, after the point.**
+## π = 10.010211012222…₃, so the range plays the putt, the short pin, the putt
+## again, then the long one, and never the same three in a row twice.
+##
+## Why a constant and not a die (ADR-029). The range no longer ends — the golfer
+## keeps golfing, and on the first run the golfer is the game — so *something*
+## has to choose the next pin forever, and a random choice would be the one
+## thing on this range that a record could not replay. π is deterministic, never
+## repeats, is balanced across the three digits, and needs no seed to carry.
+## Three hundred and sixty digits is about an hour of pins; past the end it
+## wraps, which nobody will sit through and which is said here so that it is
+## not a surprise when they do.
+##
+## Fractional digits rather than "10.", because the leading 1 is the number
+## three and not a pin. The first digit is 0 — the putt — so a beginner still
+## meets the pins putt-first, as ADR-017 asked; the long pin arrives fourth
+## rather than third, which is the whole of what that decision gave up.
+const PIN_ORDER := (
+	"010211012222010211002111110221222220111201212121200121100100" +
+	"101222022212012012111210121011200220120210000101022010020111" +
+	"120002221022201100101110121101201010001000222021220110022122" +
+	"210112222212102022011020121022202201202222120121200201112210" +
+	"000112022001212201101110122210211002112122121211222122110212" +
+	"212110100221202121011001210210011011102222020021111121010210"
+)
+
 ## The mat, and the boundary the archer keeps.
 const MAT_RADIUS := 3.0
 const BOUNDS_CENTRE := Vector3(0.0, 0.0, -46.0)
@@ -151,7 +177,7 @@ const ROLL_DAMP := 0.45
 ## on the green. Worth its own celebration; worth nothing extra on the card.
 const CUP_RADIUS := 1.1
 
-enum State { ATTRACT, AIM, FLIGHT, DONE }
+enum State { ATTRACT, AIM, FLIGHT }
 
 signal state_changed(state: State)
 signal stroke_began
@@ -170,11 +196,16 @@ var ball: RigidBody3D
 var state := State.ATTRACT
 var strokes := 0
 var pin := 0
+## Pins made this session, and the cursor into `PIN_ORDER`. Every `PINS.size()`
+## of them is a round: written to disk, then played straight through.
+var pins_made := 0
 ## What is in the player's hands right now. Changed by them, suggested by the
 ## pin -- see `set_club()`.
 var club_index := 0
 
-## Where the finished session was written. Empty until the last pin is made.
+## Where the session was last written: rewritten, as a new file, every time a
+## round of `PINS.size()` pins is made. Empty until the first one is, and the
+## range does not stop for any of them (ADR-029).
 var round_path := ""
 
 var _gesture: StrokeGesture
@@ -233,6 +264,10 @@ var _ai_beat := 0.0
 var _ai_is_playing := false
 
 var _still_for := 0.0
+## Seconds since the player last touched anything: a drag, an orbit, a tap, a
+## switch. Past `IDLE_AFTER` the camera stops standing where they left it and
+## goes round the range instead (ADR-029). See `_frame_idle()`.
+var _idle_for := 0.0
 var _aiming := false
 var _curve_accel := Vector3.ZERO
 var _cam_target := Transform3D.IDENTITY
@@ -442,7 +477,15 @@ func _setup_play() -> void:
 	# the gesture reports the two separately so that neither has to guess.
 	_look.engaged.connect(_gesture.abort)
 	_gesture.tapped.connect(_look.recentre)
+	# Anything the player does resets the idle clock. Listed rather than polled:
+	# the gesture marks its own presses handled, so nothing downstream would see
+	# them, and the orbit reports engagement on the same terms.
+	_look.engaged.connect(_touched)
+	_gesture.began.connect(_touched)
+	_gesture.aim_updated.connect(func(_h: Vector3, _p: float, _c: float) -> void: _touched())
+	_gesture.tapped.connect(_touched)
 
+	pin = pin_at(0)
 	club_index = suggested_club_index()
 	_enter_aim()
 	state = State.ATTRACT
@@ -461,7 +504,16 @@ func club() -> ClubProfile:
 
 ## Put a club in the player's hands. Safe to call at any time; the aim preview
 ## redraws itself against the new flight on the next drag.
+##
+## This is the player's door -- the selector comes through here -- so it counts
+## as a touch for the idle camera. A new pin handing over its suggested club
+## goes through `_hand_club` instead: the player is exactly as idle as they were.
 func set_club(index: int) -> void:
+	_touched()
+	_hand_club(index)
+
+
+func _hand_club(index: int) -> void:
 	var next := clampi(index, 0, ClubProfile.all().size() - 1)
 	if next == club_index:
 		return
@@ -533,6 +585,11 @@ func held() -> Archer:
 	return _contender if _contender != null else _guard
 
 
+## The pin that comes up after `made` pins have been made: a digit of π.
+func pin_at(made: int) -> int:
+	return PIN_ORDER.unicode_at(made % PIN_ORDER.length()) - 48
+
+
 ## Is there anything to defend with? The flat layer asks before offering the
 ## switch, because a control that changes nothing is worse than an absent one.
 func can_defend() -> bool:
@@ -555,6 +612,7 @@ func set_defending(value: bool) -> void:
 	# holding a bow that was never built.
 	if value and held() == null:
 		return
+	_touched()
 	_defending = value
 	_gesture.enabled = true
 	_aim_the_gesture()
@@ -580,6 +638,14 @@ func defending() -> bool:
 
 ## How long the game's golfer stands over the ball before swinging.
 const AI_ADDRESS := 1.1
+
+## How long a player has to be idle before the camera goes for a walk, and how
+## fast it walks. Three seconds is longer than any pause inside a stroke and
+## shorter than the game's golfer takes to address and play one, so a defender
+## who is only watching gets the tour and a defender who is about to shoot does
+## not have the view pulled out from under them.
+const IDLE_AFTER := 3.0
+const IDLE_ORBIT_RATE := 0.16
 
 
 ## The game plays a shot at the pin, so that the player has something to defend.
@@ -1004,17 +1070,26 @@ func _settle() -> void:
 	if pin < _beacons.size():
 		_beacons[pin].confirm()
 	_celebrate(pin_position(), holed)
+	pins_made += 1
 	pin_made.emit(pin, holed)
 
-	pin += 1
-	if pin >= PINS.size():
-		state = State.DONE
-		_gesture.enabled = false
+	# Every three pins is a round, and a round is when the record store writes.
+	# It used to be the end as well; now it is a file, and the range carries on
+	# (ADR-029). What is written is the whole session so far -- `_round` keeps
+	# growing, and each completed round writes a fresh numbered file of it -- so
+	# the latest file is always the session, never a fragment of one. `finished`
+	# keeps its name and its meaning, a round of three was completed, and stops
+	# meaning that anything has stopped.
+	if pins_made % PINS.size() == 0:
 		round_path = _save_round()
 		finished.emit(strokes)
-		state_changed.emit(state)
-		return
 
+	_next_pin()
+
+
+## The next pin from the sequence, and everything a new line of play resets.
+func _next_pin() -> void:
+	pin = pin_at(pins_made)
 	# A new pin is a new line of play, so the angle the player chose for the old
 	# one has stopped meaning anything. This is ADR-001's "auto-snap to putt
 	# view" generalised: the camera resets when what it was framed against does,
@@ -1023,7 +1098,7 @@ func _settle() -> void:
 	# One defender moves per lie (ADR-009), and where it moves to is not a
 	# choice: the midpoint of the new line of play.
 	_place_the_contender()
-	set_club(suggested_club_index())
+	_hand_club(suggested_club_index())
 	pin_changed.emit(pin)
 	_enter_aim()
 
@@ -1188,10 +1263,24 @@ func _process(delta: float) -> void:
 			_cam_target = _frame_defend() if _defending else _frame_aim()
 		State.FLIGHT:
 			_cam_target = _frame_defend() if _defending else _frame_flight()
-		State.DONE:
-			if idle:
-				_drift += delta * 0.2
-			_cam_target = _frame_done()
+
+	# Idle is a fact about the player, not the state: a defender watching the
+	# game golf and a golfer who wandered off look the same from here. The clock
+	# only runs while the orbit is centred -- a player holding the camera is not
+	# idle, whatever else they are doing -- and the tour begins from wherever the
+	# eye already is, so that starting it is a departure rather than a cut.
+	if idle:
+		var was_idle := _idle_for >= IDLE_AFTER
+		_idle_for += delta
+		if _idle_for >= IDLE_AFTER:
+			if not was_idle:
+				var centre := (ball.global_position + pin_position()) * 0.5
+				var from := camera.global_position - centre
+				_drift = atan2(from.x, from.z)
+			_drift += delta * IDLE_ORBIT_RATE
+			_cam_target = _frame_idle()
+	else:
+		_idle_for = 0.0
 
 	_cam_smooth = _cam_smooth.interpolate_with(_cam_target, clampf(delta * 3.4, 0.0, 1.0))
 	camera.global_transform = _cam_smooth
@@ -1327,10 +1416,28 @@ func _acting_defender() -> Node3D:
 	return null
 
 
-func _frame_done() -> Transform3D:
-	var centre := Vector3(0.0, 0.0, -44.0)
+## What an idle player is shown: the line of play, going round. Centred between
+## the ball and the live pin and sized to the distance between them, so a putt
+## is a close slow circle and the long pin a wide one, and the game's golfer,
+## the flight and the pin all stay in frame while it turns.
+##
+## This is the old end-of-round camera with the end taken away. It used to
+## orbit the range once the third pin was made and nothing was left to do; now
+## nothing is ever left to do, and it orbits whenever nobody is doing anything.
+func _frame_idle() -> Transform3D:
+	var centre := (ball.global_position + pin_position()) * 0.5
+	var span := maxf(ball.global_position.distance_to(pin_position()), 12.0)
+	var radius := 14.0 + span * 0.7
 	return _framed(
-		centre + Vector3(sin(_drift) * 34.0, 16.0, cos(_drift) * 34.0), centre)
+		centre + Vector3(sin(_drift) * radius, 7.0 + span * 0.18, cos(_drift) * radius),
+		centre + Vector3.UP * 1.0)
+
+
+## Any input at all. The idle orbit is a thing that happens to a player who is
+## not there, and the moment they are, the camera goes back to where the state
+## put it -- eased, because `_cam_target` always is.
+func _touched() -> void:
+	_idle_for = 0.0
 
 
 ## The attract camera is placed rather than eased into: it runs before the player
