@@ -71,22 +71,28 @@ $GODOT_BIN --headless --fixed-fps 120 --path . res://tools/demo_round.tscn
 ### Building it
 
 ```sh
-tools/build.sh            # both, into build/
+tools/build.sh            # all four, into build/
 tools/build.sh windows
+tools/build.sh linux
+tools/build.sh macos
 tools/build.sh android
 ```
 
-Debug builds, both of them. The script installs the export templates if they are
+Debug builds, all of them. The script installs the export templates if they are
 missing, finds a JDK, makes an Android debug keystore if there isn't one, and
 tells Godot where all three are — so the only thing you need in advance is the
 engine. `.github/workflows/build.yml` runs the same script on demand or on a
-`v*` tag, and uploads the two artifacts.
+`v*` tag, and on a tag assembles a **draft** release for a person to check and
+publish (ADR-027). The macOS build is unsigned; Gatekeeper will want
+`xattr -dr com.apple.quarantine golfVs.app` before it opens.
 
 Nothing is signed for release. There is no release keystore, and there will not
 be one until there is something to release. [`docs/RELEASE.md`](docs/RELEASE.md)
 is the checklist, and the standing list of what is not ready to be a release yet.
 
-CI runs both on every pull request, plus a check that `DESIGN.md` and `DECISIONS.md` stay in step.
+CI runs the suite and the demo round on **Linux, Windows and macOS** on every pull request — the same seed
+must hash the same everywhere, and that is the first thing that has ever checked it — plus a check that
+`DESIGN.md` and `DECISIONS.md` stay in step, and one that the version agrees with itself.
 
 ## Layout
 

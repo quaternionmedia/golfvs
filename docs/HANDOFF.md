@@ -1,19 +1,21 @@
 # golfVs — Handoff Packet
 
-**Generated:** 2026-09-09 · **Session:** build-04 (Claude Code) · **Next reader:** any assistant or human starting the next session
+**Generated:** 2026-09-11 · **Session:** build-06 (Claude Code) · **Next reader:** any assistant or human starting the next session
 **Rule:** this file is the only cross-session memory. If it isn't here, it didn't happen. Update at the end of every session.
 
 ## 1. Where we are
 - **Phase:** M0, with M1/M2/M3 work running well ahead of it. Appendix A steps 1–4 are done. **Step 5 is done
   except its device leg**; step 6 is not started. The M0 blocker is unchanged and is hardware.
-- **Repo: committed, still no remote.** Eighteen commits on `main`. `c777564` is the bootstrap baseline —
-  everything sessions 01–03 produced, unchanged from the tree the tests were run against. This file reserved
-  the first commit for the ratifier; Peter asked for it directly, so that is the instruction carried out
-  rather than the convention broken.
+- **Repo: committed, remote decided, not yet pushed.** The remote is **`quaternionmedia/golfvs`**, public,
+  and golfVs adopts the QM constitution as the first project in the **qm studios** family (build-06). The
+  push sequence is in §7; Lane 0 carries the adoption steps. `c777564` is still the bootstrap baseline.
 - **Engine:** pinned to **Godot 4.7.2.stable** (ADR-008), unchanged. Steam install; set `GODOT_BIN` to
   `godot.windows.opt.tools.64.exe` under `Steam/steamapps/common/Godot Engine/`.
-- **Tests: 135 cases, 0 failures, 0 orphans** (was 22 at bootstrap, 66 at build-04), headless on the pinned
-  engine.
+- **Tests: 176 cases, 0 failures, 0 orphans** (was 22 at bootstrap, 66 at build-04, 169 at build-05),
+  headless on the pinned engine. CI will run them on Linux, Windows and macOS (ADR-027) once there is a CI.
+- **Builds: four targets from one script** — Windows, Linux, macOS, Android, all debug (ADR-027). All four
+  exported from a clean tree on this machine at the end of build-06.
+- **The first run opens on defence** (ADR-028), and the loading screen is ours.
 - **There is a playable vertical slice.** It is the **practice range**, not the intro hole: ADR-017 replaced
   the par-4 with three pins and three clubs, ADR-018 made the player choose between them, and the skeet
   shooter gave way to the archer of ADR-015. Every stroke is written as a schema-v1 Stroke Record and the
@@ -88,7 +90,159 @@ Then the unchanged hardware task: **the Android debug APK on a physical phone**,
 
 ## 7. Artifacts produced this session
 
-### build-05 (this session)
+### build-06 (this session)
+
+### build-06, part one — CI goes cross-platform, and the remote is decided (ADR-027)
+
+**The ask was three things: get a remote, make CI build cross-platform, and put the docs on GitHub Pages.**
+The third was cancelled by the ratifier mid-plan and is not coming back in this form; the first two are built
+and proven as far as a machine with no remote can prove them. **Nothing has been pushed.** The remote is
+decided — `quaternionmedia/golfvs`, public, in the org — and the push is the ratifier's move, when ready.
+
+**What was found at the start, before anything was built.** `project.godot` was dirty in the working tree
+and the diff was the Godot editor stripping every comment in it, plus the viewport size (which is Godot's
+default and so vanishes on save — the hazard ADR-025 names). Functionally a no-op; documentarily a loss.
+Reverted with `git checkout`. This is the third time the editor has done this, and it is exactly the check
+Lane H has open as "the engine pin and the autoload list survived the last editor save". Not built this
+session — it was outside the ask — but it is now a failure that has been watched happening, not a hypothesis.
+
+**Four targets from one script, proven on this machine.** `export_presets.cfg` gains a Linux and a macOS
+preset; `tools/build.sh` gains `linux` and `macos` targets on the existing `export_one` helper, and boots
+the Linux build once when the host is Linux — which it will be, in CI, so the artifact nobody here can launch
+is the one that gets checked. `rm -rf build && tools/build.sh` on Windows produced all four:
+
+    windows   golfVs.exe 103 MB   golfVs.pck 234,588 B    booted headless: it starts
+    linux     golfVs.x86_64 74 MB golfVs.pck 234,588 B    (boot check fires on a Linux host)
+    macos     golfVs.zip 66 MB    universal .app, Info.plist says org.golfvs.test 0.0.1, icon.icns is ours
+    android   golfVs.apk 29 MB    signed with the debug key
+
+The three desktop packs are byte-identical, which is the exclusion filter proving that the same game is in
+each box. `RELEASE.md` said Linux and macOS would "cost one preset each and no new tooling"; that was exactly
+right. macOS is unsigned and un-notarized — no Apple identity, and buying one to ship a debug build would be
+deciding the release question sideways. Gatekeeper's quarantine is documented (`xattr -dr`) rather than
+worked around. **The macOS build has never been launched**: nobody on the project has a machine to launch it
+on, and `RELEASE.md` now says so in the standing-gaps list.
+
+**The suite is matrixed across Linux, Windows and macOS.** `ci.yml`'s `tests` job runs the gdUnit4 suite
+*and the demo round* on all three, `fail-fast: false` so a failing leg does not cancel the others. This is
+Lane H's oldest open item and the thing Lane B's determinism gate has needed to mean anything: the demo
+verifies stroke hashes, so three operating systems running the same seed is the first time anything has
+checked whether the records are as portable as §11 says they are. **Expect Windows or macOS to go red
+first.** That is the measurement being taken, not the build being broken. They stay off the required-checks
+list until each has passed once; the comment at the top of `ci.yml` says the same thing to whoever reads it
+there.
+
+**The Godot install is one composite action.** `.github/actions/setup-godot` reads the pin from
+`.godot-version` in exactly one place, resolves the per-OS asset name, caches by OS and architecture, and
+exports `GODOT_BIN` as a native path. `ci.yml` and `build.yml` carried the same fifteen lines each; the
+matrix would have made it forty-five. Only the Linux asset name has ever been fetched — `win64.exe.zip` and
+`macos.universal.zip` follow the convention and are verified the first time the matrix runs.
+
+**A tag drafts a release.** `build.yml` on `v*` builds all four, packages them (a `.tar.gz` for Linux so the
+executable bit survives; `THIRDPARTY.md` and `CHANGELOG.md` inside every archive per ADR-025), lifts the
+release notes from the changelog section for that version, and creates a **draft**. `RELEASE.md` said
+"nothing here is automated on purpose"; the draft respects what that sentence was protecting — the
+judgements — and takes only the assembly off the person. The release job is the one job in the repository
+with `contents: write`, and it writes one thing.
+
+**The version is checked, not remembered.** `tools/check_version_consistency.py` refuses any tree where
+`project.godot`, every export preset's version field, and the changelog's topmost released heading disagree
+on the numeric core, and on a tag build refuses the tag with them. `RELEASE.md` carried this as "three places
+that have to agree", by hand. Mutation-tested: a preset bumped to 0.0.2 fails it; a `v0.9.9` tag fails it.
+Note that `export_presets.cfg`'s comments still say `config/version` is `"0.0.1-m0"`; it is `"0.0.1"`. The
+check tolerates either. The comment is stale and was left alone.
+
+**Gates, on the tip of the branch:** suite 169/169 green, `demo_round` PASS (three strokes re-hashed, 50
+re-reads identical), docs check green, version check green, all four exports from a clean tree.
+
+**The remote is `quaternionmedia/golfvs`, and golfVs is a QM project.** Decided by the ratifier this
+session; the org's constitution lives at `quaternionmedia/qm` and golfVs is the first project in a family
+called **qm studios**. Two things about that, found by reading the corpus rather than assumed:
+
+1. **`qm studios` does not exist yet.** No record, no register entry, no mention. golfVs's adoption record
+   will name it; declaring it at org level is a `qm` pull request of its own.
+2. **The ADR formats are structurally incompatible.** `project-seed/ci/adr_lint.py` wants one
+   `ADR-0001-slug.md` file per record with a `| **Status** |` row and a matching index. This project keeps
+   all twenty-eight decisions as rows in one table, and `check_docs_consistency.py` — the coupling gate —
+   reads that table. The seed's `adr-lint.yml` will fail on day one. Migrate, or carry the divergence; the
+   adoption record decides, not the lint.
+
+The adoption is **staged, not thinned.** `qm`'s own `first-project.md` says not to improvise a lighter
+version because most adoption defects come from skipped steps, and the ratifier's instruction was the same:
+build in stages. The handbook's eight steps are now Lane 0's task list, verbatim, each with its own check.
+Steps 1–3 need the remote and happen at push time. One useful thing the corpus resolved on the way: QM's
+house rule is *"you merge your own once the automated checks pass"*, with only ratification and the version
+tag reserved for a person — so branch protection on `golfvs` wants required status checks and **no** required
+reviews, which is also what unverified `CODEOWNERS` handles and a single pusher needed anyway.
+
+**Cancelled: docs on GitHub Pages.** The plan had MkDocs Material with `--strict`, a staging script for the
+root-level documents, and a deploy on push to `main`. The ratifier cancelled it. One thing worth knowing
+went with it: `mkdocs --strict` fails on a broken internal link, which would have been a free extension of
+the citation gate. If a link check is ever wanted, it is a few lines in `check_docs_consistency.py`, and the
+offer stands. Also worth knowing: `qm` renders its own docs at `quaternionmedia.github.io/qm`, so this puts
+golfVs off the house pattern. Noted, not argued.
+
+**Push sequence, for whoever does it:**
+
+    gh repo create quaternionmedia/golfvs --public --source=. --remote=origin
+    git push -u origin main                          # workflows + CODEOWNERS on the base first
+    git push -u origin camera-orbit-and-selector-corner && gh pr create
+
+Then a throwaway PR editing `DESIGN.md` alone, to watch the coupling check fail for the first time; then
+branch protection as above; then Lane 0's QM steps 1–3.
+
+### build-06, part two — the first run opens on defence, and the loading screen is ours (ADR-028)
+
+**Two asks from the ratifier, taken directly:** the tutorial starts as the defender, and the loading screen
+shows the logo instead of Godot's. Both are small. One of them turned up a real bug.
+
+**Where the side lives.** The range gains `@export var start_defending := false` and applies it at the end
+of `_setup_play`, through `set_defending` like any other switch. **The flag is off in the range and on in
+`main_menu.tscn`**, deliberately: the range is a component whose base case is the golfer — the demo round
+and forty-four range tests read it that way — and which side a *tutorial* opens on is the tutorial's
+decision, so it is made in the scene that owns the first run. `test_a_range_left_to_its_default_opens_as_the_golfer`
+pins the component's side; `tests/ui/test_first_run.gd` (new, four cases) pins the menu's.
+
+**The bug: a bow at a golfer who never plays.** `_on_gesture_began` returns early when defending, before
+the `ATTRACT → AIM` transition it otherwise performs, and the game's golfer only swings in `AIM`. So a
+range in `ATTRACT` with the player on defence was a golfer standing over the ball forever. **This was
+reachable from the side switch since ADR-020** — switch before the first touch and you are stuck — and
+nobody had reached it. Flipping the default made it the first frame of every first run. The fix is five
+lines in `set_defending`: taking the bow leaves `ATTRACT`, because the attract screen is the range waiting
+for the golfer's first touch and the game does not need to be waited for. Mutation-tested: with the fix
+removed, `test_taking_the_bow_leaves_the_attract_screen`, `test_a_range_told_to_open_on_defence_does_so`
+and `test_the_first_run_is_not_waiting_for_a_golfer_who_is_the_game` all go red.
+
+**The splash.** Godot's `boot_splash/image`, set to our icon on the deck's `#05080c`. The engine's error is
+verbatim — *"The only supported format is PNG"* — tried first with `icon.svg` and refused, so the SVG route
+ADR-025 used for every other icon is closed here. `tools/make_icons.gd` gains a `COMMITTED` table and
+renders `art/icon/boot_splash.png` at 1024 (the splash is scaled to fit, and a phone held sideways is 1080
+tall). It is **the one PNG in the tree**, exempted from LFS in `.gitattributes` the way `addons/` is: an
+LFS pointer file where Godot expects an image is Godot's own splash back on every fresh clone, which is the
+exact thing ADR-025 removed. Re-run `make_icons.gd` after touching `icon.svg` and commit the result.
+`fullsize` and `use_filter` are left at their defaults *and not written*, because the editor strips
+defaults on save (the ADR-025 hazard, still live — see part one).
+
+**The splash was in the pack twice, and now it is in once.** Measured by parsing the PCK directory
+(format 4, directory at the tail — the scratch script is not committed, it was twenty lines). With the
+default texture importer Godot packed the raw PNG *and* a 53 KB `.ctex` nothing loads; with
+`importer="keep"` in the `.import` it packed the raw PNG **twice**, once as a kept file and once because
+the exporter adds `boot_splash/image` by itself. So `boot_splash.png` is `keep` (no texture pretending to
+exist) *and* in every preset's `exclude_filter` — the exporter still adds it, exactly once. Pack: 234,588 B
+before, 333,068 B after, and the difference is the one PNG. The exported Windows build was run windowed and
+loaded it without the "invalid boot splash" line the SVG attempt produced, which is the only proof a
+headless machine can give of a loading screen.
+
+**`project.godot` was edited this session, with the editor closed** (checked before, checked after). Two
+lines under `[application]` plus their comment; the pin and the plugin list were verified afterwards.
+
+**Lanes crossed, and said so:** Lane D owns `ui/` and this touched `holes/range/` (Lane C) for the flag
+and the fix. Done at the ratifier's direction, noted in both lanes' task lists.
+
+**Gates, on the tip of the branch:** see part one's list plus `test_first_run.gd`; the full suite, the demo
+round and a clean four-target rebuild were re-run after these changes and the numbers are in §1.
+
+### build-05
 
 **Asked for:** review the repo, clean up, make the club selector much more subtle and move it to the top
 left, and add orbit controls.
@@ -627,6 +781,14 @@ Modified:
 Copied verbatim from the planning-01 packet: `docs/DESIGN.md`, `docs/DECISIONS.md`.
 
 ## 8. Notes for the next session
+- **`project.godot` was found comment-stripped at the start of build-06** — every `;` line gone, viewport
+  size gone. The editor had been open and saved. Reverted from git. If it happens again, `git diff
+  project.godot` will show it as a wall of red comments and nothing else; that is the tell, and the fix is
+  `git checkout -- project.godot` before the editor is opened again.
+- **Nothing has been pushed.** The remote is decided (`quaternionmedia/golfvs`) and not created. Every
+  workflow in `.github/` has been YAML-validated and its shell snippets run locally against the real tree,
+  and none has executed on a runner. The Windows and macOS test legs, and the `win64` / `macos.universal`
+  Godot asset names, are the two things most likely to need a fix on the first run.
 - **The Godot editor was open throughout build-04, so `project.godot` is untouched by it.** Nothing in that
   file changed; if the pin or the plugin entry looks wrong, the editor did it.
 - **Run the demo, not just the suite.** Three of build-04's five bugs were invisible to unit tests and

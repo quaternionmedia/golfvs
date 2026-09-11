@@ -10,6 +10,17 @@ extends SceneTree
 ## (`.gitattributes`), and the LFS path has never been proven end to end, so the
 ## icons stay SVG in the repository and become PNG only on the way out.
 ##
+## **One exception, and it is committed.** The boot splash. Godot reads
+## `boot_splash/image` as a raw file at startup and only accepts PNG -- the
+## error, verbatim, is "The only supported format is PNG" -- so it cannot stay
+## SVG the way the icons do. It is rendered here from the same source, checked
+## in at `art/icon/boot_splash.png`, and exempted from LFS in `.gitattributes`
+## the way `addons/` is: an LFS pointer file sitting where Godot expects a PNG
+## would put Godot's own splash back on every fresh clone, which is the exact
+## thing ADR-025 removed. Re-run this after touching `icon.svg` and commit the
+## result; a splash that has quietly stopped matching its source is the same
+## bug as an icon that has.
+##
 ##   godot --headless --path . --script tools/make_icons.gd
 
 const SIZES := {
@@ -19,6 +30,13 @@ const SIZES := {
 }
 
 const OUT := "build/icons"
+
+## Source -> committed destination, and the size. 1024 because the splash is
+## scaled to fit the window (`boot_splash/fullsize`), and a phone held sideways
+## is 1080 tall; anything smaller is upscaled and goes soft.
+const COMMITTED := {
+	"icon.svg": ["art/icon/boot_splash.png", 1024],
+}
 
 
 func _init() -> void:
@@ -43,4 +61,17 @@ func _init() -> void:
 			image.save_png(path)
 			print("  %s  %dx%d" % [path, size, size])
 	print("icons written to %s/" % OUT)
+
+	for source in COMMITTED:
+		var dest: String = COMMITTED[source][0]
+		var size: int = COMMITTED[source][1]
+		var svg: String = FileAccess.get_file_as_string(source)
+		var image := Image.new()
+		if image.load_svg_from_string(svg, float(size) / 128.0) != OK:
+			push_error("could not rasterise %s" % source)
+			quit(1)
+			return
+		image.resize(size, size, Image.INTERPOLATE_LANCZOS)
+		image.save_png(dest)
+		print("  %s  %dx%d  (committed -- see the header)" % [dest, size, size])
 	quit(0)

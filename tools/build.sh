@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 #
-# Build golfVs for Windows and Android.
+# Build golfVs for Windows, Linux, macOS and Android.
 #
-#   tools/build.sh                # both
+#   tools/build.sh                # all four
 #   tools/build.sh windows
+#   tools/build.sh linux
+#   tools/build.sh macos
 #   tools/build.sh android
 #
 # What this exists for: M0's exit is "the APK launches on a phone", and that has
@@ -210,6 +212,38 @@ if [ "$target" = "all" ] || [ "$target" = "windows" ]; then
       fi
       ;;
   esac
+fi
+
+if [ "$target" = "all" ] || [ "$target" = "linux" ]; then
+  export_one "Linux" "build/linux/golfVs.x86_64"
+  # The same boot check the Windows build gets, on the host that can run it.
+  # This is the one that actually fires in CI, because the runner is Linux --
+  # so the artifact nobody here can launch is the artifact that gets proven.
+  case "$(uname -s)" in
+    Linux)
+      say "Booting the Linux build once"
+      if ( cd build/linux && ./golfVs.x86_64 --headless --quit ); then
+        printf '  it starts
+'
+      else
+        die "the exported Linux build would not start"
+      fi
+      ;;
+  esac
+fi
+
+if [ "$target" = "all" ] || [ "$target" = "macos" ]; then
+  # A .zip holding a .app. Unsigned and un-notarized -- there is no Apple
+  # Developer identity and buying one to ship a debug build would be deciding
+  # the release question sideways. Gatekeeper quarantines anything downloaded
+  # without one, so the first thing a mac user must do is strip that attribute:
+  #
+  #     unzip golfVs.zip && xattr -dr com.apple.quarantine golfVs.app
+  #
+  # No boot check: the only host that could run it is a mac, and this project
+  # has never had one. That is a gap in the proof, and saying so is better than
+  # a check that silently never runs.
+  export_one "macOS" "build/macos/golfVs.zip"
 fi
 
 if [ "$target" = "all" ] || [ "$target" = "android" ]; then

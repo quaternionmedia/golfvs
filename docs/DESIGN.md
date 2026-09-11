@@ -118,8 +118,10 @@ local to the corner: the range is what is being looked at and the club in hand i
 rows stay a fingertip tall regardless, because subtle is a claim about ink and not about what a thumb has to
 hit.
 
-You can also play the other end of it (`ADR-020`). A switch in the opposite corner to the club selector
-puts the player on defence: the game golfs, and **the archer on the rock becomes theirs** (`ADR-022`). The
+**The first run opens on defence** (`ADR-028`): the first thing a new player sees is the game's golfer
+addressing a ball, and a bow in their own hands. A switch in the opposite corner to the club selector puts
+them on the other end of it (`ADR-020`) whenever they like — the game golfs while they defend, and **the
+archer on the rock is theirs** (`ADR-022`). The
 tutorial has that one defender and no other — an adversary as well would be a second idea arriving with the
 first — and handing the player the *safety net* is the better lesson anyway, because the ball you are asked
 to shoot is the one that was about to be lost. Working that side teaches where the course ends by patrolling
@@ -156,6 +158,7 @@ cannot lose a ball and has no failure state at all.
 - `[RATIFIED ADR-014]` No glyph vocabulary. Teaching is world → ribbon → ghost, three layers, all drawn.
 - `[RATIFIED ADR-017]` The first run is a private practice range: three pins, three clubs, unlimited balls, no par.
 - `[RATIFIED ADR-015]` Guarded by an archer that only stops balls leaving the range.
+- `[RATIFIED ADR-028]` The first run opens on defence. The range itself opens as the golfer; the menu scene that owns the first run says otherwise.
 
 ---
 

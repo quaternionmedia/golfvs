@@ -1,15 +1,21 @@
 name: Build
 
-# Test builds for Windows and Android.
+# Test builds for Windows, Linux, macOS and Android.
 #
 # Deliberately *not* on every pull request. It downloads 1.3 GB of export
-# templates and produces a 130 MB pair of artifacts, and `ci.yml` already gates
-# every change on the suite and the demo round. This runs when somebody wants a
-# build to put on a phone -- by hand, or by tagging one.
+# templates and produces a quarter-gigabyte of artifacts, and `ci.yml` already
+# gates every change on the suite and the demo round. This runs when somebody
+# wants a build to put on a machine -- by hand, or by tagging one.
 #
-# ADR-002 makes GitHub releases the canonical distribution. This is the job that
-# will eventually feed one; today it produces debug builds and nothing is signed
-# for release, because there is no release keystore and that is its own decision.
+# ADR-002 makes GitHub releases the canonical distribution. On a `v*` tag this
+# assembles one -- as a **draft**. docs/RELEASE.md is explicit that the checks
+# which matter at release time are judgements (does the icon look like ours,
+# does the pitch oversell what is in the box, does the thing start on a real
+# machine), and a draft is the shape that automates the tedium without
+# automating the judgement. Publishing it is a person's act.
+#
+# All four are debug builds and nothing is signed for release, because there is
+# no release keystore and no Apple identity, and both are their own decision.
 
 on:
   workflow_dispatch:
@@ -25,17 +31,16 @@ concurrency:
 
 jobs:
   build:
-    name: Windows and Android (debug)
+    name: All four targets (debug)
     runs-on: ubuntu-latest
-
+    # One host builds everything. Godot cross-exports every platform from any
+    # host that has the templates, and tools/build.sh is written so that this
+    # job and a person's laptop run the same build. A matrix here would buy
+    # nothing but four downloads of the same templates.
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
-
-      - name: Read the engine pin
-        id: pin
-        run: echo "version=$(cat .godot-version)" >> "$GITHUB_OUTPUT"
 
       # Android signing needs a JDK even for a template build, because the APK
       # still has to be signed. 17 is the floor Godot's Android tooling asks for.
@@ -44,11 +49,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Cache Godot ${{ steps.pin.outputs.version }}
-        uses: actions/cache@v4
+      - uses: actions/setup-python@v5
         with:
-          path: ~/godot
-          key: godot-${{ steps.pin.outputs.version }}-linux-x86_64
+          python-version: '3.12'
+
+      - uses: ./.github/actions/setup-godot
+        id: godot
 
       # The templates are the slow part and they never change for a given pin,
       # so they are cached against exactly that.
@@ -56,21 +62,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.local/share/godot/export_templates
-          key: godot-templates-${{ steps.pin.outputs.version }}
+          key: godot-templates-${{ steps.godot.outputs.version }}
 
-      - name: Install Godot ${{ steps.pin.outputs.version }}
-        run: |
-          set -euo pipefail
-          version='${{ steps.pin.outputs.version }}'
-          binary="$HOME/godot/Godot_v${version}_linux.x86_64"
-          if [ ! -x "$binary" ]; then
-            mkdir -p "$HOME/godot"
-            url="https://github.com/godotengine/godot/releases/download/${version}/Godot_v${version}_linux.x86_64.zip"
-            curl -fsSL -o /tmp/godot.zip "$url"
-            unzip -q /tmp/godot.zip -d "$HOME/godot"
-            chmod +x "$binary"
-          fi
-          echo "GODOT_BIN=$binary" >> "$GITHUB_ENV"
+      # On a tag, the tag is the fourth place the version has to agree. This is
+      # the check that stops a v0.0.2 tag shipping a build whose About box says
+      # 0.0.1. GITHUB_REF_TYPE tells the script whether there is a tag to check.
+      - name: Check the version agrees with the tag
+        run: python tools/check_version_consistency.py
 
       # The project has to be imported before it can be exported: a cold clone
       # has no .godot/, and an export of an unimported project produces a pack
@@ -79,25 +77,98 @@ jobs:
         run: '"$GODOT_BIN" --headless --path . --import'
 
       # Everything platform-specific lives in the script, so this job and a
-      # person's laptop run the same build. That is the whole point of it being
-      # a script rather than a page of instructions.
+      # person's laptop run the same build. The script boots the Linux build
+      # once at the end of its own export, and on this runner that check
+      # actually fires -- so the artifact nobody on this project can launch by
+      # hand is the one that gets proven.
       - name: Build
         run: tools/build.sh
 
       - name: What was built
         run: |
-          ls -la build/windows build/android
+          set -euo pipefail
+          ls -la build/windows build/linux build/macos build/android
+          echo "--- pack sizes must agree: same exclude_filter, same game ---"
+          ls -l build/windows/golfVs.pck build/linux/golfVs.pck
           echo "--- APK ---"
           unzip -p build/android/golfVs.apk AndroidManifest.xml > /dev/null && echo "APK is readable"
+          echo "--- macOS bundle ---"
+          unzip -l build/macos/golfVs.zip | grep -E 'Info.plist|MacOS/golfVs|icon.icns'
+
+      # A tar for Linux rather than a zip: a zip forgets the executable bit,
+      # and a Linux build that arrives without one is a file, not a game.
+      - name: Package
+        run: |
+          set -euo pipefail
+          version="$(python -c "import re,sys;print(re.search(r'^config/version=\"([^\"]*)\"',open('project.godot',encoding='utf-8').read(),re.M).group(1))")"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          mkdir -p dist
+          # The licence travels with every archive (ADR-025): Godot is
+          # statically linked into each binary and MIT requires the notice.
+          for target in windows linux macos android; do
+            cp THIRDPARTY.md CHANGELOG.md "build/$target/"
+          done
+          ( cd build/windows && zip -qr "../../dist/golfVs-${version}-windows-x86_64.zip" . )
+          ( cd build/linux   && tar -czf "../../dist/golfVs-${version}-linux-x86_64.tar.gz" . )
+          ( cd build/macos   && zip -qr "../../dist/golfVs-${version}-macos-universal.zip" . )
+          cp build/android/golfVs.apk "dist/golfVs-${version}-android-arm64.apk"
+          ls -la dist/
 
       - uses: actions/upload-artifact@v4
         with:
-          name: golfVs-windows-debug
-          path: build/windows/
+          name: golfVs-${{ env.VERSION }}-all-targets-debug
+          path: dist/
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+  release:
+    name: Draft the release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    # The only job in this repository that can write to it, and it writes one
+    # thing: a draft. Least privilege is not a nicety when the token can push.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
         with:
-          name: golfVs-android-debug
-          path: build/android/golfVs.apk
-          if-no-files-found: error
+          pattern: golfVs-*-all-targets-debug
+          path: dist
+          merge-multiple: true
+
+      # Pulled from CHANGELOG.md rather than written here, so that the release
+      # notes and the changelog cannot disagree. The section for this version
+      # has to exist: check_version_consistency.py already refused the build if
+      # it did not.
+      - name: Release notes from the changelog
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          python - "$version" > notes.md <<'PY'
+          import re, sys
+          sys.stdout.reconfigure(encoding="utf-8")
+          version = sys.argv[1]
+          text = open("CHANGELOG.md", encoding="utf-8").read()
+          core = re.search(r"(\d+(?:\.\d+)*)", version).group(1)
+          m = re.search(rf"^## \[{re.escape(core)}\][^\n]*\n(.*?)(?=^## \[|\Z)", text, re.M | re.S)
+          body = m.group(1).strip() if m else "See CHANGELOG.md."
+          print("**This is a test build, not a release.** Debug artifacts, unsigned, provisional package id. "
+                "The *Not in it* and *Known gaps* sections below are the honest part.\n")
+          print(body)
+          print("\n---\n`THIRDPARTY.md` and `CHANGELOG.md` are inside every archive; ship all of it together.")
+          PY
+          cat notes.md
+
+      - name: Create the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" \
+            --draft \
+            --title "golfVs $GITHUB_REF_NAME (test build)" \
+            --notes-file notes.md \
+            dist/*
+          echo "Draft created. Somebody has to read it, run it, and press publish."

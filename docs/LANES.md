@@ -46,15 +46,19 @@ five bugs found in session build-04 were invisible to unit tests and obvious wit
 
 ## Lane 0 — Ground truth
 
-**Owns:** git · `.github/` · `docs/DECISIONS.md` · `CODEOWNERS`
-**Status:** in progress. ADR-012 to ADR-015 ratified; the remaining items are human or hardware.
+**Owns:** git · `.github/` · `docs/DECISIONS.md` · `CODEOWNERS` · `governance/`
+**Status:** in progress. ADR-012 to ADR-015 ratified; the remaining items are human or hardware. The remote
+is decided: **`quaternionmedia/golfvs`**, and golfVs adopts the QM constitution as the first project in the
+**qm studios** family.
 **Gate:** M0 exits when the APK launches on a phone and CI is green on a real remote.
 
 - [x] First commit, and a baseline that matches the tree the tests were run against
 - [x] Ratify the float precision and hash-input proposals (ADR-012, ADR-013)
 - [x] Settle the first run: wordless, no glyphs, no onboarding document (ADR-014)
 - [x] Settle the intro hole's defender (ADR-015)
-- [ ] **Push to a remote and watch CI run.** It never has
+- [ ] **Push to `quaternionmedia/golfvs` and watch CI run.** It never has. Public, in the org, named to
+      match the `project/golfvs` branch QM's status tooling will assume. `main` first, so CODEOWNERS and the
+      workflows are on the base branch before the first pull request opens against it
 - [ ] **Prove the coupling check** by opening a PR that edits `DESIGN.md` alone and confirming it fails. A
       gate that has never failed has never been tested
 - [ ] Ratify or reject the four M1 blockers: stroke gesture · three clubs + auto-putter · Stroke Record
@@ -66,6 +70,34 @@ five bugs found in session build-04 were invisible to unit tests and obvious wit
 - [x] **Android debug APK builds** (ADR-024). `org.golfvs.test`, arm64, 30 MB, signed with the debug key
 - [ ] **Install that APK on a physical phone and play it.** This is the part that really was hardware, and
       it is now the only part: M0's gate, M1's gate and every tuning number in Lane C are waiting on it
+
+**Adopting the QM constitution -- in the handbook's order, no step skipped.** The authority is
+`quaternionmedia/qm`'s `handbook/forking-a-project.md`; `docs/usage/first-project.md` there outlines it and
+says in so many words not to improvise a lighter version, because most adoption defects come from skipped or
+partial steps. So: the eight steps as written, each with its own verification check, staged rather than
+thinned. Steps 1-3 all need the remote and are done together at push time.
+
+- [ ] 0. Confirm the starting commit, in both repositories
+- [ ] 1. Add `qm` as a submodule at `governance/qm`
+- [ ] 2. Create `project/golfvs` in `qm` off `main`, copy `project-seed/adr/` onto it as `adr/`, and
+      **push the branch** -- no pull request; it is the one place content arrives on a shared branch by push
+- [ ] 3. Point the submodule at the branch; `branch = project/golfvs` in `.gitmodules`
+- [ ] 4. Wire CI: the four seed workflows verbatim -- `adr-lint.yml`, `submodule-check.yml`,
+      `reuse-lint.yml`, `one-pr-check.yml` -- plus the licence gates the open-licence record requires
+- [ ] 5. `project-seed/ide/` onto the root, symlinks preserved (`cp -a`); fill in `AGENTS.md`; check
+      `.gitignore` does not swallow any of it
+- [ ] 6. First records on the branch as numberless drafts: an adoption record and a scope record
+- [ ] 7. Register carried patches in `qm`'s `registers/carried-patches.md` (none known)
+
+Two things the adoption record has to say, because they are decisions and not details:
+
+- **The family.** `qm studios` is not yet declared anywhere in the corpus -- no record, no register entry.
+  golfVs names it in its adoption record; declaring it at org level is a `qm` pull request of its own.
+- **The ADR format.** `project-seed/ci/adr_lint.py` wants one `ADR-0001-slug.md` file per record, a
+  `| **Status** |` row, and an index that matches the directory. This project keeps every decision as a row
+  in one table in `DECISIONS.md`, and the coupling check that enforces ADR-006 reads that table. Step 4
+  will fail on it. The choice is migrate or carry the divergence, and it is made in the record, not by
+  letting the lint fail quietly.
 
 ---
 
@@ -134,6 +166,9 @@ playable. What is left is tuning, which needs a thumb.
       `MIN_SPEED` / `MAX_SPEED` / `LAUNCH_DEG` now live in them
 - [ ] `ClubProfile` as `.tres`, once the numbers stop moving every session. See the note in the file
 - [x] Practice Range: three pins, unlimited balls, `defended` togglable
+- [x] `start_defending` on the range, and taking the bow now leaves `ATTRACT` (ADR-028). The second is
+      a fix: the attract screen only ever left on the golfer's drag, so a defender there was stuck with a
+      golfer who never played. Three tests go red without it. Done from Lane D at the ratifier's direction
 - [x] The orbit camera (ADR-001) — two fingers, a tap to recentre, zoom and elevation limited
 - [ ] Preview accuracy test — 50 random shots, preview landing within 5 % of the sim (§6.6)
 - [ ] Write and replay a Stroke Record for every range shot (needs A and B)
@@ -156,6 +191,9 @@ drawn over it — the selector, the card, the ghost and the signals.
 - [x] The wordless signalling: the ghost, the beacons, the ribbon stub, the spin dial
 - [x] The club selector, moved into the corner and quietened (ADR-019)
 - [x] The archer (ADR-015)
+- [x] **The first run opens on defence** (ADR-028) -- `start_defending` on the range instance in
+      `main_menu.tscn`, pinned by `tests/ui/test_first_run.gd`. The ghost stays quiet for a defender
+- [x] The loading screen is the icon, not Godot's logo (ADR-028)
 - [ ] **Play it on a phone.** The ghost is placed by `unproject_position` and its `PULL_PX` is a desktop guess
 - [ ] **Watch a stranger play it, and watch one thing:** can they judge *distance* from a 7 % ribbon stub and
       a target ring? That is the known weak point. The cheap fix is a landing ring, which gives back most of
@@ -240,19 +278,33 @@ the action means the defender silently never acts, which looks exactly like one 
 ## Lane H — Infrastructure
 
 **Owns:** `.github/` · `tools/`
-**Status:** the docs check has six enforcement rules; the demo is a gate; both targets build from one script.
+**Status:** the docs check has six enforcement rules; the demo is a gate; all four targets build from one
+script and the suite is matrixed across three operating systems (ADR-027). None of the CI has run yet.
 
 - [x] Documents-exist and proposals-agree checks
 - [x] The demo round as a CI job
-- [ ] Matrix the test job across Linux, Windows and macOS. **Lane B's gate needs it to mean anything**
+- [x] Matrix the test job across Linux, Windows and macOS (ADR-027). **Lane B's gate needs it to mean
+      anything.** Authored and the Linux leg is what ran locally; the other two legs have never executed and
+      are expected to be informative before they are green -- they stay off the required list until each has
+      passed once
 - [x] Export presets for Android and desktop, keystore path out of the repo (ADR-024). `tools/build.sh`
       produces both; `.github/workflows/build.yml` runs the same script on demand or on a `v*` tag
+- [x] Linux and macOS presets; **four targets from one script** (ADR-027). All four exported from a clean
+      tree on Windows; the three desktop packs are byte-identical. The Godot install is one composite action,
+      `.github/actions/setup-godot`, reading the pin from `.godot-version`
+- [x] A `v*` tag assembles a **draft** release with notes from `CHANGELOG.md`; a person publishes it (ADR-027)
+- [x] `tools/check_version_consistency.py` -- the four places a version is stated, refused in CI if they
+      disagree, and the tag with them on a tag build
 - [x] Publishing hygiene (ADR-025): own icon, `THIRDPARTY.md`, the workshop excluded from exports, community
       files, `CHANGELOG.md`, and `docs/RELEASE.md` as the checklist
 - [ ] A release build and a release keystore. Needs a decision about where the secret lives, and something
       worth releasing
-- [ ] **Push to a remote and cut v0.0.1-test.** Everything the tag needs is in place; what is missing is a
-      remote, one green CI run, and somebody launching both binaries
+- [ ] **Push to `quaternionmedia/golfvs` and cut v0.0.1-test.** Everything the tag needs is in place; what
+      is missing is the remote, one green CI run, and somebody launching the binaries. The remote is the
+      org's, not a personal one: golfVs is a QM project (Lane 0)
+- [ ] Verify the Windows and macOS Godot asset names on the first matrix run. Only the Linux one
+      (`Godot_v<pin>_linux.x86_64.zip`) has ever been fetched; `win64.exe.zip` and `macos.universal.zip`
+      follow the convention and have not been proven
 - [ ] A check that the engine pin and the autoload list survived the last editor save
 - [ ] Note-level check that gdUnit4's supported-Godot range still contains the pin. It currently does not —
       6.2.1 lists up to 4.7.1 and the pin is 4.7.2

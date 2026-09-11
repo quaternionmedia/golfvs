@@ -10,6 +10,24 @@ deciding whether to download a build.
 
 ## [Unreleased]
 
+### Changed
+- **The first run opens on defence** (ADR-028). The first thing a new player sees is the game's
+  golfer addressing a ball and a bow in their own hands; the switch in the corner still hands them
+  the club. The range itself still opens as the golfer -- the menu scene is what says otherwise.
+- **The loading screen is our icon on the deck's black**, not Godot's logo (ADR-028). It is the
+  one PNG in the tree, because Godot accepts nothing else there.
+- **Linux and macOS test builds**, beside Windows and Android (ADR-027). All four from
+  `tools/build.sh`; the macOS bundle is unsigned and Gatekeeper will want
+  `xattr -dr com.apple.quarantine golfVs.app` before it opens.
+- **CI runs the suite and the demo round on Linux, Windows and macOS.** The same seed has to hash
+  the same everywhere, and this is the first thing that has ever checked it.
+- A `v*` tag now assembles a **draft** release with these notes; a person publishes it.
+
+### Fixed
+- Switching to defence on the attract screen left the game's golfer standing over the ball
+  forever. The only drag that leaves the attract screen was the one the defending side ignores.
+  Reachable since the switch existed; found the day the first run started there.
+
 ## [0.0.1] — 2026-09-09
 
 The first build that leaves the machine it was made on. It is a **debug build of

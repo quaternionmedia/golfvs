@@ -263,6 +263,20 @@ var _threat_at := Vector3.ZERO
 ## cannot disagree.
 @export var contested := false
 
+## Which end of the swing the range opens on.
+##
+## Off here, because the range is a component and the golfer is its base case:
+## every test and the demo round read it that way, and a range that woke up on
+## defence would have made all of them lie. **The first run turns it on** in
+## `main_menu.tscn` (ADR-028), because which side a *tutorial* opens on is the
+## tutorial's decision and not the range's -- the scene that owns the first run
+## is the scene that says how it starts.
+##
+## Applied at the end of `_setup_play`, once there is an archer to be. It goes
+## through `set_defending` like any other switch, so opening on defence and
+## switching to it are the same code path and cannot drift apart.
+@export var start_defending := false
+
 
 func _ready() -> void:
 	_build_environment()
@@ -433,6 +447,8 @@ func _setup_play() -> void:
 	_enter_aim()
 	state = State.ATTRACT
 	_frame_attract()
+	if start_defending:
+		set_defending(true)
 
 
 ## What is in the player's hands. Not what the pin says it should be: the pin
@@ -546,6 +562,15 @@ func set_defending(value: bool) -> void:
 	_spin.hide_dial()
 	_stow_the_arrow()
 	_ai_beat = AI_ADDRESS
+	# The attract screen is the range waiting for the golfer's first touch. When
+	# the player takes the bow, the game is the golfer and there is nothing to
+	# wait for -- and nothing else would ever leave ATTRACT, because the drag
+	# that normally does is the one `_on_gesture_began` ignores on this side.
+	# Found the day the first run started on defence (ADR-028): before that it
+	# was a deadlock the switch could reach and nobody had.
+	if _defending and state == State.ATTRACT:
+		state = State.AIM
+		state_changed.emit(state)
 	side_changed.emit(_defending)
 
 

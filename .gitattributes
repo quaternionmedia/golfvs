@@ -21,3 +21,9 @@
 # handful of small PNGs that are not our art and should not consume the LFS
 # budget, so unset the filter for everything under addons/.
 addons/** !filter !diff !merge
+
+# The boot splash is the one PNG that has to be a real file in the tree: Godot
+# reads it raw at startup and accepts nothing but PNG, and an LFS pointer there
+# is Godot's own logo on every fresh clone. Rendered from icon.svg by
+# tools/make_icons.gd and committed; the header there says why.
+art/icon/boot_splash.png !filter !diff !merge

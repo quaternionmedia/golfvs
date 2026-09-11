@@ -16,6 +16,14 @@ run/main_scene="res://ui/menu/main_menu.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 run/flush_stdout_on_print=true
 config/icon="res://icon.svg"
+; The loading screen. Ours, on the deck's own black (#05080c), scaled to fit
+; the window -- `fullsize` and `use_filter` are Godot's defaults and so are not
+; written here, because the editor strips defaults on save (ADR-025). PNG and
+; not SVG because Godot reads this file raw at startup and accepts nothing
+; else; tools/make_icons.gd renders it from icon.svg, and the header there says
+; why the result is committed.
+boot_splash/bg_color=Color(0.0196, 0.0314, 0.0471, 1)
+boot_splash/image="res://art/icon/boot_splash.png"
 
 [display]
 

@@ -343,6 +343,42 @@ func test_the_first_run_defends_with_the_archer_on_the_rock() -> void:
 	assert_bool(here.defending()).is_true()
 
 
+func test_taking_the_bow_leaves_the_attract_screen() -> void:
+	# The attract screen waits for the golfer's first touch. On defence the game
+	# is the golfer, and it only ever swings in AIM -- so a range left in ATTRACT
+	# with the player holding a bow is a golfer who never addresses the ball.
+	# This was reachable from the side switch all along; it became the first
+	# thing every player met the day the first run opened on defence (ADR-028).
+	var here := _range()
+	assert_int(here.state).is_equal(here.State.ATTRACT)
+	here.set_defending(true)
+	assert_int(here.state) 		.override_failure_message("took the bow and the range stayed in ATTRACT, "
+			+ "where the game's golfer never plays") 		.is_equal(here.State.AIM)
+
+
+func test_a_range_told_to_open_on_defence_does_so() -> void:
+	# `start_defending` goes through `set_defending` like any switch, so it has
+	# to land in the same place a switch would: defending, in AIM, bow in hand.
+	var scene := preload("res://holes/range/practice_range.tscn")
+	var here := auto_free(scene.instantiate()) as Node3D
+	here.start_defending = true
+	add_child(here)
+	assert_bool(here.defending()).is_true()
+	assert_int(here.state).is_equal(here.State.AIM)
+	assert_bool(here._gesture.enabled).is_true()
+	assert_bool(here._gesture.locks_line) 		.override_failure_message("opened on defence with a gesture that locks its line, "
+			+ "which is the stroke's second phase and a bow has none") 		.is_false()
+
+
+func test_a_range_left_to_its_default_opens_as_the_golfer() -> void:
+	# The component's base case, which every other test in this file assumes.
+	# If this flips, the tutorial's choice has leaked into the range.
+	var here := _range()
+	assert_bool(here.start_defending).is_false()
+	assert_bool(here.defending()).is_false()
+	assert_int(here.state).is_equal(here.State.ATTRACT)
+
+
 func test_the_contender_is_held_in_preference_when_there_is_one() -> void:
 	var here := _contested()
 	assert_object(here.held()).is_same(here._contender)
