@@ -60,10 +60,13 @@ is decided: **`quaternionmedia/golfvs`**, and golfVs adopts the QM constitution 
       PR #1
 - [x] **Actions turned on** at the ratifier's request, with the build enabled for Windows, Linux and
       Android on every pull request. See `HANDOFF.md` §7 build-06 part seven for what the first run did
-- [ ] Branch protection: required checks, no required reviews (the QM house rule), code-owner review off
-      until the handles are confirmed
-- [ ] **Prove the coupling check** by opening a PR that edits `DESIGN.md` alone and confirming it fails. A
-      gate that has never failed has never been tested
+- [x] Branch protection on `main`: required checks `DESIGN and DECISIONS agree`, `gdUnit4 headless
+      (ubuntu-latest)`, `Windows, Linux and Android (debug)`; no required reviews (the QM house rule);
+      admins not enforced, so the ratifier keeps a bypass; no force-push, no deletion. Code-owner review
+      off until the handles are confirmed. PR #1 is CLEAN against it
+- [x] **Prove the coupling check.** PR #3, cut from `main`, editing `DESIGN.md` alone: red, with the
+      ADR-006 message verbatim. Closed, not merged. (PR #2, cut from the feature branch, *passed* -- see
+      Lane H: a stacked branch slips a `DESIGN.md`-only change past a per-PR-diff rule)
 - [ ] Ratify or reject the four M1 blockers: stroke gesture · three clubs + auto-putter · Stroke Record
       schema v1 · GDScript + gdUnit4 + determinism
 - [ ] ADR or revert for the three open divergences: the press-anchored pull, the 7 % ribbon, `RecordStore`
@@ -317,6 +320,11 @@ script and the suite is matrixed across three operating systems (ADR-027). None 
       one per line, as `determinism-<os>.txt`; (3) a fourth job, `needs: tests`, downloads the three and
       `diff`s them, and is the one that goes on the required list. About forty lines. Until it exists the
       Windows and macOS legs are "it runs there", not "it agrees there"
+- [ ] **The coupling check is per-PR-diff, and a stacked branch evades it.** Found by the first probe (PR
+      #2): a `DESIGN.md`-only commit on a branch cut from another branch that already touched
+      `DECISIONS.md` passes, because `git diff base...HEAD` sees the whole stack. In the normal flow --
+      branch from `main`, PR to `main` -- it holds. Two fixes, either is small: check per commit in the PR
+      range, or require the *same commit* that touches `DESIGN.md` to touch `DECISIONS.md`
 - [ ] A release build and a release keystore. Needs a decision about where the secret lives, and something
       worth releasing
 - [ ] **Push to `quaternionmedia/golfvs` and cut v0.0.1-test.** Everything the tag needs is in place; what

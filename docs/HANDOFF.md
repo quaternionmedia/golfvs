@@ -71,12 +71,10 @@ them is a person's move. Nothing below has been started.
 
 1. ~~Turn CI on and watch it run.~~ **Done in build-06 part seven** -- see §7 for what the first run
    found. Actions is on; the build runs for Windows, Linux and Android on every pull request.
-2. **Prove the coupling check.** A throwaway PR that edits `DESIGN.md` alone; confirm it fails; close it.
-   A gate that has never failed has never been tested. Pointless until step 1.
-3. **Branch protection on `main`.** Required checks: the docs job and the ubuntu test leg. **No required
-   reviews** -- the QM house rule is that you merge your own once the checks are green, with ratification
-   and the version tag as the two human gates. Code-owner review stays off until the `CODEOWNERS` handles
-   are confirmed; wrong handles block every merge. Needs the check names to exist, so after step 1.
+2. ~~Prove the coupling check.~~ **Done, part nine.** Red on PR #3 with the ADR-006 message; and the
+   first attempt found a limitation, now Lane H's.
+3. ~~Branch protection on `main`.~~ **Done, part nine.** Three required checks, no reviews, admin bypass
+   kept. PR #1 is CLEAN against it.
 4. **Make the matrix measure determinism** (Lane H). Seeded demo, a digest per leg, a job that diffs them.
    Until then the extra legs are "it runs there", and ADR-027's rationale says so.
 5. **QM adoption, steps 1-3** (Lane 0): submodule `qm` at `governance/qm`, create and push `project/golfvs`
@@ -205,6 +203,34 @@ golfVs off the house pattern. Noted, not argued.
 
 Then a throwaway PR editing `DESIGN.md` alone, to watch the coupling check fail for the first time; then
 branch protection as above; then Lane 0's QM steps 1–3.
+
+### build-06, part nine — the HIL handoff run, machine half
+
+**Asked:** walk through a human-in-the-loop handoff run. The machine's half is below; the human's half is
+the judgement items and is handed over at the end of this entry.
+
+**Checkpoint 0.** PR #1 green on every check including an org-level GitGuardian scan nobody here
+configured; the v0.0.2-prealpha draft up; `main` unprotected.
+
+**Checkpoint 1 — the coupling gate, tested by failing it.** First probe, PR #2: cut from the feature
+branch, editing `DESIGN.md` alone -- **and the gate passed it.** Correctly, by its own rule: it diffs
+`origin/main...HEAD`, and the diff carried the branch's twenty commits, which touch `DECISIONS.md` many
+times. So a stacked branch slips a `DESIGN.md`-only change through. Recorded in Lane H with two small
+fixes. Second probe, PR #3, cut from `main`: **red**, `FAIL: DESIGN.md changed but DECISIONS.md did not.
+Scope does not move without a rationale (ADR-006)`. Both closed, branches deleted. The gate has now
+failed once and is therefore tested -- and the test found something, which is what tests are for.
+
+**Checkpoint 2 — branch protection.** Applied by API: required `DESIGN and DECISIONS agree`, `gdUnit4
+headless (ubuntu-latest)`, `Windows, Linux and Android (debug)`; `strict` off so a PR need not be
+rebased to merge; no required reviews, per QM; admins not enforced, so the ratifier keeps a bypass; no
+force-push, no deletion. Windows and macOS test legs deliberately not required (part six). PR #1 reads
+CLEAN against it; only its draft flag holds it.
+
+**Checkpoint 3 -- the human's half, not started.** `RELEASE.md`'s judgement items on the v0.0.2-prealpha
+draft: the Windows build run windowed and **left alone for a minute** (the idle camera has never been
+watched); the APK on a phone (M0's exit); the icon and the splash on a launcher; the README's Status read
+as a stranger. Reported in the human's own words, logged as `PLAYTEST.md` round 2. Then, on their word:
+publish the draft, mark PR #1 ready and merge it, and the go for QM steps 1-3.
 
 ### build-06, part eight — v0.0.2-prealpha
 
