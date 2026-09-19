@@ -39,7 +39,7 @@ concurrency:
 
 jobs:
   docs:
-    name: DESIGN and DECISIONS agree
+    name: "Docs: DESIGN/DECISIONS coupling and version consistency"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -64,7 +64,7 @@ jobs:
             echo "ref=" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Check documents
+      - name: Check DESIGN.md and DECISIONS.md move together (ADR-006)
         run: |
           if [ -n '${{ steps.base.outputs.ref }}' ]; then
             python tools/check_docs_consistency.py --base-ref '${{ steps.base.outputs.ref }}'
@@ -75,11 +75,11 @@ jobs:
       # The three places a version has to agree, checked rather than remembered.
       # docs/RELEASE.md carried this as a manual checklist item; a checklist item
       # is a hope, and this is the same move ADR-006 made for the documents.
-      - name: Check the version agrees with itself
+      - name: Check version consistency (project.godot, presets, CHANGELOG)
         run: python tools/check_version_consistency.py
 
   tests:
-    name: gdUnit4 headless
+    name: "Tests: gdUnit4 suite and demo round"
     strategy:
       # One platform failing must not cancel the others: the interesting
       # question is *which* platforms disagree, and a cancelled leg answers it
@@ -104,7 +104,7 @@ jobs:
       - name: Import project
         run: '"$GODOT_BIN" --headless --path . --import'
 
-      - name: Run tests
+      - name: Run the gdUnit4 suite (headless)
         # --remote-debug on an unbound port stops Godot dropping into its
         # interactive CLI debugger on a parse error, which would hang the job.
         run: |
@@ -112,7 +112,7 @@ jobs:
             res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
             --add res://tests --continue --ignoreHeadlessMode
 
-      - name: Play a round
+      - name: Run the demo round (records replay to their hashes)
         # The demo is a real gate, not a showcase: it exits non-zero if a stroke
         # fails to replay to its own hash, if the round on disk differs from the
         # round that was played, or if a defender's verdict is not reproducible
@@ -128,10 +128,13 @@ jobs:
         run: |
           "$GODOT_BIN" --headless --fixed-fps 120 --path . res://tools/demo_round.tscn
 
-      - name: Upload test report
+      - name: Upload test report (kept 7 days)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gdunit4-report-${{ matrix.os }}
           path: reports/
           if-no-files-found: ignore
+          # Three legs a run, every run; the default 90 days had 600 MB of
+          # reports nobody would read within a fortnight of turning CI on.
+          retention-days: 7

@@ -1,21 +1,22 @@
 **What this changes, and why.**
 
-**Gates** — both, please, and paste the counts:
+**Gates** — all three, locally, before opening this. Paste the counts.
 
-- [ ] `./addons/gdUnit4/runtest.sh --add res://tests --continue`
-- [ ] `$GODOT_BIN --headless --fixed-fps 120 --path . res://tools/demo_round.tscn`
+- [ ] `./addons/gdUnit4/runtest.sh --add res://tests --continue` — the suite
+- [ ] `$GODOT_BIN --headless --fixed-fps 120 --path . res://tools/demo_round.tscn` — the demo round
+- [ ] `python tools/check_docs_consistency.py && python tools/check_version_consistency.py` — the docs
 
-The demo is a real gate. It exits non-zero if a stroke fails to replay to its own
-hash, if the round on disk differs from the round played, or if a defender's
-verdict is not reproducible from its seed — three of five bugs found in one
-early session were invisible to the unit suite and obvious within one round.
+The demo round is a real gate. It exits non-zero if a stroke fails to replay to
+its own hash, if the round on disk differs from the round played, or if a
+defender's verdict is not reproducible from its seed.
 
 **Scope**
 
-- [ ] This changes nothing in `docs/DESIGN.md` — *or* it does, and there is a
-      matching row in `docs/DECISIONS.md`. CI enforces the pair (ADR-006).
-- [ ] Lane updated in `docs/LANES.md`, if this finished or started something.
+- [ ] `docs/DESIGN.md` is unchanged — *or* it changed and `docs/DECISIONS.md` has
+      a matching row. CI enforces the pair (ADR-006).
+- [ ] `docs/LANES.md` updated, if this finished or started something.
+- [ ] `docs/HANDOFF.md` §7 has a section for this session.
 
-**If it touches `project.godot`:** say so here, and confirm the Godot editor was
-closed while you did. It silently rewrites that file on save, which has already
-cost this project two settings.
+**If it touches `project.godot` or `export_presets.cfg`:** say so, and confirm
+the Godot editor was closed. It rewrites both files on save and strips their
+comments.

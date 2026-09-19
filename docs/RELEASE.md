@@ -108,13 +108,9 @@ These are the reasons builds before v0.1.0 are labelled test builds.
   Question 1 — the name — is still open. Changing a package id later is an
   uninstall for everybody holding the old one, so the real id wants settling
   before a build goes anywhere other than a personal phone.
-- **CI has never run on a remote.** The docs-coupling check has never executed
-  once. A gate that has never failed has never been tested.
 - **The macOS build has never been launched.** It exports, the bundle is
   well-formed and carries our icon, and nobody on the project has a machine to
   run it on. It ships as unverified until somebody does.
-- **`CODEOWNERS` names are carried from another project** and unverified. Wrong
-  handles block merges the moment code-owner review is switched on.
 - **Cross-platform determinism is measured but not yet proven** (Lane B). The
   suite and the demo round run on Linux, Windows and macOS on every pull request
   (ADR-027). Until each leg has gone green once, the records are advertised as

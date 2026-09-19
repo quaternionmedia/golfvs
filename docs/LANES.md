@@ -71,7 +71,8 @@ is decided: **`quaternionmedia/golfvs`**, and golfVs adopts the QM constitution 
       schema v1 · GDScript + gdUnit4 + determinism
 - [ ] ADR or revert for the three open divergences: the press-anchored pull, the 7 % ribbon, `RecordStore`
       as a static class rather than an autoload
-- [ ] Confirm the `CODEOWNERS` names before enabling code-owner review
+- [x] `CODEOWNERS` names confirmed: all four are `quaternionmedia` org members (build-06). Code-owner
+      review stays off only because there are no required reviews to attach it to
 - [ ] Close Open Question 1 — the name. The Android package ID must be final by M4
 - [x] **Android debug APK builds** (ADR-024). `org.golfvs.test`, arm64, 30 MB, signed with the debug key
 - [ ] **Install that APK on a physical phone and play it.** This is the part that really was hardware, and

@@ -28,42 +28,29 @@
       godot --headless --fixed-fps 120 --path . res://tools/demo_round.tscn
 
 ## 2. Ratified this session
-None. Three decisions were *drafted* and wait in §3. Ratifying is the human's move (ADR-006).
+**None, by the letter, and eleven by practice.** `DECISIONS.md` says an ADR is ratified when merged, and
+nothing has merged: PR #1 is a draft carrying ADR-020 through ADR-030, every one written into the table as
+*Active* -- ADR-020 to ADR-026 by build-05, ADR-027 to ADR-030 by this session, the same way. **Merging
+PR #1 is the ratifying act** for all eleven at once, and it is the ratifier's, per ADR-006 and the QM house
+rule (you merge your own once the checks are green; the merge is the claim). The checks are green.
 
 ## 3. Awaiting ratification
-The twenty-one `[PROPOSED]` items are unchanged, and a new check now enforces that the two lists agree in
-number. **Three new proposals** were drafted this session, all with running code behind them, all cheap to
-reverse now and expensive later:
+The fourteen `[PROPOSED]` items in `DESIGN.md` are unchanged in number and the check that keeps the two
+lists in step is green. The four that block M1 design work are still among them: **stroke gesture**,
+**three clubs + auto-putter**, **Stroke Record schema v1**, **GDScript + gdUnit4 + determinism** -- and
+considerably more is built on all four than when build-04 wrote this sentence. Build-04's three drafted
+proposals were ratified as ADR-012, ADR-013 and ADR-015 and are no longer pending.
 
-1. **Float serialisation: quantize on write** (`records/canonical.gd`). Positions to 0.1 mm; normalised
-   scalars and unit-vector components to six decimals. This closes question 4 of `RECORD_SCHEMA.md` §6, which
-   warns it must be settled *before the first fixture is recorded*. It sidesteps the round-trip problem rather
-   than solving it: the number the simulation consumes is the number on disk, so nothing depends on a double
-   surviving a decimal round trip. `test_canonical.gd` round-trips 2000 seeded values and demands exact
-   equality, not approximate.
-2. **`RecordStore` as a static class, not the autoload §6.2 names.** Registering an autoload means editing
-   `project.godot`, which this file records the open editor silently overwriting twice, and every method is a
-   pure function of its arguments. Adding the autoload later changes call sites and nothing else.
-3. **A skeet shooter on the intro hole, gentle tier, `defended` defaulting to true.** This moves the built
-   hole *toward* §2.6, which asks it to teach "power, curve, **the defender**, putt"; the built hole taught
-   power, curve, putt. The toggle also gives §4's Scottish Rules control group a switch.
-
-The four proposals that block M1 design work are still unratified: **stroke gesture**, **three clubs +
-auto-putter**, **Stroke Record schema v1**, **GDScript + gdUnit4 + determinism**. Considerably more is now
-built on the last two.
+Two decisions are queued for the QM adoption record, not for `DECISIONS.md`: naming the **qm studios**
+family, and what to do about the ADR format the seed's lint rejects (Lane 0).
 
 ## 4. Open questions
-`DESIGN.md` §10's five are unchanged. Of `RECORD_SCHEMA.md` §6's four:
-
-- **Question 4, float serialisation — answered** by proposal 1 above, pending ratification.
-- **Question 3, the exact hash input — answered in code.** `Canonical.hash_of` over `after.ball` and
-  `after.events`, canonical JSON, sorted keys, fixed-width floats. Pending ratification.
-- **Questions 1 and 2 are still open.** `stroke_no` is implemented as the 1-based ordinal of the stroke the
-  record describes, which is what `RECORD_SCHEMA.md` says and what `DESIGN.md` §11.1's example appears to
-  contradict. Whether a *shared* record carries full `after` or only its hash is untouched.
-
-**New, and the most consequential thing found this session:** the curve sign was inverted relative to
-`RECORD_SCHEMA.md` §2.1, and every test passed anyway. See §7.
+`DESIGN.md` §10's five are unchanged; Open Question 1, the name, is the one with a clock on it -- the
+Android package id `org.golfvs.test` is provisional and must be final by M4, and there is now an APK in a
+release draft carrying it. Of `RECORD_SCHEMA.md` §6's four: questions 3 and 4 were closed by ADR-013 and
+ADR-012; questions 1 and 2 are still open, and this session added a third thing for Lane A to look at --
+which pin was live for a given stroke is `pin_at(pins made before it)` and is not in the record (part
+three).
 
 ## 5. Next tasks, in order
 **The full board is `docs/LANES.md`.** These are the ones that unblock everything else, and every one of
@@ -90,16 +77,22 @@ Then the unchanged hardware task: **the Android debug APK on a physical phone**,
 **somebody watching the idle camera** on the Windows build for a minute, which no test can do.
 
 ## 6. Blockers
-- **M0 exit is blocked on hardware,** unchanged: the APK needs Peter's device, the Android SDK and export
-  templates.
-- **CI has still never run,** because there is no remote. Treat "CI green" as unproven — what is actually
-  known is "the suite is green on this machine".
-- **`docs/ONBOARDING.md` — closed by ADR-014.** The citations were removed rather than the document
-  written, and `GRANDFATHERED_DOCS` is empty again. The check that caught it stands.
-- **The Godot editor was open for this whole session,** so `project.godot` was deliberately not touched. That
-  is why `RecordStore` is a static class rather than an autoload.
-- **CODEOWNERS names are carried from `qm`,** unverified for this repository. Unchanged.
-- **Repo name, soft.** Unchanged; the Android package ID still has to be final by M4.
+- **M0's exit is one install away.** The APK in the v0.0.2-prealpha draft is the first that did not come
+  off a desk: `org.golfvs.test`, versionCode 2, zero permissions, signature verified. It has not been put
+  on a phone.
+- **Nobody has watched the idle camera.** Every number that says it is smooth was taken headless. A minute
+  with the Windows build, hands off, is the check.
+- **Ratification is a merge that has not happened.** See §2. Nothing is blocked *by* this; it is the one
+  human gate between the branch and `main`.
+- **QM steps 1-3 want an explicit go.** Step 2 pushes a branch to `quaternionmedia/qm`, a shared org
+  repository.
+- **The determinism matrix is a precondition, not a measurement** (part six). Lane H's top task.
+- **`project.godot` and `export_presets.cfg` are one editor save from losing their comments.** Standing
+  hazard; the PR template asks about it.
+- ~~CODEOWNERS names unverified.~~ **Resolved, part eleven:** all four handles are members of the
+  `quaternionmedia` org. Code-owner review stays off only because there are no required reviews to attach
+  it to.
+- ~~CI has never run.~~ ~~No remote.~~ ~~`docs/ONBOARDING.md`.~~ Closed in build-06.
 
 ## 7. Artifacts produced this session
 
@@ -203,6 +196,40 @@ golfVs off the house pattern. Noted, not argued.
 
 Then a throwaway PR editing `DESIGN.md` alone, to watch the coupling check fail for the first time; then
 branch protection as above; then Lane 0's QM steps 1–3.
+
+### build-06, part eleven — CI triage, cleanup, plainer messaging, and a governance review
+
+**CI failures, triaged.** Two red runs in the history, both accounted for. The first `Build` run failed on
+`tools/build.sh: Permission denied` -- the executable bit, fixed in the next commit (part seven). PR #3's
+`CI` run failed on the docs gate -- **on purpose**; it is the proof the coupling check works (part nine).
+Every run since is green. Neither was deleted: one is a lesson and the other is evidence.
+
+**Cleanup.** 29 artifacts, 609 MB, after one afternoon of CI: the gdUnit4 reports were on the 90-day
+default, three a run. Deleted all but the newest build bundle (86 MB left); reports now keep 7 days. Local
+temp files from the session removed.
+
+**Plainer messaging, everywhere a person reads CI.** Job names say what they check --
+`Docs: DESIGN/DECISIONS coupling and version consistency`, `Tests: gdUnit4 suite and demo round (<os>)`,
+`Build: Windows, Linux and Android (debug)`, `Release: create a draft from the tag`. Step names are verbs
+with objects. The release title reads `-- pre-alpha test build`; its preamble says what the build is and
+how to run each archive rather than that the gap lists are "the honest part". The PR template lists all
+three gates and both files the editor rewrites. **Branch protection's required-check contexts were renamed
+to match** -- a renamed job that protection still knows by its old name is a PR that can never merge.
+
+**Governance review.** What ADR-006 asks for, and where each piece stands:
+
+| ADR-006 asks for | State |
+|---|---|
+| `CODEOWNERS` on `docs/` and `core/` | Present since bootstrap. **All four handles verified as org members this session** -- the "carried from `qm`, unverified" caveat has stood since bootstrap-01 and is closed. |
+| Branch protection with one review + green CI | Green CI required (three checks). **No required review, deliberately**: QM's house rule is that the author merges once green, with ratification and the version tag as the two human gates. That is looser than ADR-006's letter and is the constitution the project adopts; the adoption record should say so. |
+| CI check that DESIGN edits carry a DECISIONS row | Running, tested by failing (PR #3), with one known evasion (stacked branches, Lane H). |
+| `HANDOFF.md` as the only cross-session memory | Kept; §1-§6 refreshed this part after being build-04's for two sessions. |
+| Assistants draft, humans ratify | Eleven ADRs drafted as *Active* on an unmerged branch (§2). Practice since build-05; merging PR #1 is the ratification. |
+
+And the QM side: adoption is at step 0 of 8 with the remote in place; `SECURITY.md`'s promise of private
+vulnerability reporting is true (enabled, with secret scanning and push protection); the version tag is on
+the branch, which QM's "tags are claims" would rather it were not until the branch is `main`; REUSE and
+the seed workflows are step 4 and untouched.
 
 ### build-06, part ten — the release validated from the outside
 

@@ -38,7 +38,7 @@ concurrency:
 
 jobs:
   build:
-    name: Windows, Linux and Android (debug)
+    name: "Build: Windows, Linux and Android (debug)"
     runs-on: ubuntu-latest
     # The template download is the slow part, and it is cached after the first
     # run; a cold run is well inside this.
@@ -77,7 +77,7 @@ jobs:
       # On a tag, the tag is the fourth place the version has to agree. This is
       # the check that stops a v0.0.2 tag shipping a build whose About box says
       # 0.0.1. GITHUB_REF_TYPE tells the script whether there is a tag to check.
-      - name: Check the version agrees with the tag
+      - name: Check version consistency (and the tag, on a tag build)
         run: python tools/check_version_consistency.py
 
       # The project has to be imported before it can be exported: a cold clone
@@ -91,10 +91,10 @@ jobs:
       # once at the end of its own export, and on this runner that check
       # actually fires -- so the artifact nobody on this project can launch by
       # hand is the one that gets proven.
-      - name: Build
+      - name: Export Windows, Linux and Android (debug, via tools/build.sh)
         run: tools/build.sh windows linux android
 
-      - name: What was built
+      - name: Inspect the outputs (pack sizes, APK manifest)
         run: |
           set -euo pipefail
           ls -la build/windows build/linux build/android
@@ -106,7 +106,7 @@ jobs:
 
       # A tar for Linux rather than a zip: a zip forgets the executable bit,
       # and a Linux build that arrives without one is a file, not a game.
-      - name: Package
+      - name: Package (zip, tar.gz, apk; licence and changelog inside each)
         run: |
           set -euo pipefail
           version="$(python -c "import re,sys;print(re.search(r'^config/version=\"([^\"]*)\"',open('project.godot',encoding='utf-8').read(),re.M).group(1))")"
@@ -134,7 +134,7 @@ jobs:
           retention-days: 14
 
   release:
-    name: Draft the release
+    name: "Release: create a draft from the tag"
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
@@ -156,7 +156,7 @@ jobs:
       # notes and the changelog cannot disagree. The section for this version
       # has to exist: check_version_consistency.py already refused the build if
       # it did not.
-      - name: Release notes from the changelog
+      - name: Extract release notes from CHANGELOG.md
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
@@ -168,14 +168,16 @@ jobs:
           core = re.search(r"(\d+(?:\.\d+)*)", version).group(1)
           m = re.search(rf"^## \[{re.escape(core)}\][^\n]*\n(.*?)(?=^## \[|\Z)", text, re.M | re.S)
           body = m.group(1).strip() if m else "See CHANGELOG.md."
-          print("**This is a test build, not a release.** Debug artifacts, unsigned, provisional package id. "
-                "The *Not in it* and *Known gaps* sections below are the honest part.\n")
+          print("**Pre-alpha test build.** Debug, unsigned, provisional package id (`org.golfvs.test`). "
+                "Read *Not in it* and *Known gaps* below before installing.\n")
           print(body)
-          print("\n---\n`THIRDPARTY.md` and `CHANGELOG.md` are inside every archive; ship all of it together.")
+          print("\n---\nEach archive contains `THIRDPARTY.md` (licences for what is statically linked) and `CHANGELOG.md`. "
+                "Windows: unzip and run `golfVs.exe`. Linux: `tar xzf`, then `./golfVs.x86_64`. "
+                "Android: install the `.apk` (it asks for no permissions).")
           PY
           cat notes.md
 
-      - name: Create the draft
+      - name: Create the draft release (a person publishes it)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -183,7 +185,7 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             --draft \
             --prerelease \
-            --title "golfVs $GITHUB_REF_NAME (test build)" \
+            --title "golfVs $GITHUB_REF_NAME -- pre-alpha test build" \
             --notes-file notes.md \
             dist/*
-          echo "Draft created. Somebody has to read it, run it, and press publish."
+          echo "Draft created at the URL above. Run what it built, then publish it by hand."
