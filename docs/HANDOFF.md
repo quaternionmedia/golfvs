@@ -205,6 +205,36 @@ golfVs off the house pattern. Noted, not argued.
 Then a throwaway PR editing `DESIGN.md` alone, to watch the coupling check fail for the first time; then
 branch protection as above; then Lane 0's QM steps 1–3.
 
+### build-06, part seven — CI ran, and here is what it found
+
+**Asked:** enable the build on CI for Android, Windows and Linux. **Done, and Actions turned on.**
+
+**`ci.yml`, first run ever: green.** The docs gate, and the suite plus the demo round on ubuntu, windows
+*and* macos, all on the first try. The two unproven Godot asset names -- `win64.exe.zip`,
+`macos.universal.zip` -- were right; the composite action installed on three operating systems without a
+fix. The non-Linux legs going green means what part six said it means: the suite runs and the files land
+there. It does not yet mean the hashes agree, because nothing compares them (Lane H's top task).
+
+**`build.yml`, first run: red, on `tools/build.sh: Permission denied`.** The script was committed from
+Windows, where git does not track the mode, and arrived on the runner as 644. One
+`git update-index --chmod=+x`, and the **second run was green in 76 seconds** -- *including* the 1.3 GB
+template download, which is cached from now on. On that run, for the first time: the **Linux build was
+booted on a Linux host** and said *it starts*; the APK was signed on the runner with a debug keystore the
+script generated there; the Windows and Linux packs were `cmp`'d byte-identical. The three artifacts land
+in one 86 MB bundle per run, kept fourteen days, named by version and the commit's head SHA.
+
+**What changed to get there.** `build.sh` takes a list of targets (`wants()`); CI asks for `windows linux
+android` by name. macOS exports fine from the same runner and stays local-only until somebody on the
+project can open the result -- 64 MB of artifact for no one otherwise. `build.yml` now runs on every pull
+request and on `main`, not only on a tag: M0's exit is an APK on a phone, and an APK that exists only when
+somebody tags is an APK nobody installs. **The APK to put on the phone is in PR #1's latest Build run
+under Artifacts.** ADR-027's row carries the revision.
+
+**Still to do, in §5's order:** the throwaway `DESIGN.md`-only PR to watch the coupling gate fail;
+branch protection now that the check names exist -- `DESIGN and DECISIONS agree`, `gdUnit4 headless
+(ubuntu-latest)`, `Windows, Linux and Android (debug)`; the determinism diff; QM steps 1-3 on the
+ratifier's go.
+
 ### build-06, part six — is the CI worth the runners, and does it measure what it says (ADR-027 corrected)
 
 **Asked:** review the efficacy of what the runners are asked to run, and whether offloading it is

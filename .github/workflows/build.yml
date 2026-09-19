@@ -122,11 +122,13 @@ jobs:
           cp build/android/golfVs.apk "dist/golfVs-${version}-android-arm64.apk"
           ls -la dist/
 
-      # One artifact with all three inside, named by version and short SHA so
-      # that two PRs' builds cannot be mistaken for one another in the list.
+      # One artifact with all three inside, named by version and the commit it
+      # was built from, so that two PRs' builds cannot be mistaken for one
+      # another in the list. On a pull request `github.sha` is the merge commit
+      # nobody has in their log; the head SHA is the one `git log` shows.
       - uses: actions/upload-artifact@v4
         with:
-          name: golfVs-${{ env.VERSION }}-${{ github.sha }}-debug
+          name: golfVs-${{ env.VERSION }}-${{ github.event.pull_request.head.sha || github.sha }}-debug
           path: dist/
           if-no-files-found: error
           retention-days: 14
