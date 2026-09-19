@@ -7,8 +7,10 @@ name: CI
 #   tests  -- the gdUnit4 suite runs headless on the pinned engine (ADR-008),
 #             now on all three desktop operating systems.
 #
-# Both are required checks on main. Branch protection also requires one review;
-# CODEOWNERS routes docs/, core/, records/, async/ and replay/ to a ratifier.
+# Both are required checks on main. Branch protection requires the checks and
+# not a review -- the QM house rule is that you merge your own once the checks
+# are green, with ratification and the version tag as the two human gates --
+# and code-owner review stays off until the CODEOWNERS handles are confirmed.
 #
 # **Why the matrix.** DESIGN.md §11 advertises Stroke Records as portable, and
 # docs/RELEASE.md has listed "cross-platform determinism is unmeasured" as a

@@ -13,8 +13,9 @@ deciding whether to download a build.
 ### Changed
 - **The range never ends** (ADR-029). Make a pin and the next one comes up, in the order of
   π's ternary digits -- putt, short, putt, long, short, short, and never the same three twice.
-  Every three pins made is written to disk as a round; nothing stops for it. On the first run
-  the golfer is the game, and it just keeps golfing.
+  Every three pins you played is written to disk as a round; nothing stops for it. On the first
+  run the golfer is the game, and it just keeps golfing -- and writes nothing, because a round
+  nobody played is not a record of anything.
 - **Leave it alone and the camera goes for a walk** (ADR-029, ADR-030). A few seconds without a
   touch and the view eases out and round the player -- you, whichever end of the swing you are
   on -- from wherever it was. Touch anything and it eases home. Nothing cuts.

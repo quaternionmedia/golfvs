@@ -974,3 +974,34 @@ func test_the_orbit_swings_around_the_player_and_not_the_line() -> void:
 	here._look.yaw = 1.2
 	swung = here._frame_aim().origin.distance_to(ball)
 	assert_float(swung).is_equal_approx(centred, 0.05)
+
+
+func test_a_round_the_game_played_alone_is_not_written() -> void:
+	# An unattended range is the first run now: the game golfs, nobody is
+	# there. Its rounds are not records of anything and are not written -- the
+	# first version wrote the whole session every round, and a phone left on
+	# the range overnight grew gigabytes of its own play.
+	var here := _range()
+	var written := []
+	here.finished.connect(func(_s: int) -> void: written.append(here.round_path))
+	for n in 3:
+		_make_the_pin(here)
+	assert_array(written).has_size(1)
+	assert_str(here.round_path).override_failure_message("a round nobody played was written to disk").is_empty()
+	assert_bool(here._round.is_empty()).override_failure_message("the round list did not start again").is_true()
+
+
+func test_a_round_is_a_file_of_its_own_strokes_and_the_list_starts_again() -> void:
+	# Bounded: after a round is written the range holds nothing, and what it
+	# wrote is kept as `last_round` for whoever wants to check the file.
+	var here := _range()
+	here._player_struck = true
+	here._round.append(StrokeRecord.opened(here.HOLE_ID, here._layout_hash(), 1, 1,
+		Vector3.ZERO, "tee", ShotIntent.make(ClubProfile.all()[0].to_intent_club(), 0.5, 0.0, Vector3.FORWARD)))
+	here._round[0].resolve(Vector3.ZERO, "tee", PackedStringArray())
+	for n in 3:
+		_make_the_pin(here)
+	assert_str(here.round_path).is_not_empty()
+	assert_bool(here._round.is_empty()).is_true()
+	assert_int(here.last_round.size()).is_equal(1)
+	assert_bool(here._player_struck).override_failure_message("the next round inherited the last one's player").is_false()

@@ -11,7 +11,7 @@
   push sequence is in §7; Lane 0 carries the adoption steps. `c777564` is still the bootstrap baseline.
 - **Engine:** pinned to **Godot 4.7.2.stable** (ADR-008), unchanged. Steam install; set `GODOT_BIN` to
   `godot.windows.opt.tools.64.exe` under `Steam/steamapps/common/Godot Engine/`.
-- **Tests: 189 cases, 0 failures, 0 orphans** (was 22 at bootstrap, 66 at build-04, 169 at build-05),
+- **Tests: 191 cases, 0 failures, 0 orphans** (was 22 at bootstrap, 66 at build-04, 169 at build-05),
   headless on the pinned engine. CI will run them on Linux, Windows and macOS (ADR-027) once there is a CI.
 - **Builds: four targets from one script** — Windows, Linux, macOS, Android, all debug (ADR-027). All four
   exported from a clean tree on this machine at the end of build-06.
@@ -192,6 +192,47 @@ golfVs off the house pattern. Noted, not argued.
 
 Then a throwaway PR editing `DESIGN.md` alone, to watch the coupling check fail for the first time; then
 branch protection as above; then Lane 0's QM steps 1–3.
+
+### build-06, part five — the review, and the records it caught (ADR-029 revised)
+
+**An adversarial pass over the session's own work, at the ratifier's request.** One real finding, one
+design risk, the rest measured fine.
+
+**The finding: quadratic disk growth from an unattended first run.** Part three wrote the whole session as
+a new file every round, to keep the demo's disk check comparing against one list. The first run is now the
+game golfing against nobody, making a pin roughly every seven seconds: 43 MB an hour, 2.7 GB overnight,
+on a phone. Fixed: a round's file holds that round's strokes, `_round` clears after the write (`last_round`
+keeps a copy for anyone checking the file), and **a round in which no person struck a ball is not written**
+— `_player_struck` is set in `_on_fired` when `_ai_is_playing` is false, and cleared with the round. The demo
+keeps its own `_played` list and checks the file against that. Two tests pin it. **Measured, not
+asserted:** sixty seconds of the real unattended first run at `--fixed-fps 120` — ten strokes, nine pins,
+`_round` never above two, zero files written, tour at full blend throughout.
+
+**The design risk, left as a risk:** the idle tour looks *at* the player, so on defence the golfer and the
+flight — forty to seventy metres off — can be out of frame for half of each orbit. That is what "orbit
+around the active player" asks for, and nobody has watched it. Every camera number this session was taken
+headless. The first person to run the Windows build windowed and leave it alone for a minute will know
+more than any test does.
+
+**Measured fine:** the ball resetting to the mat after every AI stroke snaps the defender framing under
+the tour by 3.9 m at the target and 0.07 m per frame at the eye — inside the tour's own speed, because the
+eye is anchored to the archer, who is far from both the mat and the green.
+
+**Tidied on the way:** `ci.yml`'s header claimed branch protection requires a review (it does not, per the
+QM house rule); `export_presets.cfg` still quoted a `"0.0.1-m0"` version that `project.godot` no longer
+carries.
+
+**Security sweep before the push (see part one's list too):** no secrets in the tree — the Android
+keystore fields are blank and env-supplied, the debug password is the public "android"; workflow tokens are
+`contents: read` everywhere except the tag-only release job; `pull_request` from a fork gets a read-only
+token by GitHub's rule; nothing personal in tracked files. **Two supply-chain notes, not fixed:** the
+composite action fetches Godot and `build.sh` fetches rcedit over HTTPS from GitHub releases without a
+checksum — Godot publishes `SHA512-SUMS.txt` beside every release and verifying it is a five-line change
+for whoever wants it; and the actions are pinned to major tags (`@v4`), not SHAs. Both are ordinary for a
+project this size and both are the first things a stricter posture would change.
+
+**Gates:** suite 191/191, `demo_round` PASS (3 on disk = 3 played), docs check green at 31 ADRs, version
+check green, four exports from a clean tree.
 
 ### build-06, part four — the camera turns about the player, and nothing cuts (ADR-030)
 

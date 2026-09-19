@@ -203,9 +203,9 @@ var pins_made := 0
 ## pin -- see `set_club()`.
 var club_index := 0
 
-## Where the session was last written: rewritten, as a new file, every time a
-## round of `PINS.size()` pins is made. Empty until the first one is, and the
-## range does not stop for any of them (ADR-029).
+## Where the last round a person played was written. A new file every
+## `PINS.size()` pins; empty until the first one, and the range does not stop
+## for any of them (ADR-029).
 var round_path := ""
 
 var _gesture: StrokeGesture
@@ -228,7 +228,17 @@ var _spin: SpinDial
 var _beacons: Array[Beacon] = []
 var _defenders: Array[Node3D] = []
 
+## The strokes of the round in progress. Cleared when the round is written, so
+## a file holds a round and not a session (ADR-029, revised): the first version
+## wrote the whole session every round and an unattended range grew its own
+## records quadratically -- gigabytes overnight.
 var _round: Array[StrokeRecord] = []
+## The round last written, for whoever wants to check the file against it.
+var last_round: Array[StrokeRecord] = []
+## Whether a person struck a ball in the round in progress. A round the game
+## played against nobody is not written: the records are the player's, and an
+## idle range writing files is a phone filling up for no one.
+var _player_struck := false
 var _record: StrokeRecord = null
 var _round_seed := 0
 var _stroke_seed := 0
@@ -963,6 +973,8 @@ func _on_fired(heading: Vector3, power: float, curve: float) -> void:
 	if not _aiming:
 		return
 	_aiming = false
+	if not _ai_is_playing:
+		_player_struck = true
 	# Defending, the drag is the defence and does not stop when the ball goes.
 	_gesture.enabled = _defending
 	_ribbon.hide_arc()
@@ -1101,13 +1113,17 @@ func _settle() -> void:
 
 	# Every three pins is a round, and a round is when the record store writes.
 	# It used to be the end as well; now it is a file, and the range carries on
-	# (ADR-029). What is written is the whole session so far -- `_round` keeps
-	# growing, and each completed round writes a fresh numbered file of it -- so
-	# the latest file is always the session, never a fragment of one. `finished`
-	# keeps its name and its meaning, a round of three was completed, and stops
-	# meaning that anything has stopped.
+	# (ADR-029). The file holds this round's strokes and the list starts again,
+	# and it is only written if a person struck a ball in it: the game golfing
+	# against nobody is not a record of anything. `finished` keeps its name and
+	# its meaning, a round of three was completed, and stops meaning that
+	# anything has stopped.
 	if pins_made % PINS.size() == 0:
-		round_path = _save_round()
+		if _player_struck:
+			round_path = _save_round()
+		last_round = _round.duplicate()
+		_round.clear()
+		_player_struck = false
 		finished.emit(strokes)
 
 	_next_pin()
