@@ -182,6 +182,7 @@ jobs:
           set -euo pipefail
           gh release create "$GITHUB_REF_NAME" \
             --draft \
+            --prerelease \
             --title "golfVs $GITHUB_REF_NAME (test build)" \
             --notes-file notes.md \
             dist/*

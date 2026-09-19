@@ -85,7 +85,8 @@ them is a person's move. Nothing below has been started.
    Then 4-7 as staged in Lane 0, and the adoption record has two decisions to make: naming the `qm studios`
    family, which does not yet exist in the corpus, and what to do about the ADR format the seed's lint will
    reject.
-6. **Merge PR #1**, once 1-3 are green. Then tag `v0.0.1-test` and watch `build.yml` draft a release.
+6. **Merge PR #1**, once 2-3 are done. `v0.0.2-prealpha` is tagged on the branch (part eight); its draft
+   release is on GitHub waiting for a person to run what it built and press publish.
 
 Then the unchanged hardware task: **the Android debug APK on a physical phone**, which is M0's exit, and
 **somebody watching the idle camera** on the Windows build for a minute, which no test can do.
@@ -204,6 +205,29 @@ golfVs off the house pattern. Noted, not argued.
 
 Then a throwaway PR editing `DESIGN.md` alone, to watch the coupling check fail for the first time; then
 branch protection as above; then Lane 0's QM steps 1–3.
+
+### build-06, part eight — v0.0.2-prealpha
+
+**Asked:** tag this as a pre-alpha release. **The tree was not the 0.0.1 the changelog describes** --
+everything since ADR-027 sat under *Unreleased* -- so a tag on it would have been mislabelled. Bumped
+instead: `project.godot` carries `0.0.2-prealpha`, the five preset fields carry `0.0.2`, Android's
+`version/code` is 2 so the APK upgrades over 0.0.1, and `CHANGELOG.md` has a `[0.0.2]` section with the
+*Playable*, *Not in it* and *Known gaps* lists `RELEASE.md` requires. `check_version_consistency.py
+--tag v0.0.2-prealpha` says the four places agree. The Windows export reads `0.0.2` in its file
+properties. `gh release create` gains `--prerelease`: a pre-alpha is one.
+
+**`project.godot` was edited with the editor closed** (checked). One value; the twenty-five comment lines
+and the pin verified after.
+
+**What the tag does.** `build.yml` on `v*` builds Windows, Linux and Android, then the release job lifts
+the `[0.0.2]` section into the notes and creates a **draft, marked pre-release**. Publishing it is the
+ratifier's act, and `RELEASE.md`'s judgement items are still theirs: run the binaries windowed, the APK on
+a phone, the icon and the splash on a launcher, the README's Status section read as a stranger. None of
+that happened here; the draft is the shape that says so.
+
+**The tag is on the branch, not on `main`.** PR #1 is still a draft. A release whose commit `main` does
+not contain is unusual; the tag points at a commit, and the commit is the same either way, but the
+canonical branch does not have it until the PR merges. That is the ratifier's call and it is unchanged.
 
 ### build-06, part seven — CI ran, and here is what it found
 
