@@ -1,11 +1,16 @@
 name: Build
 
-# Test builds for Windows, Linux, macOS and Android.
+# Test builds for Windows, Linux and Android, on every pull request.
 #
-# Deliberately *not* on every pull request. It downloads 1.3 GB of export
-# templates and produces a quarter-gigabyte of artifacts, and `ci.yml` already
-# gates every change on the suite and the demo round. This runs when somebody
-# wants a build to put on a machine -- by hand, or by tagging one.
+# It used to run on tag and by hand only, to spare the 1.3 GB template download
+# and the artifacts. The ratifier turned it on for every change (ADR-027,
+# revised): M0's exit is an APK on a phone, and an APK that exists only when
+# somebody remembers to tag is an APK nobody installs. The templates are cached
+# by engine version, so the cost after the first run is the export itself.
+#
+# Three targets, not four. macOS exports fine from this runner and nobody on the
+# project has a machine to open the result on, so it stays a local target --
+# `tools/build.sh macos` -- rather than 64 MB of artifact for no one.
 #
 # ADR-002 makes GitHub releases the canonical distribution. On a `v*` tag this
 # assembles one -- as a **draft**. docs/RELEASE.md is explicit that the checks
@@ -14,12 +19,14 @@ name: Build
 # machine), and a draft is the shape that automates the tedium without
 # automating the judgement. Publishing it is a person's act.
 #
-# All four are debug builds and nothing is signed for release, because there is
-# no release keystore and no Apple identity, and both are their own decision.
+# All three are debug builds and nothing is signed for release, because there is
+# no release keystore, and that is its own decision.
 
 on:
   workflow_dispatch:
+  pull_request:
   push:
+    branches: [main]
     tags: ['v*']
 
 permissions:
@@ -31,7 +38,7 @@ concurrency:
 
 jobs:
   build:
-    name: All four targets (debug)
+    name: Windows, Linux and Android (debug)
     runs-on: ubuntu-latest
     # The template download is the slow part, and it is cached after the first
     # run; a cold run is well inside this.
@@ -85,18 +92,17 @@ jobs:
       # actually fires -- so the artifact nobody on this project can launch by
       # hand is the one that gets proven.
       - name: Build
-        run: tools/build.sh
+        run: tools/build.sh windows linux android
 
       - name: What was built
         run: |
           set -euo pipefail
-          ls -la build/windows build/linux build/macos build/android
+          ls -la build/windows build/linux build/android
           echo "--- pack sizes must agree: same exclude_filter, same game ---"
           ls -l build/windows/golfVs.pck build/linux/golfVs.pck
+          cmp build/windows/golfVs.pck build/linux/golfVs.pck && echo "packs are byte-identical"
           echo "--- APK ---"
           unzip -p build/android/golfVs.apk AndroidManifest.xml > /dev/null && echo "APK is readable"
-          echo "--- macOS bundle ---"
-          unzip -l build/macos/golfVs.zip | grep -E 'Info.plist|MacOS/golfVs|icon.icns'
 
       # A tar for Linux rather than a zip: a zip forgets the executable bit,
       # and a Linux build that arrives without one is a file, not a game.
@@ -108,20 +114,22 @@ jobs:
           mkdir -p dist
           # The licence travels with every archive (ADR-025): Godot is
           # statically linked into each binary and MIT requires the notice.
-          for target in windows linux macos android; do
+          for target in windows linux android; do
             cp THIRDPARTY.md CHANGELOG.md "build/$target/"
           done
           ( cd build/windows && zip -qr "../../dist/golfVs-${version}-windows-x86_64.zip" . )
           ( cd build/linux   && tar -czf "../../dist/golfVs-${version}-linux-x86_64.tar.gz" . )
-          ( cd build/macos   && zip -qr "../../dist/golfVs-${version}-macos-universal.zip" . )
           cp build/android/golfVs.apk "dist/golfVs-${version}-android-arm64.apk"
           ls -la dist/
 
+      # One artifact with all three inside, named by version and short SHA so
+      # that two PRs' builds cannot be mistaken for one another in the list.
       - uses: actions/upload-artifact@v4
         with:
-          name: golfVs-${{ env.VERSION }}-all-targets-debug
+          name: golfVs-${{ env.VERSION }}-${{ github.sha }}-debug
           path: dist/
           if-no-files-found: error
+          retention-days: 14
 
   release:
     name: Draft the release
@@ -138,7 +146,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          pattern: golfVs-*-all-targets-debug
+          pattern: golfVs-*-debug
           path: dist
           merge-multiple: true
 

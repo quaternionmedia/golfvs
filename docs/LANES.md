@@ -57,11 +57,11 @@ is decided: **`quaternionmedia/golfvs`**, and golfVs adopts the QM constitution 
 - [x] Settle the first run: wordless, no glyphs, no onboarding document (ADR-014)
 - [x] Settle the intro hole's defender (ADR-015)
 - [x] **Pushed to `quaternionmedia/golfvs`** -- public, in the org, `main` first, then the branch as draft
-      PR #1. **GitHub Actions is disabled on the repository on purpose**, so CI has still never run; the
-      ratifier turns it on when ready to watch the first measurement:
-      `gh api -X PUT repos/quaternionmedia/golfvs/actions/permissions -F enabled=true`
-- [ ] **Turn Actions on and watch CI run.** It never has. Then branch protection: required checks, no
-      required reviews (the QM house rule), code-owner review off until the handles are confirmed
+      PR #1
+- [x] **Actions turned on** at the ratifier's request, with the build enabled for Windows, Linux and
+      Android on every pull request. See `HANDOFF.md` §7 build-06 part seven for what the first run did
+- [ ] Branch protection: required checks, no required reviews (the QM house rule), code-owner review off
+      until the handles are confirmed
 - [ ] **Prove the coupling check** by opening a PR that edits `DESIGN.md` alone and confirming it fails. A
       gate that has never failed has never been tested
 - [ ] Ratify or reject the four M1 blockers: stroke gesture · three clubs + auto-putter · Stroke Record
@@ -304,6 +304,8 @@ script and the suite is matrixed across three operating systems (ADR-027). None 
       tree on Windows; the three desktop packs are byte-identical. The Godot install is one composite action,
       `.github/actions/setup-godot`, reading the pin from `.godot-version`
 - [x] A `v*` tag assembles a **draft** release with notes from `CHANGELOG.md`; a person publishes it (ADR-027)
+- [x] **CI builds Windows, Linux and Android on every pull request** (ADR-027 revised); `build.sh` takes a
+      list of targets; macOS is local-only until somebody can open one
 - [x] `tools/check_version_consistency.py` -- the four places a version is stated, refused in CI if they
       disagree, and the tag with them on a tag build
 - [x] Publishing hygiene (ADR-025): own icon, `THIRDPARTY.md`, the workshop excluded from exports, community

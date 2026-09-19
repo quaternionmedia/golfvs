@@ -2,11 +2,9 @@
 #
 # Build golfVs for Windows, Linux, macOS and Android.
 #
-#   tools/build.sh                # all four
-#   tools/build.sh windows
-#   tools/build.sh linux
-#   tools/build.sh macos
-#   tools/build.sh android
+#   tools/build.sh                        # all four
+#   tools/build.sh windows                # one
+#   tools/build.sh windows linux android  # what CI builds; macOS is local-only
 #
 # What this exists for: M0's exit is "the APK launches on a phone", and that has
 # been recorded as "blocked on hardware" since the first handoff. Most of it was
@@ -26,7 +24,17 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 
-target="${1:-all}"
+# Any number of targets, or none for all of them. CI asks for three by name --
+# Windows, Linux, Android -- and leaves macOS to whoever has a mac to open it
+# on, which nobody on this project does.
+targets=("${@:-all}")
+wants() {
+  local t
+  for t in "${targets[@]}"; do
+    [ "$t" = "all" ] || [ "$t" = "$1" ] && return 0
+  done
+  return 1
+}
 version="$(tr -d '[:space:]' < .godot-version)"   # e.g. 4.7.2-stable
 series="${version%.*}"                            # e.g. 4.7
 series="${series%-*}"
@@ -177,7 +185,7 @@ export_one() {
   printf '  %s  (%s)\n' "$out" "$(du -h "$out" | cut -f1)"
 }
 
-if [ "$target" = "all" ] || [ "$target" = "windows" ]; then
+if wants windows; then
   # rcedit is how the icon and the version strings get into a Windows
   # executable. Godot will export perfectly well without it and the result keeps
   # the icon baked into Godot's own template -- which is Godot's logo, on a
@@ -214,7 +222,7 @@ if [ "$target" = "all" ] || [ "$target" = "windows" ]; then
   esac
 fi
 
-if [ "$target" = "all" ] || [ "$target" = "linux" ]; then
+if wants linux; then
   export_one "Linux" "build/linux/golfVs.x86_64"
   # The same boot check the Windows build gets, on the host that can run it.
   # This is the one that actually fires in CI, because the runner is Linux --
@@ -232,7 +240,7 @@ if [ "$target" = "all" ] || [ "$target" = "linux" ]; then
   esac
 fi
 
-if [ "$target" = "all" ] || [ "$target" = "macos" ]; then
+if wants macos; then
   # A .zip holding a .app. Unsigned and un-notarized -- there is no Apple
   # Developer identity and buying one to ship a debug build would be deciding
   # the release question sideways. Gatekeeper quarantines anything downloaded
@@ -246,7 +254,7 @@ if [ "$target" = "all" ] || [ "$target" = "macos" ]; then
   export_one "macOS" "build/macos/golfVs.zip"
 fi
 
-if [ "$target" = "all" ] || [ "$target" = "android" ]; then
+if wants android; then
   [ -n "${JAVA_HOME:-}" ] || die "no JDK found; set JAVA_HOME (Android signing needs one)"
   if [ ! -f "$keystore" ]; then
     say "Creating a debug keystore at $keystore"

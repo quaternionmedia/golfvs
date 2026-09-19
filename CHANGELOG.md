@@ -32,7 +32,8 @@ deciding whether to download a build.
   `xattr -dr com.apple.quarantine golfVs.app` before it opens.
 - **CI runs the suite and the demo round on Linux, Windows and macOS.** The same seed has to hash
   the same everywhere, and this is the first thing that has ever checked it.
-- A `v*` tag now assembles a **draft** release with these notes; a person publishes it.
+- A `v*` tag now assembles a **draft** release with these notes; a person publishes it. Every
+  pull request builds Windows, Linux and Android and leaves them in the run's artifacts.
 
 ### Fixed
 - Switching to defence on the attract screen left the game's golfer standing over the ball

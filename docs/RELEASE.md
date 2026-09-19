@@ -21,10 +21,13 @@ python tools/check_docs_consistency.py
 python tools/check_version_consistency.py
 ```
 
-**Build all four targets from a clean tree.**
+**Build from a clean tree.** All four locally; CI builds the three it can prove
+on every pull request and puts them in the run's artifacts, so the APK you put
+on a phone can be the one CI made rather than the one on your machine.
 
 ```sh
-rm -rf build && tools/build.sh
+rm -rf build && tools/build.sh                        # all four
+rm -rf build && tools/build.sh windows linux android  # what CI builds
 ```
 
 The script boots the Windows build once at the end of its own export, and the
@@ -79,9 +82,10 @@ differ; on a tag build it refuses the tag too (ADR-027). For the record, they ar
       binaries**. Godot is statically linked into every artifact and its licence
       has to travel with them; `build.yml` puts it inside each archive.
 
-**Tag it.** `.github/workflows/build.yml` runs on `v*`, builds all four
-targets, and assembles a **draft** release with the notes lifted from the
-changelog section for that version.
+**Tag it.** `.github/workflows/build.yml` builds Windows, Linux and Android on
+every pull request; on a `v*` tag it also assembles those three into a
+**draft** release with the notes lifted from the changelog section for that
+version. macOS is not in the release until somebody can launch one.
 
 ```sh
 git tag -a v0.0.1 -m "…" && git push origin v0.0.1
@@ -122,12 +126,14 @@ These are the reasons builds before v0.1.0 are labelled test builds.
 what breaks: a debug build says so loudly, and there is nobody to protect from
 the noise yet.
 
-**Four targets, one host.** Windows, Linux, macOS and Android, all exported by
-`tools/build.sh` from whichever machine runs it -- Godot cross-exports every
-platform given the templates. Linux and macOS cost one preset each and no new
-tooling, exactly as this document predicted before they existed. All three
-desktop packs come out byte-identical, which is the exclusion filter proving
-that the same game is in each box.
+**Four targets, one host; three of them in CI.** Windows, Linux, macOS and
+Android, all exported by `tools/build.sh` from whichever machine runs it --
+Godot cross-exports every platform given the templates. Linux and macOS cost
+one preset each and no new tooling, exactly as this document predicted before
+they existed. CI builds the three somebody can run and leaves macOS local until
+somebody can. The desktop packs come out byte-identical, which is the exclusion
+filter proving that the same game is in each box -- and CI `cmp`s them to say
+so.
 
 **macOS unsigned and un-notarized.** There is no Apple Developer identity, and
 buying one to ship a debug build would decide the release question sideways.

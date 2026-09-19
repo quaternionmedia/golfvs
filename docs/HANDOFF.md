@@ -6,10 +6,9 @@
 ## 1. Where we are
 - **Phase:** M0, with M1/M2/M3 work running well ahead of it. Appendix A steps 1–4 are done. **Step 5 is done
   except its device leg**; step 6 is not started. The M0 blocker is unchanged and is hardware.
-- **Repo: pushed.** `https://github.com/quaternionmedia/golfvs`, public, `main` and the working branch, and
-  draft **PR #1** carrying everything since bootstrap. **GitHub Actions is disabled on the repository** at
-  the ratifier's request, so the workflows are there and have never run; one API call turns them on (Lane
-  0). golfVs adopts the QM constitution as the first project in the **qm studios** family; Lane 0 carries
+- **Repo: pushed, CI on.** `https://github.com/quaternionmedia/golfvs`, public, `main` and the working
+  branch, and draft **PR #1** carrying everything since bootstrap. Actions was turned on in build-06 part
+  seven; the build job produces Windows, Linux and Android on every pull request. golfVs adopts the QM constitution as the first project in the **qm studios** family; Lane 0 carries
   the adoption steps, of which 1-3 need a push to `quaternionmedia/qm` and have not been done.
 - **Engine:** pinned to **Godot 4.7.2.stable** (ADR-008), unchanged. Steam install; set `GODOT_BIN` to
   `godot.windows.opt.tools.64.exe` under `Steam/steamapps/common/Godot Engine/`.
@@ -70,11 +69,8 @@ built on the last two.
 **The full board is `docs/LANES.md`.** These are the ones that unblock everything else, and every one of
 them is a person's move. Nothing below has been started.
 
-1. **Turn CI on and watch it run.** It never has. Actions is disabled on the repository on purpose:
-   `gh api -X PUT repos/quaternionmedia/golfvs/actions/permissions -F enabled=true`, then push to the
-   branch or close and reopen PR #1. Be present for it: the Windows and macOS legs are unproven, and the
-   two Godot asset names (`win64.exe.zip`, `macos.universal.zip`) are the first place to look if they go
-   red at install rather than at test.
+1. ~~Turn CI on and watch it run.~~ **Done in build-06 part seven** -- see §7 for what the first run
+   found. Actions is on; the build runs for Windows, Linux and Android on every pull request.
 2. **Prove the coupling check.** A throwaway PR that edits `DESIGN.md` alone; confirm it fails; close it.
    A gate that has never failed has never been tested. Pointless until step 1.
 3. **Branch protection on `main`.** Required checks: the docs job and the ubuntu test leg. **No required

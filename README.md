@@ -81,9 +81,10 @@ tools/build.sh android
 Debug builds, all of them. The script installs the export templates if they are
 missing, finds a JDK, makes an Android debug keystore if there isn't one, and
 tells Godot where all three are — so the only thing you need in advance is the
-engine. `.github/workflows/build.yml` runs the same script on demand or on a
-`v*` tag, and on a tag assembles a **draft** release for a person to check and
-publish (ADR-027). The macOS build is unsigned; Gatekeeper will want
+engine. `.github/workflows/build.yml` runs the same script for Windows, Linux
+and Android on every pull request -- the APK is in the run's artifacts -- and on
+a `v*` tag assembles a **draft** release for a person to check and publish
+(ADR-027). macOS builds locally only, unsigned; Gatekeeper will want
 `xattr -dr com.apple.quarantine golfVs.app` before it opens.
 
 Nothing is signed for release. There is no release keystore, and there will not
