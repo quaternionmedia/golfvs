@@ -518,3 +518,5 @@ Everything below was designed in drafts v0.6–v0.8 and then removed from 1.0 sc
 4. Commit `docs/DESIGN.md` (this file), `docs/DECISIONS.md`, `docs/HANDOFF.md`, `docs/ART_PIPELINE.md`, `docs/RECORD_SCHEMA.md` (the §11.1 schema plus one fixture record).
 5. Capsule + plane + `RigidBody3D` sphere; confirm CCD and fixed tick; produce an Android debug APK and launch it on a phone.
 6. Ratify or reject every `[PROPOSED]` item in this document; answer §10 as far as possible.
+
+<!-- probe: this line exists so that a pull request editing DESIGN.md alone can be watched failing the coupling check. It is closed, not merged. -->
