@@ -12,14 +12,18 @@ name: CI
 # are green, with ratification and the version tag as the two human gates --
 # and code-owner review stays off until the CODEOWNERS handles are confirmed.
 #
-# **Why the matrix.** DESIGN.md §11 advertises Stroke Records as portable, and
-# docs/RELEASE.md has listed "cross-platform determinism is unmeasured" as a
-# standing gap since M0. A record that replays to its own hash on Linux and not
-# on Windows would falsify the central claim of the record model, and until this
-# job existed nothing would have noticed. Windows and macOS are therefore
-# expected to be informative before they are green: treat a first failure there
-# as the measurement finally being taken, not as the build being broken. They
-# stay off the required-checks list until each has passed once.
+# **Why the matrix, and what it does not yet do.** DESIGN.md §11 advertises
+# Stroke Records as portable, and docs/RELEASE.md has listed "cross-platform
+# determinism is unmeasured" as a standing gap since M0. Running the suite and
+# the demo on three operating systems is the *precondition* for measuring it --
+# but as written it is not the measurement. Each leg plays a round on a seed of
+# its own (`_round_seed = randi()`) and checks that it agrees with itself; no
+# leg's hashes are compared with another's. What the two extra legs buy today
+# is "it runs, and the files land, on an OS the developer does not use". The
+# measurement proper is one fixed seed, one digest per leg, and a job that
+# diffs the three -- Lane H's next task. Until then Windows and macOS stay off
+# the required-checks list, and a failure there is still informative: it is
+# just informative about something smaller than the comment used to claim.
 
 on:
   push:
@@ -37,6 +41,7 @@ jobs:
   docs:
     name: DESIGN and DECISIONS agree
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -83,6 +88,9 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    # A hung engine -- a parse error that dodged --remote-debug, a ball that
+    # never settles -- would otherwise sit on the six-hour default.
+    timeout-minutes: 20
     defaults:
       run:
         shell: bash

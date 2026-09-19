@@ -308,6 +308,13 @@ script and the suite is matrixed across three operating systems (ADR-027). None 
       disagree, and the tag with them on a tag build
 - [x] Publishing hygiene (ADR-025): own icon, `THIRDPARTY.md`, the workshop excluded from exports, community
       files, `CHANGELOG.md`, and `docs/RELEASE.md` as the checklist
+- [ ] **Make the matrix measure what it was built for.** Today each CI leg plays its own random round
+      and checks it agrees with itself; no leg's hashes meet another's. Three pieces: (1) the demo takes a
+      seed -- `--seed N` on the command line or `GOLFVS_SEED` in the environment, into `_round_seed`
+      before `_setup_play`; (2) each leg prints and uploads a digest -- the `after.hash` of every stroke,
+      one per line, as `determinism-<os>.txt`; (3) a fourth job, `needs: tests`, downloads the three and
+      `diff`s them, and is the one that goes on the required list. About forty lines. Until it exists the
+      Windows and macOS legs are "it runs there", not "it agrees there"
 - [ ] A release build and a release keystore. Needs a decision about where the secret lives, and something
       worth releasing
 - [ ] **Push to `quaternionmedia/golfvs` and cut v0.0.1-test.** Everything the tag needs is in place; what

@@ -66,19 +66,33 @@ built on the last two.
 **New, and the most consequential thing found this session:** the curve sign was inverted relative to
 `RECORD_SCHEMA.md` §2.1, and every test passed anyway. See §7.
 
-## 5. Next three tasks
-**The full board is `docs/LANES.md`** — what is free to start, what is blocked, and on what. These three
-are the ones that unblock other people.
+## 5. Next tasks, in order
+**The full board is `docs/LANES.md`.** These are the ones that unblock everything else, and every one of
+them is a person's move. Nothing below has been started.
 
-1. **Ratify or reject the three new proposals** (§3), and the four M1 blockers — human. Float precision is
-   the urgent one: anything recorded before it settles is scrap.
-2. **Rule on the built-vs-planned divergences.** Four were found last session and recorded only in this file,
-   which is the wrong place for scope (ADR-006). Building the defender closes one of them; three are open —
-   the press-anchored pull, the 7 % ribbon, and the absence of glyphs. Each needs an ADR or a revert.
-3. **Push to a remote and watch CI actually run.** It never has. The coupling check in particular has never
-   executed once, because it needs a base ref to diff against.
+1. **Turn CI on and watch it run.** It never has. Actions is disabled on the repository on purpose:
+   `gh api -X PUT repos/quaternionmedia/golfvs/actions/permissions -F enabled=true`, then push to the
+   branch or close and reopen PR #1. Be present for it: the Windows and macOS legs are unproven, and the
+   two Godot asset names (`win64.exe.zip`, `macos.universal.zip`) are the first place to look if they go
+   red at install rather than at test.
+2. **Prove the coupling check.** A throwaway PR that edits `DESIGN.md` alone; confirm it fails; close it.
+   A gate that has never failed has never been tested. Pointless until step 1.
+3. **Branch protection on `main`.** Required checks: the docs job and the ubuntu test leg. **No required
+   reviews** -- the QM house rule is that you merge your own once the checks are green, with ratification
+   and the version tag as the two human gates. Code-owner review stays off until the `CODEOWNERS` handles
+   are confirmed; wrong handles block every merge. Needs the check names to exist, so after step 1.
+4. **Make the matrix measure determinism** (Lane H). Seeded demo, a digest per leg, a job that diffs them.
+   Until then the extra legs are "it runs there", and ADR-027's rationale says so.
+5. **QM adoption, steps 1-3** (Lane 0): submodule `qm` at `governance/qm`, create and push `project/golfvs`
+   in `quaternionmedia/qm` with `project-seed/adr/` as `adr/`, point the submodule at it. **Not started,
+   deliberately** -- step 2 pushes a branch to a shared org repository and wants the ratifier's explicit go.
+   Then 4-7 as staged in Lane 0, and the adoption record has two decisions to make: naming the `qm studios`
+   family, which does not yet exist in the corpus, and what to do about the ADR format the seed's lint will
+   reject.
+6. **Merge PR #1**, once 1-3 are green. Then tag `v0.0.1-test` and watch `build.yml` draft a release.
 
-Then the unchanged hardware task: **the Android debug APK on a physical phone**, which is M0's exit.
+Then the unchanged hardware task: **the Android debug APK on a physical phone**, which is M0's exit, and
+**somebody watching the idle camera** on the Windows build for a minute, which no test can do.
 
 ## 6. Blockers
 - **M0 exit is blocked on hardware,** unchanged: the APK needs Peter's device, the Android SDK and export
@@ -194,6 +208,34 @@ golfVs off the house pattern. Noted, not argued.
 
 Then a throwaway PR editing `DESIGN.md` alone, to watch the coupling check fail for the first time; then
 branch protection as above; then Lane 0's QM steps 1–3.
+
+### build-06, part six — is the CI worth the runners, and does it measure what it says (ADR-027 corrected)
+
+**Asked:** review the efficacy of what the runners are asked to run, and whether offloading it is
+reasonable. **Answer: yes, with one correction to my own claim.**
+
+**Reasonable.** The `docs` job is thirty seconds and is the only place the coupling gate can exist — it
+needs a base ref and enforcement is the point. The ubuntu test leg is the "works on a machine that is not
+mine" gate for a project developed on Windows. `build.yml` runs on tag or by hand only, and its Linux boot
+check is the one proof nobody here can get locally. Public repository, so the minutes are free; wall-clock
+is about five minutes a PR with the legs in parallel.
+
+**The correction.** ADR-027 and `ci.yml`'s header claimed the three-OS matrix was "the first thing that
+has ever checked whether the same seed hashes the same everywhere." Read as a sceptic: `_round_seed =
+randi()`, so each leg plays a different round; the demo's determinism check re-reads one arc fifty times
+*on the same machine*; nothing compares a Linux hash with a Windows one. The matrix as built measures
+intra-platform self-consistency three times over. It is the precondition for the measurement, not the
+measurement. Both texts now say so, and the measurement proper — a seeded demo, a digest per leg, a job
+that diffs the three — is Lane H's top task with a sketch. Roughly forty lines; not built this session
+because the ask was a review, and a claim corrected in the tree is worth more than a feature added to it
+unwatched.
+
+**Hardened on the way:** no job had `timeout-minutes`; a hung engine would have sat on GitHub's six-hour
+default. 10 / 20 / 45 / 10 now.
+
+**Where everything stands, for the next reader:** §5 is rewritten as the real ordered list — turn CI on,
+prove the coupling gate, branch protection, the determinism diff, QM steps 1-3, merge, tag — with what
+each one waits on. Actions is still off. PR #1 is a draft. Nothing in `.github/` has ever run.
 
 ### build-06, part five — the review, and the records it caught (ADR-029 revised)
 
