@@ -204,6 +204,42 @@ golfVs off the house pattern. Noted, not argued.
 Then a throwaway PR editing `DESIGN.md` alone, to watch the coupling check fail for the first time; then
 branch protection as above; then Lane 0's QM steps 1–3.
 
+### build-06, part ten — the release validated from the outside
+
+**Asked:** query and validate that the exe and APK are building correctly -- the ratifier was seeing only
+source on GitHub.
+
+**Why only source.** A *draft* release has no public tag page: `/releases/tag/v0.0.2-prealpha` falls back
+to GitHub's auto-generated tag view, which offers only the source archives, and the release-by-tag API
+returns 404. The draft with its three assets lives under **Releases → Drafts** at an `untagged-…` URL until
+it is published. Nothing was missing; it was where drafts live.
+
+**Validated, from the downloaded assets and not from the build log:**
+
+- **Windows zip** (34.8 MB): `golfVs.exe`, `golfVs.console.exe`, `golfVs.pck`, `THIRDPARTY.md`,
+  `CHANGELOG.md`. The CI-built exe boots headless on this machine, exit 0; its file properties read
+  `0.0.2`, `golfVs`, and the description string.
+- **APK** (28.8 MB): `org.golfvs.test`, versionCode 2, versionName 0.0.2, arm64-v8a, targetSdk 36,
+  **zero `uses-permission` lines** (Pillar 4, `aapt2 dump badging`), and `apksigner verify` says
+  *Verifies* under v2 and v3 with one signer -- the debug key the runner generated. Installable.
+- **Linux tar** (27.8 MB): `golfVs.x86_64` with its executable bit intact through the archive, `golfVs.sh`,
+  the pack, the two documents.
+- **CI pack versus this machine's pack from the same tree:** same 94 entries in the same order; 14 differ
+  in bytes and all 14 are Godot editor caches (`uid_cache.bin`, `.godot/exported/*.scn`, the script-class
+  cache, `.import` stubs) -- machine-specific, not game content. ADR-027's "byte-identical" claim is
+  within one host, Windows pack against Linux pack, and CI `cmp`s that; across hosts it was never claimed.
+
+**The finding.** Reading the pack's directory showed twenty entries under `build/icons/` and their imported
+`.ctex` textures: the launcher-icon renders `make_icons.gd` writes before every export, sitting under
+`res://` and swept up by the exporter. **45 KB, 14 % of the pack, since ADR-025** -- the "only the game in
+the box" decision had a hole in it that a size check would never have caught. `build/*` is in every
+preset's `exclude_filter` now; the pack is 76 entries and 285 KB, `icon.svg` and the splash still in it,
+and the exe still boots.
+
+**The tag stands.** v0.0.2-prealpha's draft assets carry the 45 KB; the fix is in the branch for the next
+build. A draft is not a claim, so re-cutting would be legitimate -- but moving a tag is a habit worth not
+having, and 45 KB of icon renders hurts nobody. Publish as-is or re-cut is the ratifier's call.
+
 ### build-06, part nine — the HIL handoff run, machine half
 
 **Asked:** walk through a human-in-the-loop handoff run. The machine's half is below; the human's half is
