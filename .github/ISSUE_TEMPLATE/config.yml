@@ -1,5 +1,12 @@
-# No contact_links yet: they need absolute URLs, and this repository does not
-# have a remote to point at. Add them once it does — `docs/CONTRIBUTING.md` and
-# `docs/DESIGN.md` are the two worth linking, so that "how this works" and "most
-# of the pitch is not built yet" both land before somebody opens an issue.
+# Two links before the blank form, so that "how this works" and "most of the
+# pitch is not built yet" both land before somebody opens an issue. Absolute
+# URLs because GitHub requires them here; they resolve now that there is a
+# remote.
 blank_issues_enabled: true
+contact_links:
+  - name: How to work here
+    url: https://github.com/quaternionmedia/golfvs/blob/main/docs/CONTRIBUTING.md
+    about: Assistants draft, humans ratify. Lanes, gates, and what to leave green.
+  - name: What is actually built, and what is only the plan
+    url: https://github.com/quaternionmedia/golfvs/blob/main/docs/DESIGN.md
+    about: The plan of record. The README's pitch describes twelve sports; the box has one range.

@@ -6,9 +6,11 @@
 ## 1. Where we are
 - **Phase:** M0, with M1/M2/M3 work running well ahead of it. Appendix A steps 1–4 are done. **Step 5 is done
   except its device leg**; step 6 is not started. The M0 blocker is unchanged and is hardware.
-- **Repo: committed, remote decided, not yet pushed.** The remote is **`quaternionmedia/golfvs`**, public,
-  and golfVs adopts the QM constitution as the first project in the **qm studios** family (build-06). The
-  push sequence is in §7; Lane 0 carries the adoption steps. `c777564` is still the bootstrap baseline.
+- **Repo: pushed.** `https://github.com/quaternionmedia/golfvs`, public, `main` and the working branch, and
+  draft **PR #1** carrying everything since bootstrap. **GitHub Actions is disabled on the repository** at
+  the ratifier's request, so the workflows are there and have never run; one API call turns them on (Lane
+  0). golfVs adopts the QM constitution as the first project in the **qm studios** family; Lane 0 carries
+  the adoption steps, of which 1-3 need a push to `quaternionmedia/qm` and have not been done.
 - **Engine:** pinned to **Godot 4.7.2.stable** (ADR-008), unchanged. Steam install; set `GODOT_BIN` to
   `godot.windows.opt.tools.64.exe` under `Steam/steamapps/common/Godot Engine/`.
 - **Tests: 191 cases, 0 failures, 0 orphans** (was 22 at bootstrap, 66 at build-04, 169 at build-05),

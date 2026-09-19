@@ -56,9 +56,12 @@ is decided: **`quaternionmedia/golfvs`**, and golfVs adopts the QM constitution 
 - [x] Ratify the float precision and hash-input proposals (ADR-012, ADR-013)
 - [x] Settle the first run: wordless, no glyphs, no onboarding document (ADR-014)
 - [x] Settle the intro hole's defender (ADR-015)
-- [ ] **Push to `quaternionmedia/golfvs` and watch CI run.** It never has. Public, in the org, named to
-      match the `project/golfvs` branch QM's status tooling will assume. `main` first, so CODEOWNERS and the
-      workflows are on the base branch before the first pull request opens against it
+- [x] **Pushed to `quaternionmedia/golfvs`** -- public, in the org, `main` first, then the branch as draft
+      PR #1. **GitHub Actions is disabled on the repository on purpose**, so CI has still never run; the
+      ratifier turns it on when ready to watch the first measurement:
+      `gh api -X PUT repos/quaternionmedia/golfvs/actions/permissions -F enabled=true`
+- [ ] **Turn Actions on and watch CI run.** It never has. Then branch protection: required checks, no
+      required reviews (the QM house rule), code-owner review off until the handles are confirmed
 - [ ] **Prove the coupling check** by opening a PR that edits `DESIGN.md` alone and confirming it fails. A
       gate that has never failed has never been tested
 - [ ] Ratify or reject the four M1 blockers: stroke gesture · three clubs + auto-putter · Stroke Record

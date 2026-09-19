@@ -46,8 +46,8 @@ pass — never a bump inside a feature branch.
 ## Getting started
 
 ```sh
-git clone <this repo>
-cd golf-vs
+git clone https://github.com/quaternionmedia/golfvs.git
+cd golfvs
 git lfs install          # required before touching art; binaries are LFS-tracked
 ```
 
