@@ -24,8 +24,9 @@ extends GdUnitTestSuite
 ## What it checks: every suite under `tests/` has a page and every page has a
 ## suite; every picture the registry declares was recorded and every picture
 ## recorded is declared; every command the hand-written first page tells a
-## reader to run is one this tree has. The page a reader reads is the page that
-## ran, and its links are the assertions.
+## reader to run is one this tree has; every picture the README or a document
+## under `docs/` embeds is one the registry names. The page a reader reads is
+## the page that ran, and its links are the assertions.
 ##
 ## Nothing here counts anything into a page. A number that changes with every
 ## run is a diff on every run, and the pages are meant to change only when a
@@ -44,6 +45,12 @@ var _fence := RegEx.create_from_string("(?s)```[^\\n]*\\n(.*?)```")
 var _res_path := RegEx.create_from_string("res://[A-Za-z0-9_./-]+")
 var _python_tool := RegEx.create_from_string("python (tools/[A-Za-z0-9_]+\\.py)")
 var _build_target := RegEx.create_from_string("^if wants ([a-z0-9-]+)")
+var _embedded_shot := RegEx.create_from_string("(?:[.][.]/)?(?:walkthrough/)?shots/([A-Za-z0-9-]+)/([A-Za-z0-9-]+)[.]png")
+
+## The hand-written documents that may embed a walkthrough picture. A picture
+## surfaced in the README is a picture the README can be wrong about, so the
+## suite checks the name it uses is one the registry declares.
+const DOCS_THAT_EMBED := ["res://README.md", "res://walkthrough/" + FIRST_PAGE]
 
 
 # ------------------------------------------------------------- the checks ----
@@ -165,6 +172,25 @@ func test_every_command_the_first_page_names_exists() -> void:
 	assert_int(claims).is_greater(0)
 
 
+func test_every_picture_the_documents_embed_is_one_the_suite_recorded() -> void:
+	var declared := {}
+	for page in Registry.PAGES:
+		for shot in page["shots"]:
+			declared["%s/%s" % [page["id"], shot]] = true
+	var docs: Array[String] = []
+	docs.append_array(DOCS_THAT_EMBED)
+	for name in DirAccess.get_files_at("res://docs"):
+		if name.ends_with(".md"):
+			docs.append("res://docs/%s" % name)
+	for doc in docs:
+		for m in _embedded_shot.search_all(FileAccess.get_file_as_string(doc)):
+			var key := "%s/%s" % [m.get_string(1), m.get_string(2)]
+			assert_bool(declared.has(key)) 				.override_failure_message(
+					"%s embeds walkthrough/shots/%s.png, which no registry row declares; " % [doc.trim_prefix("res://"), key] +
+					"a picture the documents show has to be one a test records") 				.is_true()
+			assert_bool(FileAccess.file_exists("res://walkthrough/shots/%s.png" % key)) 				.override_failure_message("%s embeds walkthrough/shots/%s.png, which was never recorded" % [doc.trim_prefix("res://"), key]) 				.is_true()
+
+
 # ----------------------------------------------------------- the rendering ---
 
 func _render_page(ordinal: int, page: Dictionary) -> String:
@@ -224,6 +250,21 @@ func _render_index() -> String:
 	var ordinal := 2
 	for page in Registry.PAGES:
 		out.append("%d. [%02d — %s](%02d-%s.md)" % [ordinal, ordinal, page["title"], ordinal, page["id"]])
+		ordinal += 1
+	out.append("")
+	out.append("## As recorded")
+	out.append("")
+	out.append("Every picture the walkthrough has, in page order. Each was taken by a test from " +
+		"the scene it had just asserted against, on the last run with a display; the " +
+		"caption links to the page and the page links to the test.")
+	ordinal = 2
+	for page in Registry.PAGES:
+		var shots: Dictionary = page["shots"]
+		for shot in shots:
+			out.append("")
+			out.append("![%s](shots/%s/%s.png)" % [shots[shot], page["id"], shot])
+			out.append("")
+			out.append("*%s* — [%02d — %s](%02d-%s.md)" % [shots[shot], ordinal, page["title"], ordinal, page["id"]])
 		ordinal += 1
 	out.append("")
 	out.append("## How it is kept true")

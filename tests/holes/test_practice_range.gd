@@ -117,6 +117,7 @@ func test_the_range_opens_with_the_club_its_first_pin_wants() -> void:
 	assert_str(here.club().id).is_equal(String(here.PINS[0]["suggests"]))
 	# The range as this suite sees it -- without the menu's flat layer, which
 	# is the difference between this picture and the first run's.
+	Walkthrough.hold_still(here)
 	await Walkthrough.capture(self, "the-range", "the-range")
 
 

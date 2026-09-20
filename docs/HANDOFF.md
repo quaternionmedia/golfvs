@@ -242,6 +242,16 @@ Windows and macOS legs had. **Also found:** gdUnit4 minimises its window on star
 (`WINDOW_MODE_MINIMIZED`) and Windows keeps rendering a minimised window, so the pictures are real; under
 xvfb there is no such question.
 
+**Surfaced, and held still.** The index now carries a gallery of every picture, generated from the
+registry; the README embeds the first frame; and a fifth check asserts every picture the README, the
+first page or anything under `docs/` embeds is one the registry names -- seen failing on a made-up
+name before it was trusted. Regenerating twice showed the two menu pictures taken from two different
+places: the range's camera eases toward its framing every frame, so a read on frame N is mid-blend.
+`Walkthrough.hold_still(range)` stops the range's real frames, puts the game golfer's clock back, and
+steps one frame by hand long enough for the ease to clamp; the selector picture is now byte-identical
+across runs and the other two differ only by pulsing glow. Captions were rewritten to what is actually
+in frame -- the first run is seen from behind the archer on the tower, with the golfer small and far.
+
 **Not adopted, and said so.** The `governance/qm` submodule and the seed scripts are Lane 0's steps 1–3
 and still pend a push to `quaternionmedia/qm`. And one standard this project does not follow: `qm`'s
 `AGENTS.md` item 6, human-only contributorship -- no `Co-Authored-By:` trailer naming a vendor address,

@@ -17,17 +17,17 @@ menu and not the range.
 ## What the suite asserts
 
 - [The first run opens on defence](../tests/ui/test_first_run.gd#L24)
-- [The first run is not waiting for a golfer who is the game](../tests/ui/test_first_run.gd#L40)
-- [The side switch agrees with the range from the first frame](../tests/ui/test_first_run.gd#L48)
-- [The ghost has nothing to show a defender](../tests/ui/test_first_run.gd#L56)
+- [The first run is not waiting for a golfer who is the game](../tests/ui/test_first_run.gd#L41)
+- [The side switch agrees with the range from the first frame](../tests/ui/test_first_run.gd#L49)
+- [The ghost has nothing to show a defender](../tests/ui/test_first_run.gd#L57)
 
 ## As recorded
 
 *Taken by the tests above, from the scene they asserted against, on the last run with a display. Recorded, never compared (ADR-031).*
 
-![The first frame. The game's golfer is at the ball; the bow is yours; the switch in the corner hands you the club.](shots/the-first-thing-you-see/opens-on-defence.png)
+![The first frame, from behind your archer on the tower: the game's golfer is at the ball down the range, and the switch in the corner hands you the club.](shots/the-first-thing-you-see/opens-on-defence.png)
 
-*The first frame. The game's golfer is at the ball; the bow is yours; the switch in the corner hands you the club.*
+*The first frame, from behind your archer on the tower: the game's golfer is at the ball down the range, and the switch in the corner hands you the club.*
 
 ---
 

@@ -27,8 +27,9 @@ What it writes, every run, from `registry.gd`:
 What it checks: every suite under `tests/` has a page and every page has a
 suite; every picture the registry declares was recorded and every picture
 recorded is declared; every command the hand-written first page tells a
-reader to run is one this tree has. The page a reader reads is the page that
-ran, and its links are the assertions.
+reader to run is one this tree has; every picture the README or a document
+under `docs/` embeds is one the registry names. The page a reader reads is
+the page that ran, and its links are the assertions.
 
 Nothing here counts anything into a page. A number that changes with every
 run is a diff on every run, and the pages are meant to change only when a
@@ -36,10 +37,11 @@ behaviour does.
 
 ## What the suite asserts
 
-- [Every suite under tests is a page and every page is a suite](../tests/walkthrough/test_walkthrough.gd#L51)
-- [The pages are written from the suites](../tests/walkthrough/test_walkthrough.gd#L76)
-- [Every declared shot is recorded and every recorded shot is declared](../tests/walkthrough/test_walkthrough.gd#L105)
-- [Every command the first page names exists](../tests/walkthrough/test_walkthrough.gd#L130)
+- [Every suite under tests is a page and every page is a suite](../tests/walkthrough/test_walkthrough.gd#L58)
+- [The pages are written from the suites](../tests/walkthrough/test_walkthrough.gd#L83)
+- [Every declared shot is recorded and every recorded shot is declared](../tests/walkthrough/test_walkthrough.gd#L112)
+- [Every command the first page names exists](../tests/walkthrough/test_walkthrough.gd#L137)
+- [Every picture the documents embed is one the suite recorded](../tests/walkthrough/test_walkthrough.gd#L175)
 
 ---
 

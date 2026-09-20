@@ -34,6 +34,7 @@ func test_the_first_run_opens_on_defence() -> void:
 	# so a slow machine does not photograph a half-faded corner.
 	for i in 20:
 		menu._process(0.1)
+	Walkthrough.hold_still(menu.range_)
 	await Walkthrough.capture(self, "the-first-thing-you-see", "opens-on-defence")
 
 

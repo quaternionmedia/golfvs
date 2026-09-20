@@ -142,6 +142,7 @@ func test_it_appears_without_waiting_for_a_stroke() -> void:
 	# And the card stays down: it counts pins made, and none have been.
 	assert_float(menu._scorecard.shown).is_equal(0.0)
 	# Faded up is what the walkthrough shows: the corner as a player sees it.
+	Walkthrough.hold_still(menu.range_)
 	await Walkthrough.capture(self, "the-club-selector", "the-corner")
 
 

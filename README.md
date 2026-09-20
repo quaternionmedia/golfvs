@@ -57,6 +57,11 @@ test panel is available on first open.
 **New here?** [`walkthrough/`](walkthrough/README.md) is the one path through the game, and every page
 after its first is written by the test suite from itself — the prose is each suite's own header, every
 line is a test's name linking to its assertion, and the pictures were taken by those tests (ADR-031).
+This one is the first frame, as `tests/ui/test_first_run.gd` saw it:
+
+![The first frame, from behind your archer on the tower: the game's golfer at the ball down the range, the switch in the corner](walkthrough/shots/the-first-thing-you-see/opens-on-defence.png)
+
+*Every picture the suite has is on [the walkthrough's index](walkthrough/README.md#as-recorded).*
 
 ### Running the tests
 

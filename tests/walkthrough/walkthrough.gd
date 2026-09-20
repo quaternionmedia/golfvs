@@ -25,6 +25,20 @@ extends RefCounted
 
 const SHOTS_DIR := "res://walkthrough/shots"
 
+## The range's camera eases toward its framing a little every frame, so a
+## picture read on frame N is mid-blend and one read on frame N+3 is a
+## different picture -- the first two recordings of the first run were taken
+## from two different places. For a recording the camera is put where it is
+## going: the range stops taking real frames, the game's golfer's clock is put
+## back so it does not swing in the picture, and one frame is stepped by hand,
+## long enough for the ease to clamp and the camera to arrive. Nothing then
+## moves between this and the read-back. Call it on the range (`menu.range_`,
+## or the range itself) before `capture`.
+static func hold_still(here: Node) -> void:
+	here.set_process(false)
+	here._ai_beat = here.AI_ADDRESS
+	here._process(0.35)
+
 ## Pictures are shrunk to this width. They are committed, so they are kept
 ## small; they illustrate, and the assertion beside them is the evidence.
 const WIDTH := 768

@@ -24,7 +24,7 @@ const PAGES: Array[Dictionary] = [
 		"title": "The first thing you see",
 		"suite": "res://tests/ui/test_first_run.gd",
 		"shots": {
-			"opens-on-defence": "The first frame. The game's golfer is at the ball; the bow is yours; the switch in the corner hands you the club.",
+			"opens-on-defence": "The first frame, from behind your archer on the tower: the game's golfer is at the ball down the range, and the switch in the corner hands you the club.",
 		},
 	},
 	{
@@ -70,7 +70,7 @@ const PAGES: Array[Dictionary] = [
 		"title": "The range",
 		"suite": "res://tests/holes/test_practice_range.gd",
 		"shots": {
-			"the-range": "The range on its own, as the suite instantiates it: three pins, the mat, the archer's rock.",
+			"the-range": "The range on its own, as the suite instantiates it: the golfer at the ball on the mat, three pins, and the archer on the tower.",
 		},
 	},
 	{

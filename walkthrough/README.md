@@ -22,6 +22,22 @@ One path through the game, in the order a newcomer meets it. The first page is w
 16. [16 — The harness and the pin](16-the-harness.md)
 17. [17 — How this walkthrough is made](17-how-this-walkthrough-is-made.md)
 
+## As recorded
+
+Every picture the walkthrough has, in page order. Each was taken by a test from the scene it had just asserted against, on the last run with a display; the caption links to the page and the page links to the test.
+
+![The first frame, from behind your archer on the tower: the game's golfer is at the ball down the range, and the switch in the corner hands you the club.](shots/the-first-thing-you-see/opens-on-defence.png)
+
+*The first frame, from behind your archer on the tower: the game's golfer is at the ball down the range, and the switch in the corner hands you the club.* — [02 — The first thing you see](02-the-first-thing-you-see.md)
+
+![The selector, fully faded up in its corner, before any stroke has been taken.](shots/the-club-selector/the-corner.png)
+
+*The selector, fully faded up in its corner, before any stroke has been taken.* — [03 — The club selector](03-the-club-selector.md)
+
+![The range on its own, as the suite instantiates it: the golfer at the ball on the mat, three pins, and the archer on the tower.](shots/the-range/the-range.png)
+
+*The range on its own, as the suite instantiates it: the golfer at the ball on the mat, three pins, and the archer on the tower.* — [09 — The range](09-the-range.md)
+
 ## How it is kept true
 
 - **Regenerating is running the tests.** `tests/walkthrough/test_walkthrough.gd` rewrites every generated page on every run of the suite; a page that changed is a diff in `git status`, and it is committed with the change that caused it.

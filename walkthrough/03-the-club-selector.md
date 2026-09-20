@@ -25,7 +25,7 @@ to know is to measure it.
 - [Choosing a club reaches the range](../tests/ui/test_club_selector.gd#L101)
 - [The bars are ordered by reach](../tests/ui/test_club_selector.gd#L117)
 - [It appears without waiting for a stroke](../tests/ui/test_club_selector.gd#L127)
-- [The range and the selector agree on what is in hand](../tests/ui/test_club_selector.gd#L148)
+- [The range and the selector agree on what is in hand](../tests/ui/test_club_selector.gd#L149)
 
 ## As recorded
 
