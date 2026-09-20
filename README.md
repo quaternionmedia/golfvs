@@ -85,8 +85,11 @@ tells Godot where all three are — so the only thing you need in advance is the
 engine. `.github/workflows/build.yml` runs the same script for Windows, Linux
 (x86_64 and arm64) and Android on every pull request -- the APK is in the run's
 artifacts -- and on
-a `v*` tag assembles a **draft** release for a person to check and publish
-(ADR-027). macOS builds locally only, unsigned; Gatekeeper will want
+a `v*` tag publishes the same four as a **pre-release** on the
+[releases page](https://github.com/quaternionmedia/golfvs/releases), where
+anyone can download them (ADR-027, revised: the checking happens on the pull
+request's artifact, and the tag is the person's act). macOS builds locally
+only, unsigned; Gatekeeper will want
 `xattr -dr com.apple.quarantine golfVs.app` before it opens.
 
 Nothing is signed for release. There is no release keystore, and there will not

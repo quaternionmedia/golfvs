@@ -7,8 +7,10 @@ The judgements here are not automated, on purpose. A release is the one moment
 this project speaks to people who have not read any of the rest of it, and the
 checks that matter — *does the icon look like ours, does the pitch oversell what
 is in the box, does the thing start* — are judgements rather than assertions.
-What a machine can assert, it does: the build, the version, and the draft
-(ADR-027). What it cannot, it leaves on this list.
+What a machine can assert, it does: the build, the version, and the release
+itself (ADR-027, revised). What it cannot, it leaves on this list -- and the
+list is worked *before* the tag, on the pull request's artifact, because the
+tag is what publishes.
 
 ## Before every release
 
@@ -93,19 +95,25 @@ differ; on a tag build it refuses the tag too (ADR-027). For the record, they ar
       binaries**. Godot is statically linked into every artifact and its licence
       has to travel with them; `build.yml` puts it inside each archive.
 
-**Tag it.** `.github/workflows/build.yml` builds Windows, Linux and Android on
-every pull request; on a `v*` tag it also assembles those three into a
-**draft** release with the notes lifted from the changelog section for that
-version. macOS is not in the release until somebody can launch one.
+**Tag it -- and know that the tag publishes.** `.github/workflows/build.yml`
+builds Windows, Linux x86_64, Linux arm64 and Android on every pull request and
+leaves them in the run's artifacts; on a `v*` tag it builds the same four and
+**publishes them as a pre-release** with the notes lifted from the changelog
+section for that version, where anyone can download them. macOS is not in the
+release until somebody can launch one.
 
 ```sh
-git tag -a v0.0.1 -m "…" && git push origin v0.0.1
+git tag -a v0.0.1-prealpha -m "…" && git push origin v0.0.1-prealpha
 ```
 
-**Then read the draft, run what it built, and press publish yourself.** The
-draft is deliberate: everything above this line that is a judgement rather than
-an assertion still has to be made by a person, and a release that a machine
-published is a release nobody checked (ADR-027).
+There is no draft to read afterwards; the checking happens before. Everything
+above this line that is a judgement rather than an assertion still has to be
+made by a person -- on the artifact the pull request built, which is the same
+four archives the tag will publish -- and the tag is that person saying so. It
+used to stop at a draft (ADR-027) and the first outside tester was handed a
+tarball by hand because nobody had pressed publish; a release nobody can
+download is not a distribution, and ADR-002 says releases are the
+distribution. Re-running the tag's workflow refreshes the release in place.
 
 ## What still stands between here and a real release
 

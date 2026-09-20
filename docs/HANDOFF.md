@@ -6,9 +6,11 @@
 ## 1. Where we are
 - **Phase:** M0, with M1/M2/M3 work running well ahead of it. Appendix A steps 1–4 are done. **Step 5 is done
   except its device leg**; step 6 is not started. The M0 blocker is unchanged and is hardware.
-- **Repo: pushed, CI on.** `https://github.com/quaternionmedia/golfvs`, public, `main` and the working
-  branch, and draft **PR #1** carrying everything since bootstrap. Actions was turned on in build-06 part
-  seven; the build job produces Windows, Linux and Android on every pull request. golfVs adopts the QM constitution as the first project in the **qm studios** family; Lane 0 carries
+- **Repo: pushed, CI on, releases public.** `https://github.com/quaternionmedia/golfvs`, public, `main` and
+  the working branch, and draft **PR #1** carrying everything since bootstrap. Actions was turned on in
+  build-06 part seven; the build job produces Windows, Linux x86_64/arm64 and Android on every pull
+  request, and a `v*` tag publishes them as a pre-release (part thirteen). **v0.0.3-prealpha** is the
+  first one on the releases page. golfVs adopts the QM constitution as the first project in the **qm studios** family; Lane 0 carries
   the adoption steps, of which 1-3 need a push to `quaternionmedia/qm` and have not been done.
 - **Engine:** pinned to **Godot 4.7.2.stable** (ADR-008), unchanged. Steam install; set `GODOT_BIN` to
   `godot.windows.opt.tools.64.exe` under `Steam/steamapps/common/Godot Engine/`.
@@ -197,6 +199,29 @@ golfVs off the house pattern. Noted, not argued.
 
 Then a throwaway PR editing `DESIGN.md` alone, to watch the coupling check fail for the first time; then
 branch protection as above; then Lane 0's QM steps 1–3.
+
+### build-06, part thirteen — the tag publishes, and v0.0.3-prealpha is the first thing it published
+
+**The ask:** have the builds appear as pre-alpha releases on GitHub, for direct download. They did not: a
+`v*` tag produced a *draft*, drafts are visible to maintainers only, and the one draft that existed --
+v0.0.2-prealpha, three archives, no arm64 -- had sat unpublished for a day while the first outside tester
+was handed a tarball by hand. ADR-027 had put the draft there so that a person stood between the machine
+and the public. The revision keeps the person and moves them: every pull request already leaves the
+*identical* four archives in its artifacts, so running-what-it-built happens there, and the tag is the
+person's act. `build.yml`'s release job now publishes a **pre-release** directly (`--prerelease`,
+`--verify-tag`, no `--draft`) and is idempotent -- a re-run of the tag's workflow `upload --clobber`s the
+assets and `edit`s the notes rather than failing on the release that exists. `RELEASE.md`, the README,
+Lane H and the ADR row say so.
+
+**Why 0.0.3 and not the 0.0.2 tag moved.** The v0.0.2-prealpha tag points at `474b936`, before the arm64
+preset, the rendered boot and the llvmpipe note. Moving a tag is rewriting a claim, and QM's line is that
+tags are claims; the draft was never published, so nothing public changes either way, but the history
+would. So: version bumped to **0.0.3-prealpha** in all four places (`project.godot`, six preset fields,
+Android `version/code` 3, a `## [0.0.3]` changelog section with its own *Not in it* and *Known gaps*),
+`check_version_consistency.py --tag v0.0.3-prealpha` green, and the tag cut on this branch's head. The
+0.0.2 draft is left where it is for the ratifier to delete; it is superseded and says so in the 0.0.3
+notes. The tag is on the branch, not `main`, for the same reason 0.0.2's was: PR #1 is the ratifying
+merge and it has not happened; the builds are wanted now.
 
 ### build-06, part twelve — the first outside crash report, and a build for the Pi 5
 

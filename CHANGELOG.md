@@ -10,6 +10,15 @@ deciding whether to download a build.
 
 ## [Unreleased]
 
+## [0.0.3] — 2026-09-20
+
+**Pre-alpha.** The first build anyone can download without being handed it: a `v*` tag
+now publishes a pre-release instead of parking a draft, and this is the first one. The
+game is 0.0.2's game -- see that section for what is in it -- plus a build for the
+Raspberry Pi 5 and the one line the first outside tester needed. Still a debug build
+of a practice range, still one sport of twelve. Tagged `v0.0.3-prealpha`; 0.0.2's
+draft was never published and this supersedes it.
+
 ### Added
 - **A Raspberry Pi 5 build.** `linux-arm64` is the fifth target of `tools/build.sh` and the fourth CI
   builds on every pull request (ADR-027, revised again). One preset, no new tooling; its pack carries
@@ -18,6 +27,14 @@ deciding whether to download a build.
   until both renderers have been measured on a Pi; delete the file to try Forward Mobile.
 - **CI boots the Linux build with a renderer**, twice -- Forward Mobile on lavapipe and Compatibility
   on llvmpipe, under a virtual X server. Advisory for now: the step goes red, the job stays green.
+  On its first run it passed both, with the tester's exact LLVM -- which places their crash in
+  LLVM's no-AVX path, a VM's path, and not in any Mesa the project can reproduce.
+
+### Changed
+- **A `v*` tag publishes.** The release it assembles is a pre-release anyone can download, not a
+  draft waiting for a person (ADR-027, revised). Every pull request already leaves the identical
+  archives in its artifacts, so that is where the running-what-it-built happens, and the tag is
+  the person's act. Re-running the tag's workflow refreshes the release in place.
 
 ### Fixed
 - **A crash before the first frame on machines whose only Vulkan device is `llvmpipe`** (a VM, or a
@@ -28,6 +45,25 @@ deciding whether to download a build.
   Godot's crash handler running on the driver's thread, not a second bug.
 - The launcher-icon renders under `build/` are no longer imported by the editor at all
   (`build/.gdignore`); the export exclusion stays as the second line of defence.
+
+### Not in it
+
+Everything 0.0.2 listed, unchanged: no audio, no real art, one defender on one range, no
+course or scoring beyond the card, no macOS build in the release, no signing anywhere.
+
+### Known gaps
+
+Everything 0.0.2 listed still stands -- the idle camera unwatched, determinism measured
+but not compared, colour as the only channel, the provisional package id -- and two more:
+
+- **Nobody has run the Pi build on a Pi.** It is the right chip (`aarch64`, confirmed
+  twice) and the right textures, and the renderer it starts on is a reasoned guess with
+  its reasoning in `override.cfg`. The first person to launch it on a Pi 5 will know
+  whether the guess was right.
+- **On a machine with no real GPU, the Linux build needs a flag.** If the first line
+  Godot prints says `llvmpipe`, run `./golfVs.x86_64 --rendering-method gl_compatibility`.
+  The crash without it is in Mesa's software driver, not in the game, and it is in the
+  release notes until the engine stops choosing a CPU device over OpenGL by itself.
 
 ## [0.0.2] — 2026-09-19
 

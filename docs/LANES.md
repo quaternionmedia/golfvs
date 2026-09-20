@@ -307,7 +307,9 @@ script and the suite is matrixed across three operating systems (ADR-027). CI ha
 - [x] Linux and macOS presets; **four targets from one script** (ADR-027). All four exported from a clean
       tree on Windows; the three desktop packs are byte-identical. The Godot install is one composite action,
       `.github/actions/setup-godot`, reading the pin from `.godot-version`
-- [x] A `v*` tag assembles a **draft** release with notes from `CHANGELOG.md`; a person publishes it (ADR-027)
+- [x] A `v*` tag assembles a release with notes from `CHANGELOG.md` (ADR-027). Was a draft for a person
+      to publish; **revised to publish directly as a pre-release** -- the PR artifact is where the checking
+      happens and the tag is the person's act. Idempotent: re-running the tag's workflow refreshes it
 - [x] **CI builds Windows, Linux and Android on every pull request** (ADR-027 revised); `build.sh` takes a
       list of targets; macOS is local-only until somebody can open one
 - [x] `tools/check_version_consistency.py` -- the four places a version is stated, refused in CI if they
