@@ -10,6 +10,20 @@ deciding whether to download a build.
 
 ## [Unreleased]
 
+### Added
+- **The documentation is written by the test suite** (ADR-031). `walkthrough/` at the root, one page per
+  suite, generated on every run of the tests from `tests/walkthrough/registry.gd`: the suite's own header
+  as prose, every test's name as a sentence linking to its assertion, and pictures taken by the tests
+  that assert them. Page 01 is written by hand and every command on it is checked against the tree.
+  CI fails if the pages the suite writes differ from the committed ones, and a new `walkthrough` job
+  runs the suite with a display so the pictures are actually recorded.
+
+### Known gaps
+- **The suite has only ever measured screen geometry on a square viewport.** Headless, Godot's
+  viewport is 1152×1152; the game's window is 1152×648. The first run with a display found one stroke
+  assertion that fails on the real aspect -- a shallow camera and an upward drag just under the horizon
+  -- and it is recorded for the stroke lane rather than patched here.
+
 ## [0.0.3] — 2026-09-20
 
 **Pre-alpha.** The first build anyone can download without being handed it: a `v*` tag

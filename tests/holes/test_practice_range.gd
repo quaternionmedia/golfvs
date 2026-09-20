@@ -9,6 +9,8 @@ extends GdUnitTestSuite
 ## when one of them is retuned, and this project has already shipped two bugs of
 ## exactly that shape.
 
+const Walkthrough := preload("res://tests/walkthrough/walkthrough.gd")
+
 
 func _range(defended := true) -> Node3D:
 	var scene := preload("res://holes/range/practice_range.tscn")
@@ -113,6 +115,9 @@ func test_a_club_index_out_of_range_is_clamped_rather_than_crashing() -> void:
 func test_the_range_opens_with_the_club_its_first_pin_wants() -> void:
 	var here := _range()
 	assert_str(here.club().id).is_equal(String(here.PINS[0]["suggests"]))
+	# The range as this suite sees it -- without the menu's flat layer, which
+	# is the difference between this picture and the first run's.
+	await Walkthrough.capture(self, "the-range", "the-range")
 
 
 func test_everything_the_range_asks_for_is_inside_the_boundary() -> void:

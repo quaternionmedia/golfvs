@@ -20,6 +20,14 @@ extends Node
 ##   godot --path . --resolution 1280x720 res://tools/shoot_range.tscn
 ##
 ## Writes into user://shots/ and prints the absolute paths.
+##
+## **On its way out.** ADR-031 moves pictures into the tests that assert the
+## behaviour in them (`tests/walkthrough/walkthrough.gd`), taken from the scene
+## the assertion ran against rather than from a second instantiation posed
+## here; three of these shots have already moved. What stays here until a test
+## can take it: the vantage points no assertion stands at, and the live states
+## (the spin dial, the swung orbit, the interception mid-impact). When those
+## have a test each, this file goes.
 
 const SHOTS := [
 	{"name": "1-attract", "eye": Vector3(0.0, 7.5, 15.0), "at": Vector3(2.0, 1.4, -44.0)},

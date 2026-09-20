@@ -11,6 +11,8 @@ extends GdUnitTestSuite
 ## rather than in the range -- which is why the assertion instantiates the
 ## menu and not the range.
 
+const Walkthrough := preload("res://tests/walkthrough/walkthrough.gd")
+
 
 func _menu() -> Node:
 	var scene := preload("res://ui/menu/main_menu.tscn")
@@ -27,6 +29,12 @@ func test_the_first_run_opens_on_defence() -> void:
 		.is_true()
 	# And with somebody to be: the archer on the rock, not an empty bow.
 	assert_object(menu.range_.held()).is_not_null()
+	# The walkthrough's first picture is this frame, from this scene, once the
+	# flat layer has faded up -- stepped by hand, as the selector suite does,
+	# so a slow machine does not photograph a half-faded corner.
+	for i in 20:
+		menu._process(0.1)
+	await Walkthrough.capture(self, "the-first-thing-you-see", "opens-on-defence")
 
 
 func test_the_first_run_is_not_waiting_for_a_golfer_who_is_the_game() -> void:

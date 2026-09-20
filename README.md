@@ -54,11 +54,19 @@ git lfs install          # required before touching art; binaries are LFS-tracke
 Open the project in Godot 4.7.2. gdUnit4 is vendored under `addons/` and enabled in `project.godot`, so the
 test panel is available on first open.
 
+**New here?** [`walkthrough/`](walkthrough/README.md) is the one path through the game, and every page
+after its first is written by the test suite from itself — the prose is each suite's own header, every
+line is a test's name linking to its assertion, and the pictures were taken by those tests (ADR-031).
+
 ### Running the tests
 
 ```sh
 GODOT_BIN=/path/to/godot ./addons/gdUnit4/runtest.sh --add res://tests --continue
 ```
+
+Run it with a display and it also rewrites `walkthrough/` and records the pictures in it; if `git status`
+then shows a change there, commit it with the change that caused it. CI fails if the pages the suite
+writes differ from the ones committed.
 
 Then play a round headless. It is a gate, not a showcase — it exits non-zero if a stroke fails to replay to
 its own hash, if the round on disk differs from the round played, or if a defender's verdict is not
@@ -113,7 +121,8 @@ must hash the same everywhere, and that is the first thing that has ever checked
 | `tools/` | CI helpers, and `demo_round.tscn` — a whole round played headless |
 | `holes/` · `clubs/` | `HoleLayout` and `ClubProfile` resources |
 | `art/` · `audio/` | CC-BY-4.0 assets; `.blend` sources under Git LFS |
-| `tests/` | gdUnit4 suites and the record fixtures |
+| `tests/` | gdUnit4 suites and the record fixtures — and the source the walkthrough is written from |
+| `walkthrough/` | The documentation, one page per suite, generated on every run; only `01-` is written by hand |
 
 ## Documents
 

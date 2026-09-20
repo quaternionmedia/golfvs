@@ -161,6 +161,13 @@ what it promises.
 playable. What is left is tuning, which needs a thumb.
 **Gate:** is it fun to hit balls at nothing, on a phone?
 
+- [ ] **A drag just under the horizon, at a shallow camera, does not leave opposite the drag.** Found by
+      the first run of the suite with a real window (ADR-031): `test_the_shot_leaves_opposite_the_drag_at_every_camera_angle`
+      passes headless -- where the viewport is 1152×1152, square -- and fails at 1152×648 for camera 12°,
+      drag bearing 305°, by 38°. A 98 px upward drag is 104 px from the horizon on the real aspect and
+      184 px on the square one; near the horizon the ground point runs to infinity and the heading with
+      it. Decide what a drag that reaches the horizon means (clamp the ground point? cap the drag at the
+      horizon?), make the test run on the real aspect, and the walkthrough job goes green
 - [x] **Aiming correctness** (ADR-026): the drag unprojected through the camera, the line locking only where
       there is curve to bend, the putt previewed as roll, a flat direction line. Three tests pin it and they
       fail against the code that shipped
@@ -320,6 +327,15 @@ script and the suite is matrixed across three operating systems (ADR-027). CI ha
 - [x] **CI boots the Linux build with a renderer**, lavapipe and llvmpipe under xvfb, thirty frames each.
       Advisory (`continue-on-error`) until it has been green long enough to be believed; the headless
       boot had never created a renderer and so could not have seen the first outside tester's crash
+- [x] **The walkthrough, written by the suite from itself** (ADR-031). `walkthrough/`, one page per suite
+      from `tests/walkthrough/registry.gd`; pictures from the asserting tests; CI diffs the pages on every
+      leg and a `walkthrough` job records the pictures under xvfb, informative until green. Three of
+      `shoot_range.gd`'s shots have moved into tests; the rest go when they have one each
+- [ ] **Promote the walkthrough job** once it is green, which needs Lane C's horizon finding closed first
+- [ ] **Move `shoot_range.gd`'s remaining shots into tests and delete it** -- the spin dial (a stroke
+      suite test that dials curve), the swung orbit (a camera suite test), the interception mid-impact (an
+      archer suite test). Each is a `Walkthrough.capture` at the end of an assertion that already exists
+      or nearly does; the vantage-point shots go with the file, because no assertion stands there
 - [ ] **Measure both renderers on a Pi 5** and turn the arm64 `override.cfg` from a guess into a
       decision: frame time on Forward Mobile and on Compatibility, at the Pi's display resolution, with
       and without glow. The next knob if Compatibility is still slow is 3D resolution scale

@@ -344,6 +344,7 @@ golfvs/                      # working repo name; see OPEN: title
 ├─ replay/                   # ReplayController, ghosts, fork UI
 ├─ defenders/_base/ + one folder per sport (scene, profile.tres, models)
 ├─ holes/ · clubs/ · art/ (LICENSE: CC-BY-4.0, .blend via LFS) · audio/ (LICENSE: CC-BY-4.0) · ui/ · tests/
+├─ walkthrough/              # the documentation, written by the suite from itself on every run (ADR-031)
 └─ .github/workflows/        # headless tests on PR; exports on tag
 ```
 

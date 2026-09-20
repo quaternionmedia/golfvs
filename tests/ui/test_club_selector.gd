@@ -13,6 +13,8 @@ extends GdUnitTestSuite
 ## control that eats input has to be exactly as big as it appears, and the way
 ## to know is to measure it.
 
+const Walkthrough := preload("res://tests/walkthrough/walkthrough.gd")
+
 
 func _menu() -> Node:
 	var scene := preload("res://ui/menu/main_menu.tscn")
@@ -139,6 +141,8 @@ func test_it_appears_without_waiting_for_a_stroke() -> void:
 	assert_float(menu._clubs.shown).is_greater(0.9)
 	# And the card stays down: it counts pins made, and none have been.
 	assert_float(menu._scorecard.shown).is_equal(0.0)
+	# Faded up is what the walkthrough shows: the corner as a player sees it.
+	await Walkthrough.capture(self, "the-club-selector", "the-corner")
 
 
 func test_the_range_and_the_selector_agree_on_what_is_in_hand() -> void:
