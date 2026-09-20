@@ -1,94 +1,1049 @@
 # golfVs — Handoff Packet
 
-**Generated:** 2026-09-09 · **Session:** build-04 (Claude Code) · **Next reader:** any assistant or human starting the next session
+**Generated:** 2026-09-11 · **Session:** build-06 (Claude Code) · **Next reader:** any assistant or human starting the next session
 **Rule:** this file is the only cross-session memory. If it isn't here, it didn't happen. Update at the end of every session.
 
 ## 1. Where we are
 - **Phase:** M0, with M1/M2/M3 work running well ahead of it. Appendix A steps 1–4 are done. **Step 5 is done
   except its device leg**; step 6 is not started. The M0 blocker is unchanged and is hardware.
-- **Repo: now committed.** Four commits on `main`, no remote. `c777564` is the bootstrap baseline —
-  everything sessions 01–03 produced, unchanged from the tree the tests were run against — and `d85e247`,
-  `cfc572e`, `2e9e0fe` are this session's. This file reserved the first commit for the ratifier; Peter asked
-  for it directly, so that is the instruction carried out rather than the convention broken.
+- **Repo: pushed, CI on, releases public.** `https://github.com/quaternionmedia/golfvs`, public, `main` and
+  the working branch, and draft **PR #1** carrying everything since bootstrap. Actions was turned on in
+  build-06 part seven; the build job produces Windows, Linux x86_64/arm64 and Android on every pull
+  request, and a `v*` tag publishes them as a pre-release (part thirteen). **v0.0.3-prealpha** is the
+  first one on the releases page. golfVs adopts the QM constitution as the first project in the **qm studios** family; Lane 0 carries
+  the adoption steps, of which 1-3 need a push to `quaternionmedia/qm` and have not been done.
 - **Engine:** pinned to **Godot 4.7.2.stable** (ADR-008), unchanged. Steam install; set `GODOT_BIN` to
   `godot.windows.opt.tools.64.exe` under `Steam/steamapps/common/Godot Engine/`.
-- **Tests: 66 cases, 0 failures, 0 orphans** (was 22), headless on the pinned engine.
-- **There is a playable vertical slice.** The intro hole hosts a skeet shooter, every stroke is written as a
-  schema-v1 Stroke Record, and the round is saved under `user://records/`. `tools/demo_round.tscn` plays the
-  hole headless and verifies what it wrote:
+- **Tests: 191 cases, 0 failures, 0 orphans** (was 22 at bootstrap, 66 at build-04, 169 at build-05),
+  headless on the pinned engine. CI will run them on Linux, Windows and macOS (ADR-027) once there is a CI.
+- **Builds: five targets from one script** — Windows, Linux x86_64, Linux arm64 (Raspberry Pi 5), macOS,
+  Android, all debug (ADR-027). All exported from a clean tree on this machine during build-06; CI builds
+  four of them on every pull request and boots the Linux one twice, headless and with a renderer.
+- **The first run opens on defence** (ADR-028), the loading screen is ours, and **the range never ends**
+  (ADR-029): the game's golfer keeps golfing, the pins follow π in ternary, and an idle player's camera
+  tours — about the player, as every turn of the camera now is (ADR-030), and without ever cutting.
+- **There is a playable vertical slice.** It is the **practice range**, not the intro hole: ADR-017 replaced
+  the par-4 with three pins and three clubs, ADR-018 made the player choose between them, and the skeet
+  shooter gave way to the archer of ADR-015. Every stroke is written as a schema-v1 Stroke Record and the
+  session is saved under `user://records/`. `tools/demo_round.tscn` plays it headless and verifies what it
+  wrote:
 
       godot --headless --fixed-fps 120 --path . res://tools/demo_round.tscn
 
 ## 2. Ratified this session
-None. Three decisions were *drafted* and wait in §3. Ratifying is the human's move (ADR-006).
+**None, by the letter, and eleven by practice.** `DECISIONS.md` says an ADR is ratified when merged, and
+nothing has merged: PR #1 is a draft carrying ADR-020 through ADR-030, every one written into the table as
+*Active* -- ADR-020 to ADR-026 by build-05, ADR-027 to ADR-030 by this session, the same way. **Merging
+PR #1 is the ratifying act** for all eleven at once, and it is the ratifier's, per ADR-006 and the QM house
+rule (you merge your own once the checks are green; the merge is the claim). The checks are green.
 
 ## 3. Awaiting ratification
-The twenty-one `[PROPOSED]` items are unchanged, and a new check now enforces that the two lists agree in
-number. **Three new proposals** were drafted this session, all with running code behind them, all cheap to
-reverse now and expensive later:
+The fourteen `[PROPOSED]` items in `DESIGN.md` are unchanged in number and the check that keeps the two
+lists in step is green. The four that block M1 design work are still among them: **stroke gesture**,
+**three clubs + auto-putter**, **Stroke Record schema v1**, **GDScript + gdUnit4 + determinism** -- and
+considerably more is built on all four than when build-04 wrote this sentence. Build-04's three drafted
+proposals were ratified as ADR-012, ADR-013 and ADR-015 and are no longer pending.
 
-1. **Float serialisation: quantize on write** (`records/canonical.gd`). Positions to 0.1 mm; normalised
-   scalars and unit-vector components to six decimals. This closes question 4 of `RECORD_SCHEMA.md` §6, which
-   warns it must be settled *before the first fixture is recorded*. It sidesteps the round-trip problem rather
-   than solving it: the number the simulation consumes is the number on disk, so nothing depends on a double
-   surviving a decimal round trip. `test_canonical.gd` round-trips 2000 seeded values and demands exact
-   equality, not approximate.
-2. **`RecordStore` as a static class, not the autoload §6.2 names.** Registering an autoload means editing
-   `project.godot`, which this file records the open editor silently overwriting twice, and every method is a
-   pure function of its arguments. Adding the autoload later changes call sites and nothing else.
-3. **A skeet shooter on the intro hole, gentle tier, `defended` defaulting to true.** This moves the built
-   hole *toward* §2.6, which asks it to teach "power, curve, **the defender**, putt"; the built hole taught
-   power, curve, putt. The toggle also gives §4's Scottish Rules control group a switch.
-
-The four proposals that block M1 design work are still unratified: **stroke gesture**, **three clubs +
-auto-putter**, **Stroke Record schema v1**, **GDScript + gdUnit4 + determinism**. Considerably more is now
-built on the last two.
+Two decisions are queued for the QM adoption record, not for `DECISIONS.md`: naming the **qm studios**
+family, and what to do about the ADR format the seed's lint rejects (Lane 0).
 
 ## 4. Open questions
-`DESIGN.md` §10's five are unchanged. Of `RECORD_SCHEMA.md` §6's four:
+`DESIGN.md` §10's five are unchanged; Open Question 1, the name, is the one with a clock on it -- the
+Android package id `org.golfvs.test` is provisional and must be final by M4, and there is now an APK in a
+release draft carrying it. Of `RECORD_SCHEMA.md` §6's four: questions 3 and 4 were closed by ADR-013 and
+ADR-012; questions 1 and 2 are still open, and this session added a third thing for Lane A to look at --
+which pin was live for a given stroke is `pin_at(pins made before it)` and is not in the record (part
+three).
 
-- **Question 4, float serialisation — answered** by proposal 1 above, pending ratification.
-- **Question 3, the exact hash input — answered in code.** `Canonical.hash_of` over `after.ball` and
-  `after.events`, canonical JSON, sorted keys, fixed-width floats. Pending ratification.
-- **Questions 1 and 2 are still open.** `stroke_no` is implemented as the 1-based ordinal of the stroke the
-  record describes, which is what `RECORD_SCHEMA.md` says and what `DESIGN.md` §11.1's example appears to
-  contradict. Whether a *shared* record carries full `after` or only its hash is untouched.
+## 5. Next tasks, in order
+**The full board is `docs/LANES.md`.** These are the ones that unblock everything else, and every one of
+them is a person's move. Nothing below has been started.
 
-**New, and the most consequential thing found this session:** the curve sign was inverted relative to
-`RECORD_SCHEMA.md` §2.1, and every test passed anyway. See §7.
+1. ~~Turn CI on and watch it run.~~ **Done in build-06 part seven** -- see §7 for what the first run
+   found. Actions is on; the build runs for Windows, Linux and Android on every pull request.
+2. ~~Prove the coupling check.~~ **Done, part nine.** Red on PR #3 with the ADR-006 message; and the
+   first attempt found a limitation, now Lane H's.
+3. ~~Branch protection on `main`.~~ **Done, part nine.** Three required checks, no reviews, admin bypass
+   kept. PR #1 is CLEAN against it.
+4. **Make the matrix measure determinism** (Lane H). Seeded demo, a digest per leg, a job that diffs them.
+   Until then the extra legs are "it runs there", and ADR-027's rationale says so.
+5. **QM adoption, steps 1-3** (Lane 0): submodule `qm` at `governance/qm`, create and push `project/golfvs`
+   in `quaternionmedia/qm` with `project-seed/adr/` as `adr/`, point the submodule at it. **Not started,
+   deliberately** -- step 2 pushes a branch to a shared org repository and wants the ratifier's explicit go.
+   Then 4-7 as staged in Lane 0, and the adoption record has two decisions to make: naming the `qm studios`
+   family, which does not yet exist in the corpus, and what to do about the ADR format the seed's lint will
+   reject.
+6. **Merge PR #1**, once 2-3 are done. `v0.0.2-prealpha` is tagged on the branch (part eight); its draft
+   release is on GitHub waiting for a person to run what it built and press publish.
 
-## 5. Next three tasks
-**The full board is `docs/LANES.md`** — what is free to start, what is blocked, and on what. These three
-are the ones that unblock other people.
-
-1. **Ratify or reject the three new proposals** (§3), and the four M1 blockers — human. Float precision is
-   the urgent one: anything recorded before it settles is scrap.
-2. **Rule on the built-vs-planned divergences.** Four were found last session and recorded only in this file,
-   which is the wrong place for scope (ADR-006). Building the defender closes one of them; three are open —
-   the press-anchored pull, the 7 % ribbon, and the absence of glyphs. Each needs an ADR or a revert.
-3. **Push to a remote and watch CI actually run.** It never has. The coupling check in particular has never
-   executed once, because it needs a base ref to diff against.
-
-Then the unchanged hardware task: **the Android debug APK on a physical phone**, which is M0's exit.
+Then the unchanged hardware task: **the Android debug APK on a physical phone**, which is M0's exit, and
+**somebody watching the idle camera** on the Windows build for a minute, which no test can do.
 
 ## 6. Blockers
-- **M0 exit is blocked on hardware,** unchanged: the APK needs Peter's device, the Android SDK and export
-  templates.
-- **CI has still never run,** because there is no remote. Treat "CI green" as unproven — what is actually
-  known is "the suite is green on this machine".
-- **`DESIGN.md` §2.6 and `docs/ONBOARDING.md`.** The document is cited four times and does not exist.
-  `check_docs_consistency.py` now catches this class of problem and carries `ONBOARDING.md` in an explicit
-  `GRANDFATHERED_DOCS` list so the suite stays green. The entry names the decision that removes it, and the
-  check fails if the file ever appears without the entry being deleted. **Finish the purge or write the
-  document** — it is no longer invisible, but it is still unresolved.
-- **The Godot editor was open for this whole session,** so `project.godot` was deliberately not touched. That
-  is why `RecordStore` is a static class rather than an autoload.
-- **CODEOWNERS names are carried from `qm`,** unverified for this repository. Unchanged.
-- **Repo name, soft.** Unchanged; the Android package ID still has to be final by M4.
+- **M0's exit is one install away.** The APK in the v0.0.2-prealpha draft is the first that did not come
+  off a desk: `org.golfvs.test`, versionCode 2, zero permissions, signature verified. It has not been put
+  on a phone.
+- **Nobody has watched the idle camera.** Every number that says it is smooth was taken headless. A minute
+  with the Windows build, hands off, is the check.
+- **Ratification is a merge that has not happened.** See §2. Nothing is blocked *by* this; it is the one
+  human gate between the branch and `main`.
+- **QM steps 1-3 want an explicit go.** Step 2 pushes a branch to `quaternionmedia/qm`, a shared org
+  repository.
+- **The determinism matrix is a precondition, not a measurement** (part six). Lane H's top task.
+- **`project.godot` and `export_presets.cfg` are one editor save from losing their comments.** Standing
+  hazard; the PR template asks about it.
+- ~~CODEOWNERS names unverified.~~ **Resolved, part eleven:** all four handles are members of the
+  `quaternionmedia` org. Code-owner review stays off only because there are no required reviews to attach
+  it to.
+- ~~CI has never run.~~ ~~No remote.~~ ~~`docs/ONBOARDING.md`.~~ Closed in build-06.
 
 ## 7. Artifacts produced this session
 
-### build-04 (this session)
+### build-06 (this session)
+
+### build-06, part one — CI goes cross-platform, and the remote is decided (ADR-027)
+
+**The ask was three things: get a remote, make CI build cross-platform, and put the docs on GitHub Pages.**
+The third was cancelled by the ratifier mid-plan and is not coming back in this form; the first two are built
+and proven as far as a machine with no remote can prove them. **Nothing has been pushed.** The remote is
+decided — `quaternionmedia/golfvs`, public, in the org — and the push is the ratifier's move, when ready.
+
+**What was found at the start, before anything was built.** `project.godot` was dirty in the working tree
+and the diff was the Godot editor stripping every comment in it, plus the viewport size (which is Godot's
+default and so vanishes on save — the hazard ADR-025 names). Functionally a no-op; documentarily a loss.
+Reverted with `git checkout`. This is the third time the editor has done this, and it is exactly the check
+Lane H has open as "the engine pin and the autoload list survived the last editor save". Not built this
+session — it was outside the ask — but it is now a failure that has been watched happening, not a hypothesis.
+
+**Four targets from one script, proven on this machine.** `export_presets.cfg` gains a Linux and a macOS
+preset; `tools/build.sh` gains `linux` and `macos` targets on the existing `export_one` helper, and boots
+the Linux build once when the host is Linux — which it will be, in CI, so the artifact nobody here can launch
+is the one that gets checked. `rm -rf build && tools/build.sh` on Windows produced all four:
+
+    windows   golfVs.exe 103 MB   golfVs.pck 234,588 B    booted headless: it starts
+    linux     golfVs.x86_64 74 MB golfVs.pck 234,588 B    (boot check fires on a Linux host)
+    macos     golfVs.zip 66 MB    universal .app, Info.plist says org.golfvs.test 0.0.1, icon.icns is ours
+    android   golfVs.apk 29 MB    signed with the debug key
+
+The three desktop packs are byte-identical, which is the exclusion filter proving that the same game is in
+each box. `RELEASE.md` said Linux and macOS would "cost one preset each and no new tooling"; that was exactly
+right. macOS is unsigned and un-notarized — no Apple identity, and buying one to ship a debug build would be
+deciding the release question sideways. Gatekeeper's quarantine is documented (`xattr -dr`) rather than
+worked around. **The macOS build has never been launched**: nobody on the project has a machine to launch it
+on, and `RELEASE.md` now says so in the standing-gaps list.
+
+**The suite is matrixed across Linux, Windows and macOS.** `ci.yml`'s `tests` job runs the gdUnit4 suite
+*and the demo round* on all three, `fail-fast: false` so a failing leg does not cancel the others. This is
+Lane H's oldest open item and the thing Lane B's determinism gate has needed to mean anything: the demo
+verifies stroke hashes, so three operating systems running the same seed is the first time anything has
+checked whether the records are as portable as §11 says they are. **Expect Windows or macOS to go red
+first.** That is the measurement being taken, not the build being broken. They stay off the required-checks
+list until each has passed once; the comment at the top of `ci.yml` says the same thing to whoever reads it
+there.
+
+**The Godot install is one composite action.** `.github/actions/setup-godot` reads the pin from
+`.godot-version` in exactly one place, resolves the per-OS asset name, caches by OS and architecture, and
+exports `GODOT_BIN` as a native path. `ci.yml` and `build.yml` carried the same fifteen lines each; the
+matrix would have made it forty-five. Only the Linux asset name has ever been fetched — `win64.exe.zip` and
+`macos.universal.zip` follow the convention and are verified the first time the matrix runs.
+
+**A tag drafts a release.** `build.yml` on `v*` builds all four, packages them (a `.tar.gz` for Linux so the
+executable bit survives; `THIRDPARTY.md` and `CHANGELOG.md` inside every archive per ADR-025), lifts the
+release notes from the changelog section for that version, and creates a **draft**. `RELEASE.md` said
+"nothing here is automated on purpose"; the draft respects what that sentence was protecting — the
+judgements — and takes only the assembly off the person. The release job is the one job in the repository
+with `contents: write`, and it writes one thing.
+
+**The version is checked, not remembered.** `tools/check_version_consistency.py` refuses any tree where
+`project.godot`, every export preset's version field, and the changelog's topmost released heading disagree
+on the numeric core, and on a tag build refuses the tag with them. `RELEASE.md` carried this as "three places
+that have to agree", by hand. Mutation-tested: a preset bumped to 0.0.2 fails it; a `v0.9.9` tag fails it.
+Note that `export_presets.cfg`'s comments still say `config/version` is `"0.0.1-m0"`; it is `"0.0.1"`. The
+check tolerates either. The comment is stale and was left alone.
+
+**Gates, on the tip of the branch:** suite 169/169 green, `demo_round` PASS (three strokes re-hashed, 50
+re-reads identical), docs check green, version check green, all four exports from a clean tree.
+
+**The remote is `quaternionmedia/golfvs`, and golfVs is a QM project.** Decided by the ratifier this
+session; the org's constitution lives at `quaternionmedia/qm` and golfVs is the first project in a family
+called **qm studios**. Two things about that, found by reading the corpus rather than assumed:
+
+1. **`qm studios` does not exist yet.** No record, no register entry, no mention. golfVs's adoption record
+   will name it; declaring it at org level is a `qm` pull request of its own.
+2. **The ADR formats are structurally incompatible.** `project-seed/ci/adr_lint.py` wants one
+   `ADR-0001-slug.md` file per record with a `| **Status** |` row and a matching index. This project keeps
+   all twenty-eight decisions as rows in one table, and `check_docs_consistency.py` — the coupling gate —
+   reads that table. The seed's `adr-lint.yml` will fail on day one. Migrate, or carry the divergence; the
+   adoption record decides, not the lint.
+
+The adoption is **staged, not thinned.** `qm`'s own `first-project.md` says not to improvise a lighter
+version because most adoption defects come from skipped steps, and the ratifier's instruction was the same:
+build in stages. The handbook's eight steps are now Lane 0's task list, verbatim, each with its own check.
+Steps 1–3 need the remote and happen at push time. One useful thing the corpus resolved on the way: QM's
+house rule is *"you merge your own once the automated checks pass"*, with only ratification and the version
+tag reserved for a person — so branch protection on `golfvs` wants required status checks and **no** required
+reviews, which is also what unverified `CODEOWNERS` handles and a single pusher needed anyway.
+
+**Cancelled: docs on GitHub Pages.** The plan had MkDocs Material with `--strict`, a staging script for the
+root-level documents, and a deploy on push to `main`. The ratifier cancelled it. One thing worth knowing
+went with it: `mkdocs --strict` fails on a broken internal link, which would have been a free extension of
+the citation gate. If a link check is ever wanted, it is a few lines in `check_docs_consistency.py`, and the
+offer stands. Also worth knowing: `qm` renders its own docs at `quaternionmedia.github.io/qm`, so this puts
+golfVs off the house pattern. Noted, not argued.
+
+**Push sequence, for whoever does it:**
+
+    gh repo create quaternionmedia/golfvs --public --source=. --remote=origin
+    git push -u origin main                          # workflows + CODEOWNERS on the base first
+    git push -u origin camera-orbit-and-selector-corner && gh pr create
+
+Then a throwaway PR editing `DESIGN.md` alone, to watch the coupling check fail for the first time; then
+branch protection as above; then Lane 0's QM steps 1–3.
+
+### build-06, part fourteen — the documentation is written by the suite (ADR-031)
+
+**The ask:** study the org's other repositories and standardise on generating and linking docs from
+tests. **What the org has.** `quaternionmedia/qm` carries the record --
+`records/DRAFT-one-executable-walkthrough.md` -- and it is unusually well evidenced: a survey of seven
+documentation attempts across six repositories, one of which converged (`qmetronome`: screenshots,
+recordings and a user guide regenerated by `./gradlew test`, zero drift; the two artifacts in the same
+repository needing a *remembered* command, stale). Its decisions: one `walkthrough/` per repository,
+`NN-<slug>.md`, executed by the ordinary test command; doctest pages by default; where the examples are
+not text, **the tests emit the documentation** -- from the asserting test, against the real component,
+recorded never compared, generator asserts the artifacts exist, one registry, regeneration riding the
+command people already run, evidence of a run on the default branch. `dossier` and `qmcp` have
+walkthroughs (doctest); `dossier` also has `test_documented_commands.py`, which checks every command its
+pages name against the CLI. **Neither Godot sibling** (`rad-godot`, `titanharvest`) has one. So golfVs is
+the first Godot instance, in the record's second mode, and the shape is `qmetronome`'s translated into
+gdUnit4.
+
+**What was built.** `tests/walkthrough/registry.gd` (the one list), `tests/walkthrough/walkthrough.gd`
+(`capture(suite, page, shot)`: waits a frame, reads the viewport back, shrinks to 768 wide, writes
+`walkthrough/shots/<page>/<shot>.png`; headless, returns), and `tests/walkthrough/test_walkthrough.gd`
+(writes the pages and the index from the registry; every suite has a row and every row a suite; every
+declared shot recorded and every recorded shot declared; every command on the hand-written first page
+exists). Sixteen generated pages plus `01-getting-it-running.md`, three pictures from three existing
+tests (`test_first_run`, `test_club_selector`, `test_practice_range`), each a one-line `await` after an
+assertion that already stood. `walkthrough/` is `.gdignore`d, excluded from every export, and its PNGs
+are plain blobs. CI: every tests leg checks `git status -- walkthrough/*.md` is clean after the suite; a
+new `walkthrough` job runs the suite under xvfb with the pictures deleted first, so "exists" means
+"recorded by this run", and uploads what it took. ADR-031, `README`, `CONTRIBUTING`, `LANES`, the
+changelog. `shoot_range.gd` is marked superseded shot by shot.
+
+**What the first windowed run found -- the finding of the part.** Headless, the viewport is **1152×1152**
+(`root.get_visible_rect()`; the window is 0×0 and Godot falls back to the width, twice). The game's window
+is 1152×648. Every screen-geometry assertion in the suite has been running on a square. On the real
+aspect, `test_the_shot_leaves_opposite_the_drag_at_every_camera_angle` fails at camera 12°, drag
+bearing 305°, by 38°: a 98 px upward drag is 104 px under the horizon at 16:9 and 184 px on the square,
+and near the horizon the ground point runs off. Passes headless, passes on the square. Recorded for Lane
+C with the numbers and a decision to take (what a drag that reaches the horizon means); the walkthrough
+job is `continue-on-error` until that is closed, which is the same "informative before required" the
+Windows and macOS legs had. **Also found:** gdUnit4 minimises its window on start
+(`WINDOW_MODE_MINIMIZED`) and Windows keeps rendering a minimised window, so the pictures are real; under
+xvfb there is no such question.
+
+**Surfaced, and held still.** The index now carries a gallery of every picture, generated from the
+registry; the README embeds the first frame; and a fifth check asserts every picture the README, the
+first page or anything under `docs/` embeds is one the registry names -- seen failing on a made-up
+name before it was trusted. Regenerating twice showed the two menu pictures taken from two different
+places: the range's camera eases toward its framing every frame, so a read on frame N is mid-blend.
+`Walkthrough.hold_still(range)` stops the range's real frames, puts the game golfer's clock back, and
+steps one frame by hand long enough for the ease to clamp; the selector picture is now byte-identical
+across runs and the other two differ only by pulsing glow. Captions were rewritten to what is actually
+in frame -- the first run is seen from behind the archer on the tower, with the golfer small and far.
+
+**And then out of the repository.** The ratifier's call: media is excluded. `walkthrough/shots/` is
+ignored and the three pictures untracked; every run with a window records them beside the pages, CI's
+walkthrough job records its own and uploads them, and the generator holds only a run that could have
+recorded to their being there -- proven three ways before committing: headless with no pictures on disk
+(196 green), windowed from an empty directory (all three recorded, the one known failure), headless again
+(pages unmoved). The README no longer embeds a picture, because on GitHub it would be a broken image;
+the index and the pages still do, for the reader who has run the suite. The boot splash and the `.ico`
+stay: Godot and the Windows export read them as inputs, and they are not what the suite records.
+
+**Not adopted, and said so.** The `governance/qm` submodule and the seed scripts are Lane 0's steps 1–3
+and still pend a push to `quaternionmedia/qm`. And one standard this project does not follow: `qm`'s
+`AGENTS.md` item 6, human-only contributorship -- no `Co-Authored-By:` trailer naming a vendor address,
+tool involvement disclosed as a `Tools:` note instead. Every commit on this branch carries the trailer.
+That is a decision for the ratifier, not a thing to change mid-branch.
+
+### build-06, part thirteen — the tag publishes, and v0.0.3-prealpha is the first thing it published
+
+**The ask:** have the builds appear as pre-alpha releases on GitHub, for direct download. They did not: a
+`v*` tag produced a *draft*, drafts are visible to maintainers only, and the one draft that existed --
+v0.0.2-prealpha, three archives, no arm64 -- had sat unpublished for a day while the first outside tester
+was handed a tarball by hand. ADR-027 had put the draft there so that a person stood between the machine
+and the public. The revision keeps the person and moves them: every pull request already leaves the
+*identical* four archives in its artifacts, so running-what-it-built happens there, and the tag is the
+person's act. `build.yml`'s release job now publishes a **pre-release** directly (`--prerelease`,
+`--verify-tag`, no `--draft`) and is idempotent -- a re-run of the tag's workflow `upload --clobber`s the
+assets and `edit`s the notes rather than failing on the release that exists. `RELEASE.md`, the README,
+Lane H and the ADR row say so.
+
+**Why 0.0.3 and not the 0.0.2 tag moved.** The v0.0.2-prealpha tag points at `474b936`, before the arm64
+preset, the rendered boot and the llvmpipe note. Moving a tag is rewriting a claim, and QM's line is that
+tags are claims; the draft was never published, so nothing public changes either way, but the history
+would. So: version bumped to **0.0.3-prealpha** in all four places (`project.godot`, six preset fields,
+Android `version/code` 3, a `## [0.0.3]` changelog section with its own *Not in it* and *Known gaps*),
+`check_version_consistency.py --tag v0.0.3-prealpha` green, and the tag cut on this branch's head. The
+0.0.2 draft is left where it is for the ratifier to delete; it is superseded and says so in the 0.0.3
+notes. The tag is on the branch, not `main`, for the same reason 0.0.2's was: PR #1 is the ratifying
+merge and it has not happened; the builds are wanted now.
+
+### build-06, part twelve — the first outside crash report, and a build for the Pi 5
+
+**The report.** The first person outside the project to run the Linux build got, on a machine called
+`minty`, a crash before the first frame: `Vulkan 1.4.318 - Forward Mobile - Using Device #0: Unknown -
+llvmpipe (LLVM 20.1.2, 128 bits)`, then `ERROR: /root: The caller thread can't call the function
+propagate_notification() on this node`, then signal 4 with a backtrace that never leaves `libLLVM` and
+`libvulkan_lvp`. Read in order: that box has no hardware Vulkan, so Godot took Mesa's software device
+(`128 bits` is a CPU with no AVX, which is nearly always a VM); lavapipe hands each shader to LLVM on a
+worker thread; LLVM's optimiser hit an `llvm_unreachable`, which is `ud2` in a release build, which is
+SIGILL. The `propagate_notification` line is Godot's crash handler sending `NOTIFICATION_CRASH` to the
+tree *from the driver's thread* and the thread guard refusing it -- it prints before "Program crashed"
+because the handler notifies first. Not a bug in the game and not a second bug: one crash, in Mesa,
+reported twice.
+
+**What CI could have seen, and could not.** `build.sh` boots the Linux build `--headless --quit`, and
+`build.yml`'s comment called that the artifact "getting proven". Headless never creates a renderer. It
+proves the pack loads and the first scene builds -- which is real -- and says nothing about drawing, and
+this crash was entirely in the nothing. The comment now says "checked", with the gap named, and a new step
+boots the build under `xvfb-run` twice: Forward Mobile on lavapipe, exactly the tester's configuration,
+and Compatibility on llvmpipe, which is the workaround. Thirty frames each, `--audio-driver Dummy`,
+`timeout 120`. **Advisory** -- `continue-on-error: true`, red step, green job -- because a software
+driver's crash is Mesa's bug as often as ours and the runner's Mesa is not the tester's; Lane H has the
+item to promote it once it has been green long enough to be believed. The release notes now carry the one
+line that matters to the next person on a VM: `./golfVs.x86_64 --rendering-method gl_compatibility`.
+
+**The Pi 5.** The ratifier is taking a build to a Raspberry Pi 5. Everything it needs was one preset:
+`Linux arm64`, `binary_format/architecture="arm64"`, the templates package has carried it since 4.3.
+Exported from a clean tree on this machine and confirmed `ELF 64-bit LSB executable, ARM aarch64`, 66 MB.
+Two things differ from the x86_64 preset on purpose. Textures: `etc2_astc=true, s3tc_bptc=false`, because
+VideoCore VII samples ETC2/ASTC natively and has no BC support at all -- hand it BC and Godot decompresses
+on the CPU at load; the same reasoning `project.godot` already gives for Android. And an `override.cfg`
+beside the binary -- Godot reads one from the executable's directory in every exported build -- that
+starts the game on the **Compatibility renderer**. The Pi's V3DV driver is conformant and Forward Mobile
+will start on it, but the GPU is phone-class and glow is a blur chain at window resolution; the guess is
+that Compatibility is the playable one, and the environment uses nothing Compatibility lacks in 4.7
+(glow, depth fog, ACES). It is a guess. The file's header says so, says to delete it to try the other
+renderer, and Lane H has the measurement as an open item. Never booted: no machine that runs `build.sh`
+is arm64, the same gap as macOS, named the same way. The arm64 pack is 291,368 bytes like the x86_64 one
+and differs from it by content; CI's `cmp` stays x86_64-against-x86_64 and a `file | grep aarch64` checks
+the binary instead.
+
+**And the icon renders.** Part ten excluded `build/*` from the exports; this part stops the editor
+importing them in the first place with `build/.gdignore` (`.gitignore` becomes `/build/*` plus
+`!/build/.gdignore`, because git cannot re-include a file under an excluded directory). Nine stale
+`.import` sidecars under `build/icons/` from before were deleted locally. The exclusion stays, as the line
+a reviewer reads.
+
+**CI.** Pushed to PR #1 for a round with the new target and the rendered boot; the ratifier is running the
+Linux build on `minty` with `--rendering-method gl_compatibility` in parallel. **Both workflows green,
+and the advisory step did not reproduce the crash** -- which is itself the finding. The runner has the
+tester's exact lavapipe, `LLVM 20.1.2`, Mesa 25.2.8 on Ubuntu 24.04, and Forward Mobile ran its thirty
+frames; the one difference in the banner is `256 bits` against the tester's `128 bits`. So the abort is
+in LLVM's no-AVX code path, which a runner has no way to take, and the tester's box is confirmed as a
+VM or an AVX-less CPU rather than an exotic Mesa. Compatibility on llvmpipe passed too. The arm64 binary
+is `ELF 64-bit ARM aarch64` on the runner as well, `override.cfg` is beside it, and the two x86_64 packs
+are still byte-identical at 291,368 bytes.
+
+### build-06, part eleven — CI triage, cleanup, plainer messaging, and a governance review
+
+**CI failures, triaged.** Two red runs in the history, both accounted for. The first `Build` run failed on
+`tools/build.sh: Permission denied` -- the executable bit, fixed in the next commit (part seven). PR #3's
+`CI` run failed on the docs gate -- **on purpose**; it is the proof the coupling check works (part nine).
+Every run since is green. Neither was deleted: one is a lesson and the other is evidence.
+
+**Cleanup.** 29 artifacts, 609 MB, after one afternoon of CI: the gdUnit4 reports were on the 90-day
+default, three a run. Deleted all but the newest build bundle (86 MB left); reports now keep 7 days. Local
+temp files from the session removed.
+
+**Plainer messaging, everywhere a person reads CI.** Job names say what they check --
+`Docs: DESIGN/DECISIONS coupling and version consistency`, `Tests: gdUnit4 suite and demo round (<os>)`,
+`Build: Windows, Linux and Android (debug)`, `Release: create a draft from the tag`. Step names are verbs
+with objects. The release title reads `-- pre-alpha test build`; its preamble says what the build is and
+how to run each archive rather than that the gap lists are "the honest part". The PR template lists all
+three gates and both files the editor rewrites. **Branch protection's required-check contexts were renamed
+to match** -- a renamed job that protection still knows by its old name is a PR that can never merge.
+
+**Governance review.** What ADR-006 asks for, and where each piece stands:
+
+| ADR-006 asks for | State |
+|---|---|
+| `CODEOWNERS` on `docs/` and `core/` | Present since bootstrap. **All four handles verified as org members this session** -- the "carried from `qm`, unverified" caveat has stood since bootstrap-01 and is closed. |
+| Branch protection with one review + green CI | Green CI required (three checks). **No required review, deliberately**: QM's house rule is that the author merges once green, with ratification and the version tag as the two human gates. That is looser than ADR-006's letter and is the constitution the project adopts; the adoption record should say so. |
+| CI check that DESIGN edits carry a DECISIONS row | Running, tested by failing (PR #3), with one known evasion (stacked branches, Lane H). |
+| `HANDOFF.md` as the only cross-session memory | Kept; §1-§6 refreshed this part after being build-04's for two sessions. |
+| Assistants draft, humans ratify | Eleven ADRs drafted as *Active* on an unmerged branch (§2). Practice since build-05; merging PR #1 is the ratification. |
+
+And the QM side: adoption is at step 0 of 8 with the remote in place; `SECURITY.md`'s promise of private
+vulnerability reporting is true (enabled, with secret scanning and push protection); the version tag is on
+the branch, which QM's "tags are claims" would rather it were not until the branch is `main`; REUSE and
+the seed workflows are step 4 and untouched.
+
+### build-06, part ten — the release validated from the outside
+
+**Asked:** query and validate that the exe and APK are building correctly -- the ratifier was seeing only
+source on GitHub.
+
+**Why only source.** A *draft* release has no public tag page: `/releases/tag/v0.0.2-prealpha` falls back
+to GitHub's auto-generated tag view, which offers only the source archives, and the release-by-tag API
+returns 404. The draft with its three assets lives under **Releases → Drafts** at an `untagged-…` URL until
+it is published. Nothing was missing; it was where drafts live.
+
+**Validated, from the downloaded assets and not from the build log:**
+
+- **Windows zip** (34.8 MB): `golfVs.exe`, `golfVs.console.exe`, `golfVs.pck`, `THIRDPARTY.md`,
+  `CHANGELOG.md`. The CI-built exe boots headless on this machine, exit 0; its file properties read
+  `0.0.2`, `golfVs`, and the description string.
+- **APK** (28.8 MB): `org.golfvs.test`, versionCode 2, versionName 0.0.2, arm64-v8a, targetSdk 36,
+  **zero `uses-permission` lines** (Pillar 4, `aapt2 dump badging`), and `apksigner verify` says
+  *Verifies* under v2 and v3 with one signer -- the debug key the runner generated. Installable.
+- **Linux tar** (27.8 MB): `golfVs.x86_64` with its executable bit intact through the archive, `golfVs.sh`,
+  the pack, the two documents.
+- **CI pack versus this machine's pack from the same tree:** same 94 entries in the same order; 14 differ
+  in bytes and all 14 are Godot editor caches (`uid_cache.bin`, `.godot/exported/*.scn`, the script-class
+  cache, `.import` stubs) -- machine-specific, not game content. ADR-027's "byte-identical" claim is
+  within one host, Windows pack against Linux pack, and CI `cmp`s that; across hosts it was never claimed.
+
+**The finding.** Reading the pack's directory showed twenty entries under `build/icons/` and their imported
+`.ctex` textures: the launcher-icon renders `make_icons.gd` writes before every export, sitting under
+`res://` and swept up by the exporter. **45 KB, 14 % of the pack, since ADR-025** -- the "only the game in
+the box" decision had a hole in it that a size check would never have caught. `build/*` is in every
+preset's `exclude_filter` now; the pack is 76 entries and 285 KB, `icon.svg` and the splash still in it,
+and the exe still boots.
+
+**The tag stands.** v0.0.2-prealpha's draft assets carry the 45 KB; the fix is in the branch for the next
+build. A draft is not a claim, so re-cutting would be legitimate -- but moving a tag is a habit worth not
+having, and 45 KB of icon renders hurts nobody. Publish as-is or re-cut is the ratifier's call.
+
+### build-06, part nine — the HIL handoff run, machine half
+
+**Asked:** walk through a human-in-the-loop handoff run. The machine's half is below; the human's half is
+the judgement items and is handed over at the end of this entry.
+
+**Checkpoint 0.** PR #1 green on every check including an org-level GitGuardian scan nobody here
+configured; the v0.0.2-prealpha draft up; `main` unprotected.
+
+**Checkpoint 1 — the coupling gate, tested by failing it.** First probe, PR #2: cut from the feature
+branch, editing `DESIGN.md` alone -- **and the gate passed it.** Correctly, by its own rule: it diffs
+`origin/main...HEAD`, and the diff carried the branch's twenty commits, which touch `DECISIONS.md` many
+times. So a stacked branch slips a `DESIGN.md`-only change through. Recorded in Lane H with two small
+fixes. Second probe, PR #3, cut from `main`: **red**, `FAIL: DESIGN.md changed but DECISIONS.md did not.
+Scope does not move without a rationale (ADR-006)`. Both closed, branches deleted. The gate has now
+failed once and is therefore tested -- and the test found something, which is what tests are for.
+
+**Checkpoint 2 — branch protection.** Applied by API: required `DESIGN and DECISIONS agree`, `gdUnit4
+headless (ubuntu-latest)`, `Windows, Linux and Android (debug)`; `strict` off so a PR need not be
+rebased to merge; no required reviews, per QM; admins not enforced, so the ratifier keeps a bypass; no
+force-push, no deletion. Windows and macOS test legs deliberately not required (part six). PR #1 reads
+CLEAN against it; only its draft flag holds it.
+
+**Checkpoint 3 -- the human's half, not started.** `RELEASE.md`'s judgement items on the v0.0.2-prealpha
+draft: the Windows build run windowed and **left alone for a minute** (the idle camera has never been
+watched); the APK on a phone (M0's exit); the icon and the splash on a launcher; the README's Status read
+as a stranger. Reported in the human's own words, logged as `PLAYTEST.md` round 2. Then, on their word:
+publish the draft, mark PR #1 ready and merge it, and the go for QM steps 1-3.
+
+### build-06, part eight — v0.0.2-prealpha
+
+**Asked:** tag this as a pre-alpha release. **The tree was not the 0.0.1 the changelog describes** --
+everything since ADR-027 sat under *Unreleased* -- so a tag on it would have been mislabelled. Bumped
+instead: `project.godot` carries `0.0.2-prealpha`, the five preset fields carry `0.0.2`, Android's
+`version/code` is 2 so the APK upgrades over 0.0.1, and `CHANGELOG.md` has a `[0.0.2]` section with the
+*Playable*, *Not in it* and *Known gaps* lists `RELEASE.md` requires. `check_version_consistency.py
+--tag v0.0.2-prealpha` says the four places agree. The Windows export reads `0.0.2` in its file
+properties. `gh release create` gains `--prerelease`: a pre-alpha is one.
+
+**`project.godot` was edited with the editor closed** (checked). One value; the twenty-five comment lines
+and the pin verified after.
+
+**What the tag does.** `build.yml` on `v*` builds Windows, Linux and Android, then the release job lifts
+the `[0.0.2]` section into the notes and creates a **draft, marked pre-release**. Publishing it is the
+ratifier's act, and `RELEASE.md`'s judgement items are still theirs: run the binaries windowed, the APK on
+a phone, the icon and the splash on a launcher, the README's Status section read as a stranger. None of
+that happened here; the draft is the shape that says so.
+
+**The tag is on the branch, not on `main`.** PR #1 is still a draft. A release whose commit `main` does
+not contain is unusual; the tag points at a commit, and the commit is the same either way, but the
+canonical branch does not have it until the PR merges. That is the ratifier's call and it is unchanged.
+
+### build-06, part seven — CI ran, and here is what it found
+
+**Asked:** enable the build on CI for Android, Windows and Linux. **Done, and Actions turned on.**
+
+**`ci.yml`, first run ever: green.** The docs gate, and the suite plus the demo round on ubuntu, windows
+*and* macos, all on the first try. The two unproven Godot asset names -- `win64.exe.zip`,
+`macos.universal.zip` -- were right; the composite action installed on three operating systems without a
+fix. The non-Linux legs going green means what part six said it means: the suite runs and the files land
+there. It does not yet mean the hashes agree, because nothing compares them (Lane H's top task).
+
+**`build.yml`, first run: red, on `tools/build.sh: Permission denied`.** The script was committed from
+Windows, where git does not track the mode, and arrived on the runner as 644. One
+`git update-index --chmod=+x`, and the **second run was green in 76 seconds** -- *including* the 1.3 GB
+template download, which is cached from now on. On that run, for the first time: the **Linux build was
+booted on a Linux host** and said *it starts*; the APK was signed on the runner with a debug keystore the
+script generated there; the Windows and Linux packs were `cmp`'d byte-identical. The three artifacts land
+in one 86 MB bundle per run, kept fourteen days, named by version and the commit's head SHA.
+
+**What changed to get there.** `build.sh` takes a list of targets (`wants()`); CI asks for `windows linux
+android` by name. macOS exports fine from the same runner and stays local-only until somebody on the
+project can open the result -- 64 MB of artifact for no one otherwise. `build.yml` now runs on every pull
+request and on `main`, not only on a tag: M0's exit is an APK on a phone, and an APK that exists only when
+somebody tags is an APK nobody installs. **The APK to put on the phone is in PR #1's latest Build run
+under Artifacts.** ADR-027's row carries the revision.
+
+**Still to do, in §5's order:** the throwaway `DESIGN.md`-only PR to watch the coupling gate fail;
+branch protection now that the check names exist -- `DESIGN and DECISIONS agree`, `gdUnit4 headless
+(ubuntu-latest)`, `Windows, Linux and Android (debug)`; the determinism diff; QM steps 1-3 on the
+ratifier's go.
+
+### build-06, part six — is the CI worth the runners, and does it measure what it says (ADR-027 corrected)
+
+**Asked:** review the efficacy of what the runners are asked to run, and whether offloading it is
+reasonable. **Answer: yes, with one correction to my own claim.**
+
+**Reasonable.** The `docs` job is thirty seconds and is the only place the coupling gate can exist — it
+needs a base ref and enforcement is the point. The ubuntu test leg is the "works on a machine that is not
+mine" gate for a project developed on Windows. `build.yml` runs on tag or by hand only, and its Linux boot
+check is the one proof nobody here can get locally. Public repository, so the minutes are free; wall-clock
+is about five minutes a PR with the legs in parallel.
+
+**The correction.** ADR-027 and `ci.yml`'s header claimed the three-OS matrix was "the first thing that
+has ever checked whether the same seed hashes the same everywhere." Read as a sceptic: `_round_seed =
+randi()`, so each leg plays a different round; the demo's determinism check re-reads one arc fifty times
+*on the same machine*; nothing compares a Linux hash with a Windows one. The matrix as built measures
+intra-platform self-consistency three times over. It is the precondition for the measurement, not the
+measurement. Both texts now say so, and the measurement proper — a seeded demo, a digest per leg, a job
+that diffs the three — is Lane H's top task with a sketch. Roughly forty lines; not built this session
+because the ask was a review, and a claim corrected in the tree is worth more than a feature added to it
+unwatched.
+
+**Hardened on the way:** no job had `timeout-minutes`; a hung engine would have sat on GitHub's six-hour
+default. 10 / 20 / 45 / 10 now.
+
+**Where everything stands, for the next reader:** §5 is rewritten as the real ordered list — turn CI on,
+prove the coupling gate, branch protection, the determinism diff, QM steps 1-3, merge, tag — with what
+each one waits on. Actions is still off. PR #1 is a draft. Nothing in `.github/` has ever run.
+
+### build-06, part five — the review, and the records it caught (ADR-029 revised)
+
+**An adversarial pass over the session's own work, at the ratifier's request.** One real finding, one
+design risk, the rest measured fine.
+
+**The finding: quadratic disk growth from an unattended first run.** Part three wrote the whole session as
+a new file every round, to keep the demo's disk check comparing against one list. The first run is now the
+game golfing against nobody, making a pin roughly every seven seconds: 43 MB an hour, 2.7 GB overnight,
+on a phone. Fixed: a round's file holds that round's strokes, `_round` clears after the write (`last_round`
+keeps a copy for anyone checking the file), and **a round in which no person struck a ball is not written**
+— `_player_struck` is set in `_on_fired` when `_ai_is_playing` is false, and cleared with the round. The demo
+keeps its own `_played` list and checks the file against that. Two tests pin it. **Measured, not
+asserted:** sixty seconds of the real unattended first run at `--fixed-fps 120` — ten strokes, nine pins,
+`_round` never above two, zero files written, tour at full blend throughout.
+
+**The design risk, left as a risk:** the idle tour looks *at* the player, so on defence the golfer and the
+flight — forty to seventy metres off — can be out of frame for half of each orbit. That is what "orbit
+around the active player" asks for, and nobody has watched it. Every camera number this session was taken
+headless. The first person to run the Windows build windowed and leave it alone for a minute will know
+more than any test does.
+
+**Measured fine:** the ball resetting to the mat after every AI stroke snaps the defender framing under
+the tour by 3.9 m at the target and 0.07 m per frame at the eye — inside the tour's own speed, because the
+eye is anchored to the archer, who is far from both the mat and the green.
+
+**Tidied on the way:** `ci.yml`'s header claimed branch protection requires a review (it does not, per the
+QM house rule); `export_presets.cfg` still quoted a `"0.0.1-m0"` version that `project.godot` no longer
+carries.
+
+**Security sweep before the push (see part one's list too):** no secrets in the tree — the Android
+keystore fields are blank and env-supplied, the debug password is the public "android"; workflow tokens are
+`contents: read` everywhere except the tag-only release job; `pull_request` from a fork gets a read-only
+token by GitHub's rule; nothing personal in tracked files. **Two supply-chain notes, not fixed:** the
+composite action fetches Godot and `build.sh` fetches rcedit over HTTPS from GitHub releases without a
+checksum — Godot publishes `SHA512-SUMS.txt` beside every release and verifying it is a five-line change
+for whoever wants it; and the actions are pinned to major tags (`@v4`), not SHAs. Both are ordinary for a
+project this size and both are the first things a stricter posture would change.
+
+**Gates:** suite 191/191, `demo_round` PASS (3 on disk = 3 played), docs check green at 31 ADRs, version
+check green, four exports from a clean tree.
+
+### build-06, part four — the camera turns about the player, and nothing cuts (ADR-030)
+
+**Three asks in one line:** orbit always around the active player; the defender's view zoomed out and 7°
+right; the shift into and out of the idle tour always smooth, "no jumps or sudden mode shifts, just input
+or not."
+
+**The pivot was the finding.** `CameraOrbit.apply(eye, focus)` swings about `focus`, and every framing
+handed it the point it was *looking at* — for the defender, `stand + dir * reach * 0.6`, thirty metres
+down the line. Two fingers orbited empty grass with the archer at the rim. `_framed()` now takes
+`(eye, at, pivot)` and `_pivot()` is the active player: `held()` when defending, the ball otherwise. One
+argument fixes the manual orbit and the tour together. `test_the_orbit_swings_around_the_player_and_not_the_line`
+checks the eye's distance to the player is unchanged under a yaw, on both sides.
+
+**7° right, pulled back.** `_frame_defend` replaces the `shoulder * 2.4` nudge with `(-dir).rotated(UP,
+DEFEND_YAW)` — an angle survives the orbit where a lateral step would not — and stands a third further
+out. Positive about UP from behind is the camera's right; the test measures the signed angle off the spine
+and gets 7.00. "A third" is my number, one constant, easy to move.
+
+**"No jumps" was built, not tuned.** Part three's tour was a second framing (`_frame_idle`) eased into by
+`_cam_smooth` — a cut, blurred. It is gone. The tour is now the framing in force, turned by `_tour_yaw`
+about the pivot, pulled back `IDLE_PULL_BACK` and raised `IDLE_RISE`, look-at sliding onto the player, all
+inside `_framed()` and all scaled by `_idle` (0→1 over `IDLE_FADE_IN` after the clock runs out, 1→0 over
+`IDLE_FADE_OUT` on a touch). At zero it *is* the framing, so there is nothing to switch to, and the tour
+starts where the eye is by construction — the bearing-capture trick from part three is deleted. Then the
+same bug one derivative down: `_idle` is linear so the fades take the seconds they say, but a linear ramp
+steps from rest to ~5 m/s in one frame, which *reads* as a jump. So `_tour_blend()` is `_idle`
+smoothstepped, and the eye, the pull-back, the look-at and the turn's own rate are all keyed off that. The
+unwind on return is `move_toward` at `TOUR_RETURN * (1 - blend)`, capped to `4 * |yaw|` — starts from rest
+as the blend falls, arrives at rest rather than stopping dead, and a long tour comes home at the same rate
+as a short one, never as a whip.
+
+**Measured, sixty frames a second, defender's camera, whole cycle:** onset 1.1 m/s, fade-in peak 6.7 m/s,
+touring 4.9 m/s, return peak 17.8 m/s, worst single frame 0.30 m. `test_the_tour_never_jumps` steps the
+whole cycle — still, threshold, fade-in, tour, touch, home — and bounds every frame of both the target and
+the eased eye at 1.0 m. A cut would be thirty. The return is brisker than the departure on purpose; the
+numbers are in the ADR for whoever wants to move them.
+
+**Two test mistakes worth knowing about.** The first "gets the tour" test waited 4 s after the touch —
+longer than `IDLE_AFTER` — so the tour had correctly begun again before the assertion. And the first
+"never jumps" run measured from the side-switch swing, which is the state changing because the player
+changed it; that is eased as it always was and is not the tour. Both tests now say so.
+
+**`_frame_attract` gets the tour too**, since it goes through `_framed`. A golfer-side attract screen that
+nobody touches for three seconds eases out and round the ball. Consistent with the rule, and rarely seen
+now that the first run opens on defence.
+
+**Gates:** suite 189/189 (three new, three rewritten), `demo_round` PASS, docs check green at 31 ADRs,
+version check green, four exports from a clean tree.
+
+### build-06, part three — the range never ends, and π picks the pin (ADR-029)
+
+**One line from the ratifier:** *the golfer just keeps golfing, picking holes following π in ternary; idle
+player should mean orbity camera.* Taken literally, which turned out to be three changes and one bug.
+
+**No more `DONE`.** The enum is `ATTRACT, AIM, FLIGHT`. `_settle()` on a made pin increments `pins_made`,
+writes the session and fires `finished` every `PINS.size()` of them, then calls `_next_pin()` — which is
+the old advance code with `pin = pin_at(pins_made)` in place of `pin += 1`. `_frame_done()` and
+`main_menu.gd`'s tap-to-restart are gone; there is nothing to restart. The scorecard fills through each
+round of three and clears.
+
+**`PIN_ORDER`** is 360 fractional ternary digits of π, computed with Machin's formula at 520 digits of
+precision and converted — `10.010211012222…₃`, checked against the decimal expansion on the way. Balanced
+104/130/126. `test_the_pins_come_up_in_the_order_of_pi_in_ternary` pins the first twelve so a
+regeneration cannot quietly be something else. Deterministic on purpose: a random pin would be the one
+thing on the range a record could not replay.
+
+**The records stay whole.** First draft cleared `_round` after each save; the demo compares the file on
+disk against `_range._round` and would have found a 3-stroke file against an empty list. So `_round` is
+the session, growing, and every completed round writes all of it as a new numbered file. `round_path` is
+the latest. **Lane A note:** which pin was live for stroke *n* is not in the record — it is
+`pin_at(pins made before n)`, and a replay of round *k* of a session would need *k*. The layout hash covers
+the pin positions but not the sequence position. Not a schema change today; worth a line in
+`RECORD_SCHEMA.md` §6 when Lane A next opens it.
+
+**The idle camera.** `_idle_for` runs while `_look.is_centred()`; `_touched()` zeroes it, and is wired to
+the gesture's `began`, `aim_updated` and `tapped`, the orbit's `engaged`, `set_defending`, and `set_club`
+— which is now the player's door only, with `_hand_club` underneath it for the range's own use, so a new
+pin handing over its club does not count as the player doing anything. Past `IDLE_AFTER` (3 s) the target
+becomes `_frame_idle()`: an orbit centred between ball and pin, radius and height from their distance, at
+`IDLE_ORBIT_RATE`. On the frame it begins, `_drift` is set to the camera's current bearing from that
+centre, so the first idle frame is a departure from the view and not a cut to a phase. `_cam_target` is
+eased as it always was, so the return on touch is eased too.
+
+**The bug: GDScript lambdas capture by value.** The demo's `var done := false` was set to `true` inside
+`func(_s): done = true` and read `false` outside it, so the demo played all fourteen strokes it was allowed
+— fourteen pins, in the order `01021101222201`, which was at least a fine demonstration of the sequence —
+and then failed its own disk check against a file written at pin twelve. It is a member, `_round_done`,
+with a comment that says why. **If you ever write `connect(func(): flag = true)` in this codebase, it does
+not work.**
+
+**Gates, on the tip of the branch:** suite 186/186 (10 new in the range suite), `demo_round` PASS — three
+pins in the order `010`, one round written, range already on pin 2 — docs check green, version check green,
+four exports from a clean tree.
+
+### build-06, part two — the first run opens on defence, and the loading screen is ours (ADR-028)
+
+**Two asks from the ratifier, taken directly:** the tutorial starts as the defender, and the loading screen
+shows the logo instead of Godot's. Both are small. One of them turned up a real bug.
+
+**Where the side lives.** The range gains `@export var start_defending := false` and applies it at the end
+of `_setup_play`, through `set_defending` like any other switch. **The flag is off in the range and on in
+`main_menu.tscn`**, deliberately: the range is a component whose base case is the golfer — the demo round
+and forty-four range tests read it that way — and which side a *tutorial* opens on is the tutorial's
+decision, so it is made in the scene that owns the first run. `test_a_range_left_to_its_default_opens_as_the_golfer`
+pins the component's side; `tests/ui/test_first_run.gd` (new, four cases) pins the menu's.
+
+**The bug: a bow at a golfer who never plays.** `_on_gesture_began` returns early when defending, before
+the `ATTRACT → AIM` transition it otherwise performs, and the game's golfer only swings in `AIM`. So a
+range in `ATTRACT` with the player on defence was a golfer standing over the ball forever. **This was
+reachable from the side switch since ADR-020** — switch before the first touch and you are stuck — and
+nobody had reached it. Flipping the default made it the first frame of every first run. The fix is five
+lines in `set_defending`: taking the bow leaves `ATTRACT`, because the attract screen is the range waiting
+for the golfer's first touch and the game does not need to be waited for. Mutation-tested: with the fix
+removed, `test_taking_the_bow_leaves_the_attract_screen`, `test_a_range_told_to_open_on_defence_does_so`
+and `test_the_first_run_is_not_waiting_for_a_golfer_who_is_the_game` all go red.
+
+**The splash.** Godot's `boot_splash/image`, set to our icon on the deck's `#05080c`. The engine's error is
+verbatim — *"The only supported format is PNG"* — tried first with `icon.svg` and refused, so the SVG route
+ADR-025 used for every other icon is closed here. `tools/make_icons.gd` gains a `COMMITTED` table and
+renders `art/icon/boot_splash.png` at 1024 (the splash is scaled to fit, and a phone held sideways is 1080
+tall). It is **the one PNG in the tree**, exempted from LFS in `.gitattributes` the way `addons/` is: an
+LFS pointer file where Godot expects an image is Godot's own splash back on every fresh clone, which is the
+exact thing ADR-025 removed. Re-run `make_icons.gd` after touching `icon.svg` and commit the result.
+`fullsize` and `use_filter` are left at their defaults *and not written*, because the editor strips
+defaults on save (the ADR-025 hazard, still live — see part one).
+
+**The splash was in the pack twice, and now it is in once.** Measured by parsing the PCK directory
+(format 4, directory at the tail — the scratch script is not committed, it was twenty lines). With the
+default texture importer Godot packed the raw PNG *and* a 53 KB `.ctex` nothing loads; with
+`importer="keep"` in the `.import` it packed the raw PNG **twice**, once as a kept file and once because
+the exporter adds `boot_splash/image` by itself. So `boot_splash.png` is `keep` (no texture pretending to
+exist) *and* in every preset's `exclude_filter` — the exporter still adds it, exactly once. Pack: 234,588 B
+before, 333,068 B after, and the difference is the one PNG. The exported Windows build was run windowed and
+loaded it without the "invalid boot splash" line the SVG attempt produced, which is the only proof a
+headless machine can give of a loading screen.
+
+**`project.godot` was edited this session, with the editor closed** (checked before, checked after). Two
+lines under `[application]` plus their comment; the pin and the plugin list were verified afterwards.
+
+**Lanes crossed, and said so:** Lane D owns `ui/` and this touched `holes/range/` (Lane C) for the flag
+and the fix. Done at the ratifier's direction, noted in both lanes' task lists.
+
+**Gates, on the tip of the branch:** see part one's list plus `test_first_run.gd`; the full suite, the demo
+round and a clean four-target rebuild were re-run after these changes and the numbers are in §1.
+
+### build-05
+
+**Asked for:** review the repo, clean up, make the club selector much more subtle and move it to the top
+left, and add orbit controls.
+
+- **`ui/club_selector.gd` — rewritten, and ADR-019 logged for the move.** It was a full-width bar along the
+  bottom with three filled trays; it is now a corner mark: one hairline per club against a faint rail, the
+  two clubs not in hand at about a quarter of the live one's alpha. **The tap targets did not shrink** — the
+  rows are still 36 px, and `test_the_rows_stay_a_finger_tall` exists so that "subtle" cannot later be
+  traded against ADR-007. Moving it also freed the bottom strip, so `Scorecard.lift` is gone: it existed
+  only to dodge the selector.
+- **`core/camera/camera_orbit.gd` — new, and it builds ADR-001 rather than deciding anything.** The orbit is
+  an *offset*: the range still frames the shot and `apply()` swings that eye around that focus, so a centred
+  orbit returns the framing untouched and every existing camera is unchanged until somebody drags. Two
+  fingers on touch, right-drag and wheel on mouse. Elevation is clamped out of the deck and off the pole;
+  zoom is clamped both ways.
+- **The one-finger / two-finger collision, and how it is resolved.** `StrokeGesture` starts a stroke on a
+  press *anywhere*, deliberately, so the orbit had to take the second finger without the first ever playing
+  a shot. `CameraOrbit` listens on `_input` — before GUI, before `_unhandled_input` — so it sees the second
+  touch land first, marks it handled, and emits `engaged`; the range wires that to `StrokeGesture.abort()`.
+  Ordering in the scene tree is not load-bearing, which was the point.
+- **`tapped` is a new signal, and it is not `cancelled`.** ADR-001 asks for a one-tap reset to the line of
+  play. A press that goes down and comes up without leaving the deadzone is the only screen-wide gesture
+  nothing else claims, so that is the reset. It has to be separate from `cancelled`: `abort()` reports
+  `cancelled` so the ribbon comes down, and if the two were one signal, taking hold of the camera would
+  instantly recentre it. There is a test for exactly that.
+- **`tools/shoot_range.gd` now photographs the game rather than half of it.** It loaded
+  `practice_range.tscn`, which has no flat layer, while a comment two lines below the `preload` claimed the
+  shot showed "the club selector along the bottom". It loads `main_menu.tscn` now, and there is a new
+  `7-orbit` shot whose whole purpose is to show that the framing underneath is unchanged.
+- **Docs trued up against the tree.** `DESIGN.md` §2.1 still specified driver/iron/wedge and an auto-putter,
+  which ADR-018 superseded. `LANES.md` pointed three times at `intro_hole`, a file ADR-017 deleted, and
+  blocked Lane C on a ratification that has happened; Lane C and Lane D also both claimed the range, which
+  the lane rules forbid. ADR-018's row contained an unescaped pipe inside backticks and had been rendering
+  as a seven-column table row since it was written.
+- **The flight camera no longer whips when the archer connects.** Reported as "too chaotic when the defender
+  hits off screen", and it was three separate teleports landing on the same frame:
+  1. `back = -vel.normalized()` was recomputed every frame, and the arrow *reverses* the ball rather than
+     stopping it — so the camera cut to the far side of the ball the instant it landed. There is a `_trail`
+     now, turned at `TRAIL_TURN` rad/s and frozen outright while `_pinned`: a ball being buried is travelling
+     the arrow's direction, not the shot's, and chasing it is wrong as well as violent.
+  2. The defender framing was a branch — present or absent, with the width of the range between the two
+     positions, and an *uncapped* pull-back proportional to the ball-to-defender gap. It is a blend now
+     (`_threat`, 0→1, in at 2.6/s and out at 0.9/s) with the spread capped at `THREAT_SPREAD`.
+  3. The shake ran at 97/71/59 rad/s — 9 to 16 Hz, under four samples per cycle at 60 fps. That does not
+     render as a shake, it renders as noise. Now 41/33/27, with the fov kick cut from 26° to 9°.
+  Four tests in `test_practice_range.gd` pin all of it, measuring metres of camera movement per frame.
+- **The selector draws flight shapes, not bars** (ADR-019 amended, not yet committed when it was first
+  drafted this session). The putt is a flat line because it rolls; the short club is a small steep arc; the
+  long club a long shallow one. Span comes from `carry()` and height from `launch_deg`, so the picture is the
+  club rather than an illustration of it — retune a club and the mark redraws. It sits on a black panel local
+  to the corner, which is the only opaque thing the game draws: the first corner draft was quiet enough to be
+  unreadable over a lit deck, and that is being quiet in the wrong place.
+- **Gates:** suite 139/139 green, docs check green, `demo_round` PASS, and eight screenshots re-rendered and
+  looked at.
+
+**Not done, deliberately:** the orbit is tuned on a mouse. `YAW_PER_PX`, `PITCH_PER_PX` and `ZOOM_PER_PX`
+are guesses in exactly the way `LOCK_PX` is, and ADR-007 makes the thumb the arbiter. Lane C's tuning task
+now covers both.
+
+### build-05, part two — the other side (ADR-020)
+
+**Asked for:** defence mechanics. The direction was given in pieces and each piece changed the shape, which
+is worth recording because the end state does not look like the start.
+
+1. *"Defender position is calculated halfway between hole and player. Defender sees exactly what the player
+   sees in the UI, and an animation to signal the golfer swinging and ball travelling. The intro screen
+   should let you switch back and forth to practice."*
+2. *"Should be archer not skeet."*
+3. *"Putt placement should be radial mirror to the hole."*
+4. *"Double the distance for the hole for the defender. A close putt should be easy for offence."*
+
+- **Placement is derived, not authored.** `defender_stand()` is the only code that knows where a defender
+  goes: twice the distance to the pin, mirrored through it, clamped inside the fence. Halving was the first
+  rule and it was wrong — a six-metre putting pin across a three-metre mat put an archer at the player's
+  elbow, which §3 forbids outright ("defenders never enter the tee box"). Doubling also changes what the
+  defender is *for*: it guards the ground beyond the target, so going long is what it punishes.
+- **It is an archer, not the skeet, and that was the right correction on the project's own terms.** ADR-015
+  keeps skeet for M2, so putting it here would have settled a roster question by accident. Archery is the
+  sport §3 already gives two jobs, and `ArcherBrain` already fell back to the apex trigger when it was not
+  guarding a boundary — so an adversarial archer needed no new sport, no new brain and no new decision. It
+  is drawn in threat amber rather than the safety net's green, via a new `Archer.ink`.
+- **The golfer has a tell, and the ball is genuinely held for it.** `GolferFigure` owns the swing clock and
+  the range asks it for `windup()`, so the backswing and the pause are one fact rather than two kept in
+  step. This was a *missing requirement* rather than a missing feature: §3 asks every defender to telegraph
+  and never said the same of the golfer, which left a defender reading a shot off a ball that had gone.
+- **A hand-played defender is deterministic.** `DefenderBrain.act_now()` is the one way into ACT that does
+  not go through a prediction. It keeps every fairness property that lives on the profile — cooldown, zone,
+  blind spot — and drops the dice: a person who timed it right is never told they were unlucky, which fails
+  Pillar 2 harder than any amount of chaos. `falloff_at()` was split out of `accuracy_at()` for it.
+- **The switch.** `SideSwitch`, top-right, mirroring the club selector top-left in size, ink and language.
+  Defending, the club selector dims (the clubs are not yours), the ghost stops (it demonstrates a stroke you
+  are not going to play), and the aim thread follows the ball — bright while the shot is on, dim while it is
+  not, straight from `brain.can_reach()` so the line cannot promise what the brain would refuse.
+- **`contested` defaults to false.** The bare range is what ADR-017 describes and what `demo_round` gates
+  on; only `main_menu.tscn` turns the archer on. That keeps the demo a question about physics.
+
+**For the ratifier — ADR-020 conflicts with §11.4** and says so in its own rationale. §11.4 proposes that a
+human defender authors a `DefensePlan` rather than steering in real time; this steers in real time. The
+property §11.4 exists to protect is replayability, and it survives — the action is deterministic and its
+time is one scalar — but whether the plan model replaces this at M5 or wraps it is not settled here.
+
+**Known gap, and it is the next thing worth doing.** Defending, the thread reports reachability, so the
+defender has a live read. **Golfing, there is still nothing.** Nothing draws a zone, so "keep it low" has to
+be discovered by being pinned rather than seen beforehand — which is the wrong half of Pillar 2 to leave
+unbuilt. `DefenderZone` as a visible thing is now flagged as the most valuable item in Lane E.
+
+**Gates:** suite 149/149 green (10 new), docs check green, `demo_round` PASS, ten screenshots re-rendered
+and looked at.
+
+### build-05, part three — third person on both sides (ADR-021)
+
+**Asked for:** *"have the defender be third person like the golfer when selected, and the same mechanism
+should apply for defense input."* Two corrections to ADR-020, and they turned out to be the same one.
+
+- **The camera was wrong on principle, not only in practice.** ADR-020 handed the defender the golfer's
+  view because "both sides see the same thing". Pillar 5 says defence is a *whole way to play*, and a whole
+  way to play does not get somebody else's viewpoint — what has to be equal is that neither side gets a god
+  view. `_frame_defend()` now stands over the archer's shoulder exactly as `_frame_aim()` stands over the
+  golfer's, and it had to: a lead is a direction, and a direction cannot be judged from a camera pointed
+  the other way.
+- **The tap was a different game played with the same fingers.** Pillar 1 rules out a separate minigame for
+  the golfer; nobody had written down the symmetric claim for the defender. The drag draws the bow now —
+  same `StrokeGesture`, same `BallFlight` launch model against a bow profile, same `AimRibbon` preview.
+- **The arrow travels, and that fell out of the gesture rather than being bolted to it.** §3's counter for
+  archery is literally "arrows have travel time". The AI's arrow stays a *tracer* for the reason its own
+  comment gives — its pin lands on the tick it acts, so a projectile would arrive after the ball had
+  already stopped, and cause after effect reads as a glitch. A hand-played arrow inverts that exactly:
+  nothing has happened when the player lets go, so the travel is the anticipation. `commit_by_hand()`
+  starts the cooldown at the release, `connected_at()` resolves on arrival, and both are deterministic.
+- **The amber thread went away while aiming by hand.** It said what the ribbon already says. `aim_at()`
+  points the bow without one; `track()` keeps the thread for the AI's tell.
+
+**Watch out — `DECISIONS.md` has no blank line between the ADR table and the "Pending ratification"
+heading**, and appending a row by anchoring on that heading silently concatenates it onto the previous row.
+That happened this session and was caught by the docs check, which is exactly the failure it exists for. A
+blank line has been added; append rows by matching the last row, not the next heading.
+
+**Not played by anybody.** The lead is tuned against a mouse. `BOW_MIN_SPEED`, `BOW_MAX_SPEED` and
+`ARROW_HIT` are the three numbers that decide whether this is fun, and ADR-007 makes the thumb the arbiter.
+
+**Gates:** suite 153/153 green, docs check green, `demo_round` PASS, ten screenshots re-rendered and looked
+at — `10-defending` is now over the archer's shoulder with the ribbon on the ball.
+
+### build-05, part four — one defender, and you can be it (ADR-022)
+
+**Asked for:** *"remove the additional defender, and have the one on the rock be the only for the tutorial.
+The closer put one will be in game further"*, then *"the helpful main screen archer should also be
+controllable."*
+
+- **The contesting archer is scoped out of the tutorial, not deleted.** `set_contested()` builds and frees
+  it at runtime, so the flag and the world cannot disagree, and a later hole turns it on. The first run
+  meets one defender, which is the whole budget it has: ADR-014 and ADR-017 make it about the clubs, and an
+  adversary would be a second idea arriving with the first.
+- **The archer on the rock is holdable, and that is the part worth the ADR.** Playing the safety net is a
+  better first defence lesson than an adversary would be — the ball you are asked to shoot is the one that
+  was about to be lost, so working that side teaches where the course ends by patrolling it. Same lesson as
+  the golfing side, from the other end.
+- **A held guard stops guarding by itself.** `_guard_the_boundary()` skips whatever the player is holding.
+  A net that keeps catching balls while somebody aims it themselves is doing their job for them, and a shot
+  they just missed would read as one they made. It costs nothing to be wrong — a range charges nothing for
+  a lost ball — but it is the difference between watching a safety net and being one.
+- **`held()` is the seam.** One accessor decides which archer the player has: the contender if a hole stood
+  one up, otherwise the guard. Every part of the defence path goes through it, so a hole with two defenders
+  and a hole with one differ in a single expression.
+- **The side switch appears only when there is somebody to be**, and its `mouse_filter` goes with its
+  fade — a faded Control that still eats presses is exactly the bug the club selector shipped once.
+
+**The elevated vantage turned out to matter.** Defending from the rock looks over the whole range, which
+suits a lookout and reads far better than the contender's ground-level view did. Worth remembering when a
+later hole places one: height is doing work here that the placement rule does not know about.
+
+**Gates:** suite 158/158 green (5 new), docs check green, `demo_round` PASS, ten screenshots re-rendered.
+`10-defending` is now the first run's own defence — over the archer on the spire, bow drawn, ribbon out.
+
+### build-05, part five — making the defence actually possible (ADR-023)
+
+**Asked for:** *"aiming the archer is on a plane. Make sure it's possible to successfully defend in this
+scenario."* Correct, and it was three faults stacked rather than one.
+
+1. **The aim is planar and the target is not.** `StrokeGesture` reads a heading on the ground plane, which
+   is right for a stroke — a club supplies the launch angle, so the drag only has to supply a bearing. An
+   arrow has nobody to supply it. With a fixed 9° launch, the arrow could only hit a ball that happened to
+   be at the right height at the right range: not a hard shot, an unaimable one. The bow solves the
+   elevation now, against a two-pass prediction of where the ball will be. The **bearing is not assisted**,
+   so the lead and the moment remain the whole of the skill.
+2. **The ribbon was a 7% stub.** That is a deliberate denial for the golfer, because judging distance is the
+   game. An archer *sights*, and a bow whose line stops a metre past the arrow has no sights on it.
+   `AimRibbon.SIGHTED_FRACTION` is 0.62 and `show_arc` takes the fraction as an argument.
+3. **The hit test stepped over the ball.** At 100 m/s an arrow covers 1.7 m between physics ticks, so a
+   point test tunnels through a ball it passed within centimetres of. It is a swept segment now
+   (`Geometry3D.get_closest_point_to_segment`) — the same reason the ball itself runs CCD, and the kind of
+   miss a player cannot tell from a bad shot, which is the worst kind there is.
+
+**Three tests now pin the shape of the skill**, and they are the answer to the question that was asked: a
+correct lead stops the ball, shooting at where the ball *is* misses it, and a harder draw needs less lead.
+The second one matters as much as the first — without it, a passing suite would be consistent with every
+arrow hitting. They fly the ball by hand rather than through the physics server so they measure the
+interception and not the engine.
+
+**Gates:** suite 161/161 green (3 new), docs check green, `demo_round` PASS, ten screenshots re-rendered —
+`10-defending` now shows the sighted ribbon reaching the ball rather than stopping at the bow.
+
+### build-05, part six — it builds for Windows and Android (ADR-024)
+
+**Asked for:** a test build for Android and Windows. Both now exist and both come out of `tools/build.sh`.
+
+**`project.godot` was edited** — the shared-file rule says announce it, so: `textures/vram_compression/
+import_etc2_astc=true` was added, because the Android export refuses to run without it. The Godot editor was
+**not** open at the time. The pin and the gdUnit4 plugin line were checked afterwards and are intact.
+
+- **`export_presets.cfg` is tracked now** (ADR-024). It was ignored because it "carries local keystore
+  paths", which was answering half the problem by giving up the other half — it kept the whole preset out of
+  the repo. The keystore fields are blank and `GODOT_ANDROID_KEYSTORE_DEBUG_*` supplies them at build time.
+- **M0's exit was not blocked on hardware**, or not mostly, and this file has said it was since the first
+  session. What was in the way: export templates, a Java path, a keystore. All three are in the script now.
+  The genuinely hardware part is one line — somebody installing the APK on a phone.
+- **The trap, and it cost the most time: the Steam build of Godot runs self-contained.** A `._sc_` file
+  beside the binary moves the entire editor data directory to `<godot>/editor_data/`. So the export templates
+  were already installed and invisible, a settings file written to `%APPDATA%/Godot` did nothing at all, and
+  the export kept reporting "A valid Java SDK path is required in Editor Settings" while a perfectly good one
+  sat in a file Godot was never going to read. `build.sh` detects it. **If an export complains about
+  something you can see is configured, check this first.**
+- **Second trap: Git Bash hands out MSYS paths** and Godot is a native Windows binary that cannot read
+  `/c/Program Files/...`. Same error message, different cause. `winpath()` runs everything through `cygpath`.
+- **Verified rather than asserted:** `aapt2 dump badging` reports `native-code: 'arm64-v8a'`, no
+  `uses-permission` lines at all, and `apksigner verify` reports the debug certificate. The game asks the
+  phone for nothing, which is Pillar 4 as a fact about the artifact.
+
+**Artifacts:** `build/windows/golfVs.exe` (99 MB, plus the .pck and a console wrapper) and
+`build/android/golfVs.apk` (30 MB). Both debug. Both gitignored.
+
+**Note for whoever ratifies:** `package/unique_name` is `org.golfvs.test` and Open Question 1 — the name — is
+still open. A package id change is an uninstall for anybody who has the old one, so the real id wants
+settling before a build goes anywhere other than a personal phone.
+
+**Gates:** suite 161/161 green, docs check green, `demo_round` PASS, and both exports succeed from a clean
+`build/`.
+
+### build-05, part seven — ready to be published, not ready to be released (ADR-025)
+
+**Asked for:** a review of the gaps to publishing an open v0.0.1, then a logo from the game art, the rest of
+the gaps closed, and a round of polish.
+
+**Three of the gaps were not cosmetic.**
+
+1. **The icon was Godot's logo.** `icon.svg` had been the stock robot since the repository was created, and
+   with `launcher_icons` and `application/icon` empty, both artifacts inherited it. It told anyone who saw it
+   that the application *is* Godot, and it used the Godot Foundation's mark as this project's identity.
+2. **Godot's licence travelled with nothing.** The engine is statically linked into both binaries and MIT
+   requires the notice to accompany the distribution. `NOTICE` covered gdUnit4 — which does not ship — and
+   not the engine, which does. `THIRDPARTY.md` now carries it.
+3. **The export packed the whole workshop.** gdUnit4 (2.1 MB of source), `tests/`, `tools/`, against 355 KB
+   of game. An `exclude_filter` took the data pack **from 1.9 MB to 232 KB**, which is the plainest possible
+   statement of how much of what shipped was not the game.
+
+**The icon is drawn from the game.** Every colour is a constant in `hole_builder.gd` and every shape is
+something the game actually draws: the deck grid, the amber boundary, a target ring, the flight arc the club
+selector uses as a label, and the ball as the one lit solid object. It was rebalanced after looking at it at
+48 px, where the first draft turned to mush — the grid is texture, and texture is the first thing to go. SVG
+rather than PNG throughout, because `.gitattributes` sends every PNG through Git LFS and the LFS path has
+never been proven end to end; an icon is not worth being the file that discovers LFS is misconfigured.
+Android accepts the SVGs directly. Windows needs an `.ico`, which cannot be text, so that one is generated
+and committed, and `build.sh` fetches `rcedit` to apply it.
+
+**`window/handheld/orientation=4` is load-bearing, not tidiness.** The project was landscape only because
+that is Godot's default, and Godot strips defaults on save — so the single thing the game most assumes about
+a phone was recorded nowhere and would have vanished if written plainly. Sensor-landscape is both the better
+behaviour and a value that survives.
+
+**Also:** `config/version` is `0.0.1` in all three places that have to agree; `in_bounds()` in
+`defender_profile.gd` had lost a line continuation and was one 130-column line; and the community files
+GitHub looks for now exist.
+
+**Two placeholders a human has to fill.** `CODE_OF_CONDUCT.md` and `SECURITY.md` route reports through
+GitHub rather than an email address, deliberately — publishing somebody's personal address is not a decision
+an assistant gets to take. And `.github/ISSUE_TEMPLATE/config.yml` has no contact links, because they need
+absolute URLs and there is still no remote to point at.
+
+**Still not a release.** Debug builds, provisional package id, CI that has never run, and nobody has launched
+either binary. `docs/RELEASE.md` is the checklist and the standing list of what stands in the way.
+
+**Gates:** suite 161/161 green, docs check green, `demo_round` PASS, both exports clean from an empty
+`build/`, APK verified to carry our icon and no permissions.
+
+### build-05, part eight — the first pre-alpha feedback, and what it was really saying (ADR-026)
+
+**Three reports, one failure.** The aiming model was specified for a fixed camera, one club and one side, and
+everything built since reached outside it. Each addition was individually sound and each quietly widened the
+domain of a function nobody had restated.
+
+1. *"With the camera at a lower angle, it starts to feel like it's not responding to the direction I'm
+   choosing."* The heading was built by mixing the camera's **flattened** right and forward vectors, which
+   is exact only looking straight down. Everywhere else the ground is foreshortened and the error grows as
+   the angle drops. **Measured: 2.8 degrees off at a steep camera, 32.9 at a shallow one.** ADR-001's orbit
+   is what made every angle reachable. The drag is unprojected through the camera now.
+2. *"I expected more live side-to-side feedback."* Worse than drift: the line **locks** after 26 px so that
+   sliding across it becomes curve — correct for a stroke, and a bow has no curve, so the archer's aim was
+   frozen for the rest of the drag and the sideways movement was discarded. `locks_line` is a switch now.
+   Plus a flat direction line in the aim plane, which is the one part of the aid perspective cannot ruin.
+3. *"The putter doesn't have the aiming graphic when winding up."* It had one, about six centimetres long: a
+   putt was previewed as a projectile, and a projectile at zero degrees from ball height lands within a
+   metre, so VISIBLE_FRACTION of it was nothing. `show_roll()` draws it as roll, same truncation rule.
+
+**The tests are the point, not the three fixes.** They were written from the report and they *fail against
+the code that shipped* — verified by temporarily restoring the old mapping and watching them go red with the
+exact numbers above. A green suite of 161 cases had nothing to say about any of this.
+
+**Goals moved, not just code.** ADR-026 makes aiming a subsystem with three stated correctness properties
+rather than a feel to be tuned, and M1's gate gains a precondition: *does the control do what it looks like
+it does?* A player fighting the aim is not answering "is it fun to hit balls at nothing on a phone". Pillar 2
+— the player always knows why — had only ever been read as a rule about defenders; it applies first to the
+player's own aim.
+
+**Feedback from playing is now a first-class input** alongside the suite and the demo. Nothing here was
+findable from either, and the first round found three real defects in an afternoon.
+
+**Confirmed by the reporter, same session: "much better."** So the loop closed inside one round — reported,
+diagnosed, measured, fixed, re-played, confirmed. Desktop and mouse only; the low-angle read still has not
+been tried with a thumb, and ADR-007 makes the thumb the arbiter of feel.
+
+**`docs/PLAYTEST.md` is new, and it is the follow-through rather than an extra process.** ADR-026 promoted
+feedback from playing to a first-class input alongside the suite and the demo; those two have `tests/` and
+`demo_round.gd`, and an input with nowhere to be recorded is not first-class. It logs what was said verbatim,
+what it turned out to be, and what changed — the middle column being the one that earns the file. It also
+carries a short list of things nobody has watched anybody do yet, which is the closest this project has to a
+research agenda.
+
+**Gates:** suite 169/169 green (8 new), docs check green, `demo_round` PASS, screenshots re-rendered —
+`6-aim-aids` and `6b-putt-aim` are new and exist to show the two previews that were wrong.
+
+### build-04
 **A defended hole that writes records, and a demo that checks them.** Four commits; the suite went from 22
 cases to 66.
 
@@ -296,13 +1251,21 @@ Modified:
 Copied verbatim from the planning-01 packet: `docs/DESIGN.md`, `docs/DECISIONS.md`.
 
 ## 8. Notes for the next session
+- **`project.godot` was found comment-stripped at the start of build-06** — every `;` line gone, viewport
+  size gone. The editor had been open and saved. Reverted from git. If it happens again, `git diff
+  project.godot` will show it as a wall of red comments and nothing else; that is the tell, and the fix is
+  `git checkout -- project.godot` before the editor is opened again.
+- **Nothing has been pushed.** The remote is decided (`quaternionmedia/golfvs`) and not created. Every
+  workflow in `.github/` has been YAML-validated and its shell snippets run locally against the real tree,
+  and none has executed on a runner. The Windows and macOS test legs, and the `win64` / `macos.universal`
+  Godot asset names, are the two things most likely to need a fix on the first run.
 - **The Godot editor was open throughout build-04, so `project.godot` is untouched by it.** Nothing in that
   file changed; if the pin or the plugin entry looks wrong, the editor did it.
 - **Run the demo, not just the suite.** Three of build-04's five bugs were invisible to unit tests and
   obvious within one headless round. `--fixed-fps 120` matters: without it the run happens in wall-clock
   time and a few strokes take minutes.
-- **Do not record a fixture until the float precision proposal is ratified.** Anything written before it
-  settles is scrap, and RECORD_SCHEMA.md §6 says so.
+- **Float precision is settled** (ADR-012) and fixtures are safe to record. The warning that used to stand
+  here — do not record anything before it settles — has been discharged, not forgotten.
 - **When adding the second defender, check its tell against the flight time first.** A tell longer than the
   time to the action means the defender silently never acts, which looks exactly like a defender that is
   working and missing.
@@ -312,12 +1275,11 @@ Copied verbatim from the planning-01 packet: `docs/DESIGN.md`, `docs/DECISIONS.m
 - **`physics/common/physics_ticks_per_second` is deliberately not written to `project.godot`.** 60 is Godot's
   default, and the editor strips settings equal to their default on save — a line there would vanish and read as
   sabotage later. The tick is asserted at runtime instead, in `tests/core/test_physics_guarantees.gd`.
-- **The first run is designed but not built.** `ONBOARDING.md` is a specification, not an implementation:
-  there is no `holes/intro.tres`, no `TutorialLayer`, and no glyph art. Nothing in `core/` knows about any
-  of it. Do not read §2.6 as describing something that exists.
-- **The first-run design leans on two things that are themselves unratified** — the stroke gesture and the
-  aim ribbon. If the gesture proposal changes, beats 1 and 2 change with it. This is drafting on sand by
-  necessity, not by oversight; it is cheap to redraw while it is only a document.
+- **The first run is built, and it is the practice range** (ADR-017, ADR-018). There is no `TutorialLayer`
+  and no glyph art, and there never will be: ADR-014 rejected the vocabulary, and teaching falls through the
+  world, the ribbon and the ghost instead. Do not go looking for `ONBOARDING.md`.
+- **The first run still leans on the unratified stroke gesture and aim ribbon.** If the gesture proposal
+  changes, the range changes with it — and now there is code to change and not only a document.
 - **The CCD sweep is not run by CI**, only the three static assertions are. The sweep takes ~15 s and wants a
   real physics step; if it is ever wanted as a gate, run
   `godot --headless --path . --quit-after 6000 res://core/m0_physics_smoke.tscn` and check the exit code.

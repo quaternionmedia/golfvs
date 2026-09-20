@@ -35,6 +35,26 @@ const SCALE := 1.6
 
 var brain: ArcherBrain = ArcherBrain.new()
 
+## The colour the arrow, the thread and the tracer are drawn in.
+##
+## Green by default, and the comment on THREAD says why: on this range an arrow
+## means a shot has gone wrong and is being saved. An archer *contesting* the
+## line is not saving anybody, so it takes the ribbon's amber instead -- the
+## colour the game already uses for "this line does not get there". One sport,
+## two jobs, and the player is told which is which without a word.
+var ink := THREAD
+
+## True while a person is aiming this archer rather than the game. The AI decides
+## where to point once, before the tell; a human has decided nothing yet and
+## needs the bow drawn and the thread following the ball while they make up their
+## mind. It is also the only thing they have to judge the shot by.
+var _tracked := false
+var _on_target := false
+## Whether the dashed line to the target is wanted. It is the AI's tell and the
+## live guard's warning; a person aiming by hand has the aim ribbon instead, and
+## two lines saying the same thing is one line too many.
+var _threaded := true
+
 var _bow: Node3D
 var _nock: Marker3D
 var _arrow: MeshInstance3D
@@ -110,14 +130,14 @@ func _build_body() -> void:
 	shaft.size = Vector3(0.06, 0.06, 1.3)
 	_arrow = MeshInstance3D.new()
 	_arrow.mesh = shaft
-	_arrow.material_override = DefenderArt.glow(THREAD, 2.6)
+	_arrow.material_override = DefenderArt.glow(ink, 2.6)
 	_arrow.custom_aabb = DefenderArt.generous_aabb()
 	_arrow.top_level = true
 	_arrow.visible = false
 	add_child(_arrow)
 
 	_thread = MeshInstance3D.new()
-	_thread.material_override = DefenderArt.glow(THREAD, 2.0)
+	_thread.material_override = DefenderArt.glow(ink, 2.0)
 	_thread.custom_aabb = DefenderArt.generous_aabb()
 	_thread.top_level = true
 	_thread.visible = false
@@ -126,7 +146,7 @@ func _build_body() -> void:
 	# The tracer: the line the arrow took, for the handful of frames it is worth
 	# seeing.
 	_trail = MeshInstance3D.new()
-	_trail.material_override = DefenderArt.glow(THREAD, 5.5)
+	_trail.material_override = DefenderArt.glow(ink, 5.5)
 	_trail.custom_aabb = DefenderArt.generous_aabb()
 	_trail.top_level = true
 	_trail.visible = false
@@ -142,9 +162,34 @@ func advance(delta: float) -> bool:
 	return brain.advance(delta)
 
 
+## Follow the ball, for an archer somebody is playing rather than the game.
+##
+## `reachable` is the brain's own answer to "would this connect", and the thread
+## is drawn from it: bright and tight while the shot is on, dim and loose while
+## it is not. That one difference is the whole interface for the other side --
+## the defender is given the golfer's view and a line, and the line has to be
+## honest, or timing it is guesswork rather than a read (Pillar 2).
+func track(at: Vector3, reachable := true) -> void:
+	_watching = at
+	_tracked = true
+	_threaded = true
+	_on_target = reachable
+
+
+## Point the bow, and draw it, for somebody aiming by hand. No thread: the arc
+## they are aiming along is already drawn, by the same ribbon the golfer uses.
+func aim_at(at: Vector3) -> void:
+	_watching = at
+	_tracked = true
+	_threaded = false
+
+
 func rest() -> void:
 	brain.rest()
 	_watching = Vector3.ZERO
+	_tracked = false
+	_threaded = true
+	_on_target = false
 
 
 ## The ball is near the edge of the course. Draw, and look at it.
@@ -161,7 +206,7 @@ func intercept(at: Vector3) -> bool:
 
 
 func _process(delta: float) -> void:
-	var drawing := brain.state == DefenderBrain.State.TELL \
+	var drawing := _tracked or brain.state == DefenderBrain.State.TELL \
 		or brain.state == DefenderBrain.State.ACT
 	# The draw is the tell: the bow comes up and the string goes back over the
 	# tell's length, so how far it is drawn says how long is left.
@@ -190,11 +235,51 @@ func _process(delta: float) -> void:
 	# bow is drawn says how long is left before the arrow goes.
 	_nock.position.z = 0.62 * SCALE * _draw
 
-	_thread.visible = _draw > 0.02 and _watching != Vector3.ZERO
+	_thread.visible = _threaded and _draw > 0.02 and _watching != Vector3.ZERO
 	if _thread.visible:
-		DefenderArt.dashed_line(_thread, _nock.global_position, _watching, 0.035, 9.0)
+		var on := _on_target or not _tracked
+		var mat: StandardMaterial3D = _thread.material_override
+		mat.albedo_color = ink if on else Color(ink, 1.0).darkened(0.55)
+		mat.emission = mat.albedo_color
+		mat.emission_energy_multiplier = 3.4 if on else 0.7
+		DefenderArt.dashed_line(_thread, _nock.global_position, _watching,
+			0.05 if on else 0.02, 7.0 if on else 14.0)
 
 	_advance_arrow(delta)
+
+
+## Where the string is, in world space. The range looses arrows from here, so the
+## shot starts at the bow rather than at the archer's feet.
+func nock_at() -> Vector3:
+	return _nock.global_position
+
+
+## An arrow in flight, drawn where the range says it is.
+##
+## The AI's arrow is a *tracer* and the long comment below says why: its pin is
+## applied on the tick the archer acts, so a projectile would arrive after the
+## ball had already stopped, and cause after effect reads as a glitch.
+##
+## A hand-played arrow inverts that reasoning exactly. The player let go, and
+## nothing has happened yet -- the travel *is* the anticipation, and the ball
+## stopping when the arrow reaches it is cause and then effect in the right
+## order. So this one really flies, and it is the only reason leading the target
+## is a skill rather than a press.
+func fly(from: Vector3, at: Vector3) -> void:
+	_streak = -1.0
+	_trail.visible = false
+	_arrow.visible = true
+	_arrow.global_position = at
+	var heading := at - from
+	if heading.length_squared() > 1.0e-6:
+		_arrow.global_basis = Basis.looking_at(heading.normalized(), Vector3.UP)
+	var mat: StandardMaterial3D = _arrow.material_override
+	mat.albedo_color = ink
+
+
+## The arrow is spent. Leaves the tracer alone -- it has its own fade.
+func stow() -> void:
+	_arrow.visible = false
 
 
 ## The shot, drawn as a tracer rather than as a travelling projectile.
@@ -209,7 +294,8 @@ func _process(delta: float) -> void:
 ## not watching something cross the gap.
 func _advance_arrow(delta: float) -> void:
 	if _streak < 0.0:
-		_arrow.visible = false
+		# `fly()` owns the mesh while a hand-played arrow is up; the tracer only
+		# reclaims it once it has a streak of its own to draw.
 		_trail.visible = false
 		return
 	_streak += delta
@@ -229,7 +315,7 @@ func _advance_arrow(delta: float) -> void:
 		if heading.length_squared() > 1.0e-6:
 			_arrow.global_basis = Basis.looking_at(heading.normalized(), Vector3.UP)
 		var mat: StandardMaterial3D = _arrow.material_override
-		mat.albedo_color = Color(THREAD, stay)
+		mat.albedo_color = Color(ink, stay)
 	else:
 		_streak = -1.0
 

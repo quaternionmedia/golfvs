@@ -15,9 +15,18 @@ Caricatured, chunky low-poly characters, one-thumb controls, thirty-second holes
 
 ## Status
 
-**M0 — Bootstrap,** with M1 to M3 work running ahead of it. The intro hole is playable: it is the menu, it
-is guarded by an archer that shoots only balls leaving the course, and every stroke it plays is written as a
-portable, self-verifying record. What M0 still owes is an Android build on a real phone.
+**M0 — Bootstrap,** with M1 to M3 work running ahead of it.
+
+> **What is actually in the box.** Everything above is the pitch. What builds
+> today is a **practice range**: three pins, three clubs, one archer, and box art
+> standing in for meshes that do not exist. There is **no audio at all**, no
+> course, no scoring beyond the card, and no multiplayer of any kind. One of the
+> twelve sports in §3 is built. Builds before v0.1.0 are **debug builds** meant
+> for finding out what breaks. [`CHANGELOG.md`](CHANGELOG.md) has the honest list.
+
+What is real is the spine: the stroke, the defender framework, a camera you can
+orbit, a side you can switch to, and a portable hash-verified record for every
+stroke played. What M0 still owes is somebody launching the APK on a phone.
 
 The honest question the project is built toward is still M1's: *is it fun to hit balls at nothing, on a
 phone?* Nothing here has been played on one yet.
@@ -37,19 +46,30 @@ pass — never a bump inside a feature branch.
 ## Getting started
 
 ```sh
-git clone <this repo>
-cd golf-vs
+git clone https://github.com/quaternionmedia/golfvs.git
+cd golfvs
 git lfs install          # required before touching art; binaries are LFS-tracked
 ```
 
 Open the project in Godot 4.7.2. gdUnit4 is vendored under `addons/` and enabled in `project.godot`, so the
 test panel is available on first open.
 
+**New here?** [`walkthrough/`](walkthrough/README.md) is the one path through the game, and every page
+after its first is written by the test suite from itself — the prose is each suite's own header, every
+line is a test's name linking to its assertion, and the pictures were taken by those tests (ADR-031).
+The pictures are not in the repository: run the suite with a window and they appear beside the pages
+under `walkthrough/shots/`, or take the `walkthrough-shots` artifact from any CI run.
+[The index](walkthrough/README.md#as-recorded) lists every one and the test that takes it.
+
 ### Running the tests
 
 ```sh
 GODOT_BIN=/path/to/godot ./addons/gdUnit4/runtest.sh --add res://tests --continue
 ```
+
+Run it with a display and it also rewrites `walkthrough/` and records the pictures in it; if `git status`
+then shows a change there, commit it with the change that caused it. CI fails if the pages the suite
+writes differ from the ones committed.
 
 Then play a round headless. It is a gate, not a showcase — it exits non-zero if a stroke fails to replay to
 its own hash, if the round on disk differs from the round played, or if a defender's verdict is not
@@ -59,7 +79,37 @@ reproducible from its seed.
 $GODOT_BIN --headless --fixed-fps 120 --path . res://tools/demo_round.tscn
 ```
 
-CI runs both on every pull request, plus a check that `DESIGN.md` and `DECISIONS.md` stay in step.
+### Building it
+
+```sh
+tools/build.sh            # all five, into build/
+tools/build.sh windows
+tools/build.sh linux
+tools/build.sh linux-arm64  # Raspberry Pi 5; ships with an override.cfg (Compatibility renderer)
+tools/build.sh macos
+tools/build.sh android
+```
+
+Debug builds, all of them. The script installs the export templates if they are
+missing, finds a JDK, makes an Android debug keystore if there isn't one, and
+tells Godot where all three are — so the only thing you need in advance is the
+engine. `.github/workflows/build.yml` runs the same script for Windows, Linux
+(x86_64 and arm64) and Android on every pull request -- the APK is in the run's
+artifacts -- and on
+a `v*` tag publishes the same four as a **pre-release** on the
+[releases page](https://github.com/quaternionmedia/golfvs/releases), where
+anyone can download them (ADR-027, revised: the checking happens on the pull
+request's artifact, and the tag is the person's act). macOS builds locally
+only, unsigned; Gatekeeper will want
+`xattr -dr com.apple.quarantine golfVs.app` before it opens.
+
+Nothing is signed for release. There is no release keystore, and there will not
+be one until there is something to release. [`docs/RELEASE.md`](docs/RELEASE.md)
+is the checklist, and the standing list of what is not ready to be a release yet.
+
+CI runs the suite and the demo round on **Linux, Windows and macOS** on every pull request — the same seed
+must hash the same everywhere, and that is the first thing that has ever checked it — plus a check that
+`DESIGN.md` and `DECISIONS.md` stay in step, and one that the version agrees with itself.
 
 ## Layout
 
@@ -74,7 +124,8 @@ CI runs both on every pull request, plus a check that `DESIGN.md` and `DECISIONS
 | `tools/` | CI helpers, and `demo_round.tscn` — a whole round played headless |
 | `holes/` · `clubs/` | `HoleLayout` and `ClubProfile` resources |
 | `art/` · `audio/` | CC-BY-4.0 assets; `.blend` sources under Git LFS |
-| `tests/` | gdUnit4 suites and the record fixtures |
+| `tests/` | gdUnit4 suites and the record fixtures — and the source the walkthrough is written from |
+| `walkthrough/` | The documentation, one page per suite, generated on every run; only `01-` is written by hand |
 
 ## Documents
 
@@ -87,6 +138,9 @@ CI runs both on every pull request, plus a check that `DESIGN.md` and `DECISIONS
 | [`docs/RECORD_SCHEMA.md`](docs/RECORD_SCHEMA.md) | The record format, frozen at M1 exit. |
 | [`docs/ART_PIPELINE.md`](docs/ART_PIPELINE.md) | Blender to Godot: budgets, vertex colours, export settings, art cards. |
 | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | How to work here. Assistants draft, humans ratify. |
+| [`docs/RELEASE.md`](docs/RELEASE.md) | Getting a build out, and what still stands in the way of a real one. |
+| [`CHANGELOG.md`](CHANGELOG.md) | What is in a given build — including what is not. |
+| [`THIRDPARTY.md`](THIRDPARTY.md) | Everything redistributed in a build, and its licence. |
 
 ## Design pillars
 

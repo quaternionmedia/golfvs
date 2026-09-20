@@ -171,6 +171,57 @@ func advance(delta: float) -> bool:
 	return false
 
 
+## A person letting go, rather than the game deciding. The shot is committed and
+## on its way, and whether it connects is **not known yet** -- an arrow has to
+## travel, and that is the whole difference between playing this side and
+## watching it played.
+##
+## The AI path commits in `read_shot()` before the ball has moved, which is what
+## makes its tell honest. A human has no equivalent, because their commitment is
+## the release. So this is the one way into ACT that does not go through a
+## prediction, and it is still bounded by everything that makes the sport fair,
+## because those live on the profile rather than on the prediction: one shot per
+## stroke, and a cooldown that starts the moment the string is let go rather than
+## when the arrow arrives.
+func commit_by_hand() -> bool:
+	if _acted or _cooldown_left > 0.0:
+		return false
+	_acted = true
+	alerted = false
+	_act_at = _elapsed
+	_cooldown_left = profile.cooldown
+	_will_connect = false
+	_set_state(State.ACT)
+	return true
+
+
+## The hand-played shot arrived. Asked at the point the arrow actually reached,
+## not the point it was aimed at -- so a lead that was slightly wrong is a miss
+## for the reason the player can see, which is the whole of Pillar 2.
+##
+## **Deterministic**, unlike the AI's seeded draw. A person who timed it right and
+## is told "unlucky" has been given no way to improve, and there is no roll to
+## record either, so a hand-played defence still replays exactly.
+func connected_at(at: Vector3) -> bool:
+	_act_point = at
+	_will_connect = can_reach(at)
+	return _will_connect
+
+
+## Would a shot landing here connect? The same question `connected_at` answers,
+## asked before committing to it -- which is what somebody aiming needs and the
+## AI, having decided everything in advance, does not.
+func can_reach(at: Vector3) -> bool:
+	return profile.falloff_at(at, tier) >= HAND_MARGIN
+
+
+## How centred a hand-timed shot has to be to connect. The outer part of the
+## zone is a real blind spot rather than a worse chance: a defender played by
+## hand can be beaten by shaping the ball through the edge of its reach, which
+## is §3's counter for every air sport stated as a number.
+const HAND_MARGIN := 0.3
+
+
 ## Ready for the next lie. Cooldown deliberately survives -- a defender that
 ## just fired is still reloading when the golfer walks up to the ball.
 func rest() -> void:

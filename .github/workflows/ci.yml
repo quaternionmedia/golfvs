@@ -4,10 +4,33 @@ name: CI
 #
 #   docs   -- DESIGN.md and DECISIONS.md move together. Scope does not change
 #             without a logged rationale.
-#   tests  -- the gdUnit4 suite runs headless on the pinned engine (ADR-008).
+#   tests  -- the gdUnit4 suite runs headless on the pinned engine (ADR-008),
+#             now on all three desktop operating systems, and the walkthrough
+#             it wrote from itself matches the one committed (ADR-031).
 #
-# Both are required checks on main. Branch protection also requires one review;
-# CODEOWNERS routes docs/, core/, records/, async/ and replay/ to a ratifier.
+# And a third, informative until it has been green:
+#
+#   walkthrough -- the same suite with a display, so the tests that record
+#             the walkthrough's pictures actually record them, and so the
+#             suite runs once on the viewport the game really has.
+#
+# Both gates are required checks on main. Branch protection requires the checks and
+# not a review -- the QM house rule is that you merge your own once the checks
+# are green, with ratification and the version tag as the two human gates --
+# and code-owner review stays off until the CODEOWNERS handles are confirmed.
+#
+# **Why the matrix, and what it does not yet do.** DESIGN.md §11 advertises
+# Stroke Records as portable, and docs/RELEASE.md has listed "cross-platform
+# determinism is unmeasured" as a standing gap since M0. Running the suite and
+# the demo on three operating systems is the *precondition* for measuring it --
+# but as written it is not the measurement. Each leg plays a round on a seed of
+# its own (`_round_seed = randi()`) and checks that it agrees with itself; no
+# leg's hashes are compared with another's. What the two extra legs buy today
+# is "it runs, and the files land, on an OS the developer does not use". The
+# measurement proper is one fixed seed, one digest per leg, and a job that
+# diffs the three -- Lane H's next task. Until then Windows and macOS stay off
+# the required-checks list, and a failure there is still informative: it is
+# just informative about something smaller than the comment used to claim.
 
 on:
   push:
@@ -23,8 +46,9 @@ concurrency:
 
 jobs:
   docs:
-    name: DESIGN and DECISIONS agree
+    name: "Docs: DESIGN/DECISIONS coupling and version consistency"
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -47,7 +71,7 @@ jobs:
             echo "ref=" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Check documents
+      - name: Check DESIGN.md and DECISIONS.md move together (ADR-006)
         run: |
           if [ -n '${{ steps.base.outputs.ref }}' ]; then
             python tools/check_docs_consistency.py --base-ref '${{ steps.base.outputs.ref }}'
@@ -55,47 +79,39 @@ jobs:
             python tools/check_docs_consistency.py
           fi
 
+      # The three places a version has to agree, checked rather than remembered.
+      # docs/RELEASE.md carried this as a manual checklist item; a checklist item
+      # is a hope, and this is the same move ADR-006 made for the documents.
+      - name: Check version consistency (project.godot, presets, CHANGELOG)
+        run: python tools/check_version_consistency.py
+
   tests:
-    name: gdUnit4 headless
-    runs-on: ubuntu-latest
+    name: "Tests: gdUnit4 suite and demo round"
+    strategy:
+      # One platform failing must not cancel the others: the interesting
+      # question is *which* platforms disagree, and a cancelled leg answers it
+      # for none of them.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    # A hung engine -- a parse error that dodged --remote-debug, a ball that
+    # never settles -- would otherwise sit on the six-hour default.
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Read the engine pin
-        id: pin
-        run: echo "version=$(cat .godot-version)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Godot ${{ steps.pin.outputs.version }}
-        uses: actions/cache@v4
-        with:
-          path: ~/godot
-          key: godot-${{ steps.pin.outputs.version }}-linux-x86_64
-
-      - name: Install Godot ${{ steps.pin.outputs.version }}
-        run: |
-          set -euo pipefail
-          version='${{ steps.pin.outputs.version }}'
-          binary="$HOME/godot/Godot_v${version}_linux.x86_64"
-          if [ ! -x "$binary" ]; then
-            mkdir -p "$HOME/godot"
-            url="https://github.com/godotengine/godot/releases/download/${version}/Godot_v${version}_linux.x86_64.zip"
-            curl -fsSL -o /tmp/godot.zip "$url"
-            unzip -q /tmp/godot.zip -d "$HOME/godot"
-            chmod +x "$binary"
-          fi
-          echo "GODOT_BIN=$binary" >> "$GITHUB_ENV"
-
-      - name: Report the engine version
-        # The suite asserts this matches the pin; printing it makes a failure
-        # readable without opening the report.
-        run: '"$GODOT_BIN" --version'
+      - uses: ./.github/actions/setup-godot
 
       - name: Import project
         run: '"$GODOT_BIN" --headless --path . --import'
 
-      - name: Run tests
+      - name: Run the gdUnit4 suite (headless)
         # --remote-debug on an unbound port stops Godot dropping into its
         # interactive CLI debugger on a parse error, which would hang the job.
         run: |
@@ -103,22 +119,109 @@ jobs:
             res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
             --add res://tests --continue --ignoreHeadlessMode
 
-      - name: Play a round
+      # The suite writes walkthrough/ from itself (ADR-031). If what it wrote
+      # is not what is committed, somebody changed a test and did not commit
+      # the page that moved with it -- or added a suite without a row in the
+      # registry, which the suite itself already failed on. Pages only: the
+      # pictures are recorded, never compared, and a headless run does not
+      # touch them.
+      - name: Check the walkthrough is what the suite wrote
+        run: |
+          if [ -n "$(git status --porcelain -- 'walkthrough/*.md')" ]; then
+            echo "walkthrough/ differs from what the suite wrote. Run the suite, commit the pages it rewrote:"
+            git status --short -- 'walkthrough/*.md'
+            git --no-pager diff -- 'walkthrough/*.md'
+            exit 1
+          fi
+          echo "walkthrough/ is what the suite wrote."
+
+      - name: Run the demo round (records replay to their hashes)
         # The demo is a real gate, not a showcase: it exits non-zero if a stroke
         # fails to replay to its own hash, if the round on disk differs from the
         # round that was played, or if a defender's verdict is not reproducible
         # from its seed. Three of the five bugs found in build-04 were invisible
         # to the unit suite and obvious within one headless round.
         #
+        # On three operating systems it is also the determinism measurement:
+        # the same seeds must produce the same hashes everywhere, and this is
+        # the first time anything has checked that they do.
+        #
         # --fixed-fps decouples the physics from the wall clock; without it a
         # few strokes take minutes.
         run: |
           "$GODOT_BIN" --headless --fixed-fps 120 --path . res://tools/demo_round.tscn
 
-      - name: Upload test report
+      - name: Upload test report (kept 7 days)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: gdunit4-report
+          name: gdunit4-report-${{ matrix.os }}
           path: reports/
           if-no-files-found: ignore
+          # Three legs a run, every run; the default 90 days had 600 MB of
+          # reports nobody would read within a fortnight of turning CI on.
+          retention-days: 7
+
+  walkthrough:
+    name: "Walkthrough: the suite with a display records its pictures"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Informative before it is required, like the Windows and macOS legs were:
+    # the first run of the suite with a real window found a stroke assertion
+    # that passes on the headless viewport (1152x1152, square) and fails on
+    # the real one (1152x648), and that is a finding for the stroke lane, not
+    # a reason to keep this job from existing. It joins the required list once
+    # it has been green.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: ./.github/actions/setup-godot
+
+      - name: Import project
+        run: '"$GODOT_BIN" --headless --path . --import'
+
+      # A window, because headless draws nothing: the viewport texture the
+      # tests read back is empty. llvmpipe is the same software renderer the
+      # build's advisory boot runs on.
+      - name: Provide a display
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb mesa-vulkan-drivers libgl1 libegl1 \
+            libxcursor1 libxinerama1 libxrandr2 libxi6 > /dev/null
+
+      # Every picture is deleted first, so that "the picture exists" -- which
+      # is what tests/walkthrough/test_walkthrough.gd asserts -- means "a test
+      # in this run recorded it", not "somebody committed one once".
+      - name: Run the gdUnit4 suite with a display (records walkthrough/shots)
+        run: |
+          rm -rf walkthrough/shots
+          xvfb-run -a "$GODOT_BIN" --path . --audio-driver Dummy -s -d \
+            --remote-debug tcp://127.0.0.1:0 \
+            res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
+            --add res://tests --continue
+
+      - name: Check the walkthrough is what the suite wrote
+        if: always()
+        run: |
+          if [ -n "$(git status --porcelain -- 'walkthrough/*.md')" ]; then
+            git status --short -- 'walkthrough/*.md'
+            git --no-pager diff -- 'walkthrough/*.md'
+            exit 1
+          fi
+          echo "walkthrough/ is what the suite wrote."
+          echo "--- pictures recorded by this run ---"
+          find walkthrough/shots -type f | sort
+
+      # The pictures this run took, to look at; never diffed against the
+      # committed ones, which came off a developer's GPU rather than llvmpipe.
+      - name: Upload the recorded pictures (kept 7 days)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: walkthrough-shots
+          path: walkthrough/shots/
+          if-no-files-found: warn
+          retention-days: 7

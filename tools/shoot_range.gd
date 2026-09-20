@@ -1,17 +1,33 @@
 extends Node
-## Renders the intro hole from fixed vantage points, and from two live states.
+## Renders the first run from fixed vantage points, and from three live states.
 ##
 ## A look change that nobody looks at is a guess. This is the cheapest way to
 ## put eyes on one without a person launching the game and walking around it.
 ##
-## The last two shots are not static: one dials curve into the gesture so the
-## spin dial is on screen, and one plays a shot off the course so the archer's
-## interception can be caught mid-impact. Those are the two moments most likely
-## to be wrong and least likely to be noticed, because neither exists at rest.
+## It loads the **menu** rather than the range, which is the difference between
+## photographing the game and photographing half of it: the club selector, the
+## scorecard and the ghost are all on a flat layer the menu owns, so a tool that
+## instantiated `practice_range.tscn` could never see the one control the game
+## has. It did exactly that for four shots while claiming otherwise in a comment
+## two lines from the `preload` that proved it wrong.
+##
+## The last three shots are not static: one dials curve into the gesture so the
+## spin dial is on screen, one swings the orbit camera off the line of play, and
+## one plays a shot off the course so the archer's interception can be caught
+## mid-impact. Those are the moments most likely to be wrong and least likely to
+## be noticed, because none of them exists at rest.
 ##
 ##   godot --path . --resolution 1280x720 res://tools/shoot_range.tscn
 ##
 ## Writes into user://shots/ and prints the absolute paths.
+##
+## **On its way out.** ADR-031 moves pictures into the tests that assert the
+## behaviour in them (`tests/walkthrough/walkthrough.gd`), taken from the scene
+## the assertion ran against rather than from a second instantiation posed
+## here; three of these shots have already moved. What stays here until a test
+## can take it: the vantage points no assertion stands at, and the live states
+## (the spin dial, the swung orbit, the interception mid-impact). When those
+## have a test each, this file goes.
 
 const SHOTS := [
 	{"name": "1-attract", "eye": Vector3(0.0, 7.5, 15.0), "at": Vector3(2.0, 1.4, -44.0)},
@@ -21,12 +37,14 @@ const SHOTS := [
 	{"name": "5-far-pin", "eye": Vector3(2.0, 5.0, -52.0), "at": Vector3(10.0, 0.5, -70.0)},
 ]
 
+var _menu: Node
 var _range: Node3D
 
 
 func _ready() -> void:
-	_range = preload("res://holes/range/practice_range.tscn").instantiate()
-	add_child(_range)
+	_menu = preload("res://ui/menu/main_menu.tscn").instantiate()
+	add_child(_menu)
+	_range = _menu.range_
 	await _shoot()
 	get_tree().quit()
 
@@ -35,6 +53,11 @@ func _shoot() -> void:
 	DirAccess.make_dir_recursive_absolute("user://shots")
 	for i in 20:
 		await get_tree().process_frame
+	# The flat layer fades up over its first second. Stepping it by hand rather
+	# than waiting a number of frames keeps the tool from photographing a
+	# half-faded selector on a slow machine and a solid one on a fast machine.
+	for i in 20:
+		_menu._process(0.1)
 
 	for shot in SHOTS:
 		_range.set_process(false)
@@ -43,19 +66,108 @@ func _shoot() -> void:
 		await _save(shot["name"])
 
 	await _shoot_spin_dial()
+	await _shoot_putt_aim()
+	await _shoot_orbit()
+	await _shoot_swing()
+	await _shoot_defending()
 	await _shoot_impact()
 
 
-## The whole flat layer at once: the club selector along the bottom, the card,
-## and the spin dial mid-gesture. None of it exists at rest, so a static shot of
-## the range never shows the one control the game has.
+## The aim aids for a club that flies: the ribbon stub, the spin dial, and the
+## flat direction line that was added after the first pre-alpha feedback asked
+## for "more live side-to-side feedback".
+##
+## Shot from behind and above rather than from the side. The golfer now stands
+## at the ball, and a camera down at shoulder height puts a figure between the
+## lens and everything worth photographing.
 func _shoot_spin_dial() -> void:
 	_range.set_process(false)
+	_range.pin = 1
+	_range.set_club(_range.suggested_club_index())
+	_range._enter_aim()
 	_range._on_gesture_began()
-	_range._on_aim_updated(Vector3(0.0, 0.0, -1.0), 0.85, -0.7)
-	_range.camera.global_transform = Transform3D(Basis.IDENTITY, Vector3(-3.5, 3.0, 6.5)) \
-		.looking_at(Vector3(0.0, 0.4, -8.0), Vector3.UP)
-	await _save("6-spin-dial")
+	_range._on_aim_updated(Vector3(-0.25, 0.0, -1.0).normalized(), 0.85, -0.7)
+	_range.camera.global_transform = Transform3D(Basis.IDENTITY, Vector3(3.2, 5.4, 8.0)) 		.looking_at(Vector3(-1.5, 0.4, -10.0), Vector3.UP)
+	await _save("6-aim-aids")
+
+
+## And the club that does not fly. A putt was previewed as a projectile, which
+## landed within a metre and left a stub about six centimetres long -- reported
+## as the putter simply not having an aiming graphic. It rolls now.
+func _shoot_putt_aim() -> void:
+	_range.set_process(false)
+	_range.pin = 0
+	_range.set_club(_range.suggested_club_index())
+	_range._enter_aim()
+	_range._on_gesture_began()
+	_range._on_aim_updated(Vector3(0.35, 0.0, -1.0).normalized(), 1.0, 0.0)
+	_range.camera.global_transform = Transform3D(Basis.IDENTITY, Vector3(2.6, 4.0, 6.2)) 		.looking_at(Vector3(1.2, 0.3, -5.0), Vector3.UP)
+	await _save("6b-putt-aim")
+
+
+## The orbit, off the line of play. The point of the shot is that the framing
+## underneath is unchanged -- still behind the ball, still holding the pin -- and
+## only the angle onto it has moved. If this looks like a different camera rather
+## than the same one from elsewhere, `CameraOrbit.apply` is doing too much.
+func _shoot_orbit() -> void:
+	_range.set_process(true)
+	_range.pin = 1
+	# The pin hands over its club on the way in, so the shot also shows the
+	# selector reading something other than its opening putt.
+	_range.set_club(_range.suggested_club_index())
+	_range._enter_aim()
+	_range._look.yaw = -0.85
+	_range._look.pitch = 0.16
+	_range._look.zoom = 0.8
+	# Long enough for the camera easing to settle onto the orbited framing.
+	for i in 60:
+		await get_tree().process_frame
+	_range.set_process(false)
+	await _save("7-orbit")
+	_range._look.recentre()
+
+
+## The top of the backswing: the golfer's tell, and the one frame that proves the
+## ball is genuinely being held rather than the animation being decorative.
+func _shoot_swing() -> void:
+	_range.set_process(false)
+	_range.pin = 2
+	_range.set_club(_range.suggested_club_index())
+	_range._enter_aim()
+	_range._golfer.aim = Vector3(0.12, 0.0, -1.0).normalized()
+	_range._golfer.swing = GolferFigure.TOP_AT
+	_range.camera.global_transform = Transform3D(Basis.IDENTITY, Vector3(-4.2, 2.4, 5.0)) 		.looking_at(Vector3(0.0, 1.1, -6.0), Vector3.UP)
+	await _save("9-backswing")
+
+
+## Defending: over the archer's shoulder, bow drawn, with the golfer's own aim
+## ribbon showing where the arrow goes. The point of the shot is that it is the
+## same picture as the stroke -- a figure, a pull, and an honest preview -- taken
+## from the other end of the hole.
+func _shoot_defending() -> void:
+	_range.set_process(true)
+	# No contesting archer: this is the first run's own defence, played with the
+	# archer on the rock (ADR-022). Photographing the version the player actually
+	# meets matters more than photographing the one with more in it.
+	_range.pin = 2
+	_range.set_club(_range.suggested_club_index())
+	_range.set_defending(true)
+	_menu._side.defending = true
+	_range._enter_aim()
+	_range._play_the_games_shot()
+
+	# Far enough into the flight that the ball is up in the archer's air.
+	for i in 78:
+		await get_tree().physics_frame
+	# And the bow drawn at it, which is what the player would be looking at.
+	var lead: Vector3 = _range.ball.global_position - _range.held().nock_at()
+	lead.y = 0.0
+	_range._on_aim_updated(lead.normalized(), 0.8, 0.0)
+	_range.set_process(false)
+	await _save("10-defending")
+	_range._ribbon.hide_arc()
+	_range.set_defending(false)
+	_menu._side.defending = false
 
 
 ## The interception, caught on the frame the arrow lands. Plays a shot far
@@ -86,7 +198,7 @@ func _shoot_impact() -> void:
 	for i in 2:
 		await get_tree().physics_frame
 	_range.set_process(false)
-	await _save("7-impact")
+	await _save("8-impact")
 
 
 func _save(name: String) -> void:

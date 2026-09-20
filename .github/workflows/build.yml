@@ -1,0 +1,260 @@
+name: Build
+
+# Test builds for Windows, Linux (x86_64 and arm64) and Android, on every pull
+# request.
+#
+# It used to run on tag and by hand only, to spare the 1.3 GB template download
+# and the artifacts. The ratifier turned it on for every change (ADR-027,
+# revised): M0's exit is an APK on a phone, and an APK that exists only when
+# somebody remembers to tag is an APK nobody installs. The templates are cached
+# by engine version, so the cost after the first run is the export itself.
+#
+# Four targets, not five. macOS exports fine from this runner and nobody on the
+# project has a machine to open the result on, so it stays a local target --
+# `tools/build.sh macos` -- rather than 64 MB of artifact for no one. Linux
+# arm64 is the Raspberry Pi 5 build; it cannot be booted on this runner either,
+# and ships with an override.cfg that starts it on the Compatibility renderer.
+#
+# ADR-002 makes GitHub releases the canonical distribution. On a `v*` tag this
+# **publishes one, as a pre-release**, where anyone can download it. It used to
+# stop at a draft (ADR-027) so that a person could run what it built before
+# pressing publish; revised, because every pull request already leaves the same
+# four archives in its artifacts, and that is where the running happens now.
+# docs/RELEASE.md's judgements -- does the icon look like ours, does the pitch
+# oversell what is in the box, does the thing start on a real machine -- are
+# made *before* the tag, on the PR's artifact, and the tag is the person's act.
+# A draft nobody publishes is a build nobody can download, and the first
+# outside tester had to be handed a tarball by hand.
+#
+# All three are debug builds and nothing is signed for release, because there is
+# no release keystore, and that is its own decision.
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: "Build: Windows, Linux x86_64/arm64 and Android (debug)"
+    runs-on: ubuntu-latest
+    # The template download is the slow part, and it is cached after the first
+    # run; a cold run is well inside this.
+    timeout-minutes: 45
+    # One host builds everything. Godot cross-exports every platform from any
+    # host that has the templates, and tools/build.sh is written so that this
+    # job and a person's laptop run the same build. A matrix here would buy
+    # nothing but four downloads of the same templates.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      # Android signing needs a JDK even for a template build, because the APK
+      # still has to be signed. 17 is the floor Godot's Android tooling asks for.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: ./.github/actions/setup-godot
+        id: godot
+
+      # The templates are the slow part and they never change for a given pin,
+      # so they are cached against exactly that.
+      - name: Cache export templates
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/godot/export_templates
+          key: godot-templates-${{ steps.godot.outputs.version }}
+
+      # On a tag, the tag is the fourth place the version has to agree. This is
+      # the check that stops a v0.0.2 tag shipping a build whose About box says
+      # 0.0.1. GITHUB_REF_TYPE tells the script whether there is a tag to check.
+      - name: Check version consistency (and the tag, on a tag build)
+        run: python tools/check_version_consistency.py
+
+      # The project has to be imported before it can be exported: a cold clone
+      # has no .godot/, and an export of an unimported project produces a pack
+      # with no resources in it.
+      - name: Import project
+        run: '"$GODOT_BIN" --headless --path . --import'
+
+      # Everything platform-specific lives in the script, so this job and a
+      # person's laptop run the same build. The script boots the Linux build
+      # once, headless, at the end of its own export, and on this runner that
+      # check actually fires -- so the artifact nobody on this project can
+      # launch by hand is the one that gets checked. Headless means: the pack
+      # loads and the first scene builds. It says nothing about drawing; the
+      # step after next is for that.
+      - name: Export Windows, Linux x86_64/arm64 and Android (debug, via tools/build.sh)
+        run: tools/build.sh windows linux linux-arm64 android
+
+      - name: Inspect the outputs (pack sizes, arm64 binary, APK manifest)
+        run: |
+          set -euo pipefail
+          ls -la build/windows build/linux build/linux-arm64 build/android
+          echo "--- pack sizes must agree: same exclude_filter, same game ---"
+          ls -l build/windows/golfVs.pck build/linux/golfVs.pck
+          cmp build/windows/golfVs.pck build/linux/golfVs.pck && echo "packs are byte-identical"
+          echo "--- arm64: the pack differs on purpose (ETC2/ASTC, not BC); the binary must be aarch64 ---"
+          ls -l build/linux-arm64/golfVs.pck
+          file build/linux-arm64/golfVs.arm64 | tee /dev/stderr | grep -q 'aarch64' && echo "arm64 binary is aarch64"
+          test -f build/linux-arm64/override.cfg && echo "override.cfg is beside it"
+          echo "--- APK ---"
+          unzip -p build/android/golfVs.apk AndroidManifest.xml > /dev/null && echo "APK is readable"
+
+      # The headless boot proves the pack; this proves the pixels, or tries to.
+      # The first outside tester's report was a crash before the first frame,
+      # inside lavapipe's shader compiler (Mesa's software Vulkan, what a VM or
+      # a driverless desktop gets), and nothing in CI could have seen it: no
+      # step here had ever created a renderer. This one does, twice -- the
+      # project's own renderer on lavapipe, and the Compatibility renderer on
+      # llvmpipe, which is the workaround the release notes now name -- under a
+      # virtual X server, for thirty frames each.
+      #
+      # Advisory, not a gate: a software driver's crash is Mesa's bug as often
+      # as ours, and the runner's Mesa is not the tester's. It goes red on the
+      # step and green on the job, and becomes a gate once it has been green
+      # long enough to be believed.
+      - name: Boot the Linux build with a renderer (advisory; lavapipe and llvmpipe)
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb mesa-vulkan-drivers libgl1 libegl1 \
+            libxcursor1 libxinerama1 libxrandr2 libxi6 > /dev/null
+          status=0
+          boot() {
+            echo "=== $1 ==="
+            if ( cd build/linux && timeout 120 xvfb-run -a ./golfVs.x86_64 \
+                   --audio-driver Dummy --quit-after 30 "${@:2}" ); then
+              echo "PASS: $1"
+            else
+              echo "FAIL: $1 (exit $?)"; status=1
+            fi
+          }
+          boot "Forward Mobile on lavapipe (as exported)"
+          boot "Compatibility on llvmpipe (--rendering-method gl_compatibility)" \
+            --rendering-method gl_compatibility
+          exit $status
+
+      # A tar for Linux rather than a zip: a zip forgets the executable bit,
+      # and a Linux build that arrives without one is a file, not a game.
+      - name: Package (zip, tar.gz, apk; licence and changelog inside each)
+        run: |
+          set -euo pipefail
+          version="$(python -c "import re,sys;print(re.search(r'^config/version=\"([^\"]*)\"',open('project.godot',encoding='utf-8').read(),re.M).group(1))")"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          mkdir -p dist
+          # The licence travels with every archive (ADR-025): Godot is
+          # statically linked into each binary and MIT requires the notice.
+          for target in windows linux linux-arm64 android; do
+            cp THIRDPARTY.md CHANGELOG.md "build/$target/"
+          done
+          ( cd build/windows     && zip -qr "../../dist/golfVs-${version}-windows-x86_64.zip" . )
+          ( cd build/linux       && tar -czf "../../dist/golfVs-${version}-linux-x86_64.tar.gz" . )
+          ( cd build/linux-arm64 && tar -czf "../../dist/golfVs-${version}-linux-arm64.tar.gz" . )
+          cp build/android/golfVs.apk "dist/golfVs-${version}-android-arm64.apk"
+          ls -la dist/
+
+      # One artifact with all four inside, named by version and the commit it
+      # was built from, so that two PRs' builds cannot be mistaken for one
+      # another in the list. On a pull request `github.sha` is the merge commit
+      # nobody has in their log; the head SHA is the one `git log` shows.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: golfVs-${{ env.VERSION }}-${{ github.event.pull_request.head.sha || github.sha }}-debug
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: "Release: publish a pre-release from the tag"
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The only job in this repository that can write to it, and it writes one
+    # thing: a release. Least privilege is not a nicety when the token can push.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: golfVs-*-debug
+          path: dist
+          merge-multiple: true
+
+      # Pulled from CHANGELOG.md rather than written here, so that the release
+      # notes and the changelog cannot disagree. The section for this version
+      # has to exist: check_version_consistency.py already refused the build if
+      # it did not.
+      - name: Extract release notes from CHANGELOG.md
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          python - "$version" > notes.md <<'PY'
+          import re, sys
+          sys.stdout.reconfigure(encoding="utf-8")
+          version = sys.argv[1]
+          text = open("CHANGELOG.md", encoding="utf-8").read()
+          core = re.search(r"(\d+(?:\.\d+)*)", version).group(1)
+          m = re.search(rf"^## \[{re.escape(core)}\][^\n]*\n(.*?)(?=^## \[|\Z)", text, re.M | re.S)
+          body = m.group(1).strip() if m else "See CHANGELOG.md."
+          print("**Pre-alpha test build.** Debug, unsigned, provisional package id (`org.golfvs.test`). "
+                "Read *Not in it* and *Known gaps* below before installing.\n")
+          print(body)
+          print("\n---\nEach archive contains `THIRDPARTY.md` (licences for what is statically linked) and `CHANGELOG.md`. "
+                "Windows: unzip and run `golfVs.exe`. Linux: `tar xzf`, then `./golfVs.x86_64`. "
+                "Raspberry Pi 5 (64-bit OS): the `linux-arm64` archive, `./golfVs.arm64`; it starts on the "
+                "Compatibility renderer because of the `override.cfg` beside it. "
+                "Android: install the `.apk` (it asks for no permissions).\n\n"
+                "If the Linux build crashes at start or runs slowly, run it as "
+                "`./golfVs.x86_64 --rendering-method gl_compatibility`: a machine whose only Vulkan device is "
+                "`llvmpipe` (a VM, or a desktop without a Vulkan driver) crashes inside that software driver's "
+                "shader compiler before the first frame, and the Compatibility renderer does not use it.")
+          PY
+          cat notes.md
+
+      # Published, not drafted, and idempotent: a re-run of the tag's workflow
+      # replaces the assets and the notes on the release that exists rather
+      # than failing on it. `--prerelease` keeps it off the "Latest" badge --
+      # there is no release this could be the latest of, and the title says so
+      # -- and `--verify-tag` refuses to invent a tag that is not there.
+      - name: Publish the pre-release (or refresh it, on a re-run)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          title="golfVs $GITHUB_REF_NAME -- pre-alpha test build"
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME exists; refreshing its assets and notes."
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+            gh release edit "$GITHUB_REF_NAME" --prerelease --draft=false \
+              --title "$title" --notes-file notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --prerelease \
+              --verify-tag \
+              --title "$title" \
+              --notes-file notes.md \
+              dist/*
+          fi
+          gh release view "$GITHUB_REF_NAME" --json url,isDraft,isPrerelease,assets \
+            --jq '"\(.url)  draft=\(.isDraft) prerelease=\(.isPrerelease)  assets: \([.assets[].name] | join(", "))"'

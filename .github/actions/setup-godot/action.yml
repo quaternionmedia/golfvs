@@ -1,0 +1,107 @@
+name: Set up Godot
+description: >
+  Install the pinned Godot editor for the current runner OS and export GODOT_BIN.
+
+# Why this is an action and not three copies of a shell block: ci.yml and
+# build.yml already carried the same fifteen lines, and the test job is about to
+# run on three operating systems. The pin (ADR-008) is read from .godot-version
+# in exactly one place, which is the property worth protecting -- four files were
+# supposed to agree about the engine version and nothing checked that they did.
+#
+# The editor build is what gets installed, not a template: it is the binary that
+# runs --headless, imports a project and drives gdUnit4.
+
+inputs:
+  version:
+    description: Engine version, e.g. 4.7.2-stable. Defaults to .godot-version.
+    required: false
+    default: ''
+
+outputs:
+  version:
+    description: The version actually installed.
+    value: ${{ steps.pin.outputs.version }}
+  godot-bin:
+    description: Absolute path to the Godot binary.
+    value: ${{ steps.install.outputs.bin }}
+
+runs:
+  using: composite
+  steps:
+    - name: Read the engine pin
+      id: pin
+      shell: bash
+      run: |
+        set -euo pipefail
+        version='${{ inputs.version }}'
+        if [ -z "$version" ]; then
+          version="$(tr -d '[:space:]' < .godot-version)"
+        fi
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+
+    # Per-OS, because the asset name and the path inside the archive differ and
+    # a cache key that ignored the runner would hand a Linux binary to Windows.
+    - name: Resolve the asset for this runner
+      id: asset
+      shell: bash
+      run: |
+        set -euo pipefail
+        version='${{ steps.pin.outputs.version }}'
+        case "${{ runner.os }}" in
+          Linux)
+            echo "archive=Godot_v${version}_linux.x86_64.zip"        >> "$GITHUB_OUTPUT"
+            echo "member=Godot_v${version}_linux.x86_64"             >> "$GITHUB_OUTPUT"
+            ;;
+          Windows)
+            echo "archive=Godot_v${version}_win64.exe.zip"           >> "$GITHUB_OUTPUT"
+            echo "member=Godot_v${version}_win64.exe"                >> "$GITHUB_OUTPUT"
+            ;;
+          macOS)
+            # One universal binary for Intel and Apple silicon, inside an .app.
+            echo "archive=Godot_v${version}_macos.universal.zip"     >> "$GITHUB_OUTPUT"
+            echo "member=Godot.app/Contents/MacOS/Godot"             >> "$GITHUB_OUTPUT"
+            ;;
+          *)
+            echo "unsupported runner: ${{ runner.os }}" >&2; exit 1 ;;
+        esac
+
+    - name: Cache Godot ${{ steps.pin.outputs.version }}
+      uses: actions/cache@v4
+      with:
+        path: ~/godot
+        key: godot-${{ steps.pin.outputs.version }}-${{ runner.os }}-${{ runner.arch }}
+
+    - name: Install Godot ${{ steps.pin.outputs.version }}
+      id: install
+      shell: bash
+      run: |
+        set -euo pipefail
+        version='${{ steps.pin.outputs.version }}'
+        archive='${{ steps.asset.outputs.archive }}'
+        member='${{ steps.asset.outputs.member }}'
+        dest="$HOME/godot"
+        binary="$dest/$member"
+
+        if [ ! -x "$binary" ]; then
+          mkdir -p "$dest"
+          url="https://github.com/godotengine/godot/releases/download/${version}/${archive}"
+          echo "Fetching $url"
+          curl -fsSL --retry 3 --retry-delay 5 -o /tmp/godot.zip "$url"
+          unzip -q -o /tmp/godot.zip -d "$dest"
+          chmod +x "$binary"
+        fi
+        [ -x "$binary" ] || { echo "no Godot binary at $binary" >&2; exit 1; }
+
+        # Absolute and native: build.sh hands this path to a native Windows
+        # binary, which cannot read an MSYS /c/... path.
+        if [ "${{ runner.os }}" = 'Windows' ]; then
+          binary="$(cygpath -m "$binary")"
+        fi
+        echo "bin=$binary" >> "$GITHUB_OUTPUT"
+        echo "GODOT_BIN=$binary" >> "$GITHUB_ENV"
+
+    # The suite asserts this matches the pin (ADR-008). Printing it makes a
+    # mismatch readable without opening a report.
+    - name: Report the engine version
+      shell: bash
+      run: '"$GODOT_BIN" --version'

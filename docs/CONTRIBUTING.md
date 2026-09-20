@@ -47,6 +47,13 @@ and merge without conflicts. `docs/LANES.md` is the board.
   The demo exits non-zero if a stroke fails to replay to its own hash, if the round on disk differs from the
   round played, or if a defender's verdict is not reproducible from its seed. It is fast, and it catches a
   whole class of bug the unit suite cannot see.
+- **Commit what the suite wrote.** The suite writes `walkthrough/` from itself (ADR-031): a test you add
+  is a line on a page, a suite you add needs a row in `tests/walkthrough/registry.gd` or the suite fails,
+  and a picture the walkthrough shows is taken by the test that asserts it -- `await Walkthrough.capture(
+  self, "<page>", "<shot>")`, from the scene the assertion ran against, never from a separate harness.
+  Run the suite with a display; if `git status` shows `walkthrough/` changed, that is your change's
+  documentation, and it goes in the same commit. The pictures themselves do not: `walkthrough/shots/`
+  is ignored, and CI records and uploads its own. Do not edit a generated page by hand: edit the suite.
 
 ## Changing the plan
 

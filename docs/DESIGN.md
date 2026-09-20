@@ -41,10 +41,18 @@ The atomic unit is one stroke. It must be fun on an empty hole before anything e
 - **Pull back** from the ball to set power (distance = power, capped).
 - **Drag sideways** while pulled to set curve (draw/fade). Small offset = subtle shape; large = banana.
 - **Release** to swing.
-- **Club** chosen with a tap before the pull: **Driver** (low loft, long), **Iron** (mid), **Wedge** (high loft, stops fast). **Putter** auto-selects on the green.
+- **Club** chosen with a tap before the pull: **long**, **short**, **putt** (ADR-018). The putter is picked like the other two rather than applied to the player on the green — an auto-putter is a rule you have to notice is happening to you. The selector is a small mark in the top-left corner (ADR-019), not a bar across the bottom.
 - **Rationale:** one gesture keeps the floor low for kids and touch; curve-on-the-same-gesture gives skilled players expression without a second input. Timing-bar golf was rejected: it rewards reflexes over reading the hole, against Pillar 1.
 
-**Aiming aid:** a 3D ribbon predicting the arc, *accurate on an empty hole* and *blind to defenders*. It tells the truth about physics and lies about the world — that is the core tension.
+**Aiming aid:** a 3D ribbon predicting the arc, *accurate on an empty hole* and *blind to defenders*. It tells the truth about physics and lies about the world — that is the core tension. It is joined by a flat direction line lying in the aim plane, which is the only part of the aid that survives a low camera angle intact.
+
+**Aiming is a subsystem, and it has correctness requirements** (`ADR-026`). Not a feel to be tuned — three properties that hold or do not, and each is a test:
+
+1. **The shot leaves opposite the drag, as seen on screen, at every camera angle.** The drag is unprojected onto the aim plane through the camera. Building the heading from the camera's flattened basis instead is exact only looking straight down, and drifts further the shallower the angle gets — measured at 2.8° of error steep and 32.9° shallow, which is a control that wanders as you orbit.
+2. **The drag responds all the way through.** The line locks only where there is a second phase to lock for. A stroke has curve to bend; a bow does not, and locking its line means the second half of every drag does nothing.
+3. **Every club is previewed in the terms it actually moves.** A putt rolls, so it is drawn as roll. Sampled as a projectile it lands within a metre and its stub comes to six centimetres, which is no preview at all for the club whose whole skill is distance.
+
+These were found by playing, not by testing, and the tests that hold them now were written from the report.
 
 **Camera** (ADR-001): free orbit, decoupled from aim. Two-finger drag on touch so it never collides with the one-finger stroke. One-tap "reset to line of play"; auto-snap to putt view on the green; zoom limited so the cup is always findable. Consequences: defender tells must read from any angle (silhouette + audio), and holes are authored without a hero angle.
 
@@ -97,13 +105,55 @@ depends on a vendor's emoji set rendering the same on two devices.
 
 The first run is a **private practice range** (`ADR-017`): a mat, and three pins at three distances, one for
 each club. Unlimited balls, and nothing scored against par — you are done with a pin when you have put a ball
-on it, and the strokes it took are counted but never held against you.
+on it, and the strokes it took are counted but never held against you. **The range never ends** (`ADR-029`):
+when a pin is made the next one comes up, and the next one is the next ternary digit of π — putt, short,
+putt, long, short, short, and never the same three twice. Every three pins made is a round, written to disk
+as a record; nothing stops for it. On the first run the golfer is the game, and the game just keeps golfing.
 
 There are three clubs, **long**, **short** and **putt**, and the player picks between them (`ADR-018`). The
 pin suggests one when it comes up and never insists: taking the long club to the putting pin is a perfectly
-good way to find out what the long club is. The selector runs along the bottom of the screen and has no words
-on it either — each club is a bar as long as that club is far, which is legible faster than a name would be
-readable and needs no translating.
+good way to find out what the long club is. The selector sits quietly in the top-left corner (`ADR-019`) and
+has no words on it either — each club is drawn as the shot it hits: the putt a flat line because it rolls, the
+short club a small steep arc, the long club a long shallow one, with both the length and the height taken from
+the club's own numbers. That is legible faster than a name would be readable, needs no translating, and says
+the thing a bar could not — which club gets a ball *over* something. It is drawn faint, on a small black panel
+local to the corner: the range is what is being looked at and the club in hand is a note in the margin. Its
+rows stay a fingertip tall regardless, because subtle is a claim about ink and not about what a thumb has to
+hit.
+
+**The first run opens on defence** (`ADR-028`): the first thing a new player sees is the game's golfer
+addressing a ball, and a bow in their own hands. A switch in the opposite corner to the club selector puts
+them on the other end of it (`ADR-020`) whenever they like — the game golfs while they defend, and **the
+archer on the rock is theirs** (`ADR-022`). The
+tutorial has that one defender and no other — an adversary as well would be a second idea arriving with the
+first — and handing the player the *safety net* is the better lesson anyway, because the ball you are asked
+to shoot is the one that was about to be lost. Working that side teaches where the course ends by patrolling
+it. While it is held it stops guarding by itself: taking the bow means the saving is now your job.
+
+Defence is played third person over the archer, with **the same pull-aim-release drag as the stroke**
+(`ADR-021`) — the drag draws a bow instead of swinging a club, the same ribbon previews where the arrow goes,
+and the arrow travels, so leading the ball is the skill. The drag reads a bearing on the ground plane, as the
+stroke's does, so the **archer supplies the elevation** and the player supplies the lead, the draw and the
+moment (`ADR-023`): a club gives a golfer their launch angle and an arrow has nobody to give it one, and a
+planar aim with a fixed one cannot be pointed at a ball in the air at all. The bearing is never assisted, so
+a lead that is wrong misses by exactly how wrong it was. Neither side gets a god view; that, and not a shared
+camera, is what makes the two halves fair to each other. The golfer has a tell now — a backswing, during
+which the ball is genuinely held — because §3 asks every defender to telegraph and never said the same of the
+golfer, which left a defender reading a shot from a ball that had already gone.
+
+The camera is the free orbit of `ADR-001`, and it is an offset rather than a mode: the range still frames the
+shot — behind the ball on the line to the pin, trailing the flight, wide on the archer as it draws — and two
+fingers swing that framing around whatever it chose to look at. One finger is the stroke and always was, so
+the two never meet. A tap that never became a stroke puts the camera back on the line of play. **Every
+turn of the camera is about the player** (`ADR-030`) — the archer under a held bow, the ball under a held
+club — never about a point down the line: two fingers swing the view around whoever is doing the swinging,
+and the defender's own view stands pulled back and seven degrees round to the right of the archer, an
+angle rather than a sideways step so that it survives the orbit. A player who touches nothing for a few
+seconds is shown themselves in the round instead of a viewpoint (`ADR-029`, `ADR-030`): the tour is not a
+second camera but the state's own framing turned about the player and eased outward, by an amount that
+fades in and fades out; at zero it *is* the framing, so leaving and returning are changes of speed and
+never of shot. The first touch brings it home. A defender who is only watching gets the tour; one about to
+shoot does not have the view pulled out from under them.
 
 This replaced "The Handshake", a par-4 dogleg that taught power, shaping and the putt through a lie-driven
 lesson machine. That was good work for a hole and the wrong first thing to show: it taught three lessons with
@@ -120,6 +170,9 @@ cannot lose a ball and has no failure state at all.
 - `[RATIFIED ADR-014]` No glyph vocabulary. Teaching is world → ribbon → ghost, three layers, all drawn.
 - `[RATIFIED ADR-017]` The first run is a private practice range: three pins, three clubs, unlimited balls, no par.
 - `[RATIFIED ADR-015]` Guarded by an archer that only stops balls leaving the range.
+- `[RATIFIED ADR-028]` The first run opens on defence. The range itself opens as the golfer; the menu scene that owns the first run says otherwise.
+- `[RATIFIED ADR-029]` The range never ends. The next pin is the next ternary digit of π; a round of three is a record, not a stop; an idle player's camera tours.
+- `[RATIFIED ADR-030]` The camera turns about the player, always; the defender's view is pulled back and seven degrees right; the idle tour is the framing eased, not a mode, so nothing ever cuts.
 
 ---
 
@@ -147,7 +200,7 @@ Each defender is a **Sport**: a cast, a **zone** it patrols, a **tell**, an **ac
 **Rules of defense**
 - Defenders are **fair**: they act on the ball's actual state, never on input before release.
 - Every defender has a **cooldown** and a **blind spot** visible in its idle.
-- Defenders never enter the tee box; the first swing is always yours.
+- Defenders never enter the tee box; the first swing is always yours. On the practice range, placement is derived from the lie rather than authored (`ADR-020`): the defender stands at twice the distance to the pin, mirrored through it, so it guards the ground beyond the target and a short putt is uncontested.
 - Difficulty tuning touches only reaction/accuracy/coverage, never invents abilities.
 - **Silent** (ADR-004): personality is carried by idle / tell / act / react animations and prop gags. No VO, no text bubbles. The tell's audio motif is a gameplay signal, not dialogue.
 
@@ -291,6 +344,7 @@ golfvs/                      # working repo name; see OPEN: title
 ├─ replay/                   # ReplayController, ghosts, fork UI
 ├─ defenders/_base/ + one folder per sport (scene, profile.tres, models)
 ├─ holes/ · clubs/ · art/ (LICENSE: CC-BY-4.0, .blend via LFS) · audio/ (LICENSE: CC-BY-4.0) · ui/ · tests/
+├─ walkthrough/              # the documentation, written by the suite from itself on every run (ADR-031)
 └─ .github/workflows/        # headless tests on PR; exports on tag
 ```
 
@@ -305,7 +359,7 @@ Each ends at its gate; the next begins when the gate is ratified.
 | # | Name | Exit criteria |
 |---|---|---|
 | **M0** | Bootstrap | Repo, version pin, CI green on an empty test, `DESIGN` / `DECISIONS` / `HANDOFF` / `ART_PIPELINE` / `RECORD_SCHEMA` seeded, placeholder capsule golfer, Android debug APK launches on a phone |
-| **M1** | The Stroke | Practice Range: gesture, 3 clubs, ball physics, aim ribbon, determinism test passing, every stroke written as a Stroke Record and replayable from it, on-device touch tuning. Ghost-gesture demo (§2.6) so a stranger can swing without being told how. **Gate: is it fun to hit balls at nothing, on a phone?** Schema v1 frozen at exit. |
+| **M1** | The Stroke | Practice Range: gesture, 3 clubs, ball physics, aim ribbon, determinism test passing, every stroke written as a Stroke Record and replayable from it, on-device touch tuning. Ghost-gesture demo (§2.6) so a stranger can swing without being told how. **Gate: is it fun to hit balls at nothing, on a phone?** — which cannot be asked before its precondition: **does the control do what it looks like it does** (`ADR-026`, §2.1)? A player fighting the aim is not answering the question the gate poses. Schema v1 frozen at exit. |
 | **M2** | First Defender + Scottish Rules | Skeet with full Idle→Tell→Act→Cooldown, data-driven profile, difficulty tiers, defender state in records; Scottish Rules on the same holes. **Gate: does the player feel outsmarting the shooter, and is the hole still good golf with the shooter gone?** |
 | **M3** | Vertical Slice | 3 holes, 4 MVP defenders, scorecard, HUD, first real low-poly set, one biome, music loop. **The intro hole and the wordless tutorial layer (§2.6)** — the external playtest is the gate for both. External playtest with kids and adults in Course Play and Scottish Rules. **Gate: can a stranger who was handed the phone with no explanation hole out, and did they smile?** |
 | **M4** | Course Play + Replay & Fork | 9 holes, save/load, settings, accessibility; Replay browser, scrubber, Retry / Defend / Ghost forks; record export/import via clipboard, QR, file, deep link. Android release export at 60 fps; desktop exports with mouse + gamepad adaptations. |

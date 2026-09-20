@@ -26,6 +26,16 @@ const MAX_TICKS_PER_STROKE := 900
 
 var _range: Node3D
 var _failures: PackedStringArray = []
+## Set when the range reports a round of three made. A member rather than a
+## local captured by a lambda, because GDScript lambdas capture by value and the
+## first version of this flag was set to true inside one and read as false
+## outside it -- the demo played fourteen strokes looking for an ending it had
+## already been told about.
+var _round_done := false
+## Every stroke this demo played, in order. The range clears its own list when
+## a round is written (ADR-029), so the thing to check the file against is what
+## the demo remembers playing, not what the range is currently holding.
+var _played: Array[StrokeRecord] = []
 
 
 func _ready() -> void:
@@ -35,6 +45,10 @@ func _ready() -> void:
 		await get_tree().process_frame
 		await _play()
 		get_tree().quit(0 if _failures.is_empty() else 1)
+
+
+func _on_round_finished(_strokes: int) -> void:
+	_round_done = true
 
 
 func _is_headless() -> bool:
@@ -60,19 +74,23 @@ func _play() -> void:
 		print("  marshal      %s on the tower at %v, guarding the boundary" % [
 			defender.brain.id, profile.stand])
 
+	# The range never stops (ADR-029): a round is three pins made, written to
+	# disk, and then the next pin comes up. So the demo plays until the range
+	# says a round is finished, not until it has nothing left to do.
+	_range.finished.connect(_on_round_finished)
 	_rule("strokes")
-	while _range.state != _range.State.DONE and _range.strokes < MAX_STROKES:
+	while not _round_done and _range.strokes < MAX_STROKES:
 		await _take_stroke()
 
 	_rule("card")
-	print("  pins made    %d of %d" % [_range.pin, _range.PINS.size()])
+	print("  pins made    %d, in the order %s" % [_range.pins_made,
+		_range.PIN_ORDER.substr(0, _range.pins_made)])
 	print("  strokes      %d" % _range.strokes)
-	var done: bool = _range.state == _range.State.DONE
-	print("  finished     %s" % ("yes" if done
-		else "no -- gave up after %d strokes" % MAX_STROKES))
+	print("  round        %s" % (("finished -- and the range is already on pin %d" % _range.pin) if _round_done
+		else ("not finished -- gave up after %d strokes" % MAX_STROKES)))
 
 	_rule("notation (RECORD_SCHEMA.md 4.1 -- derived, never parsed back)")
-	for line in _range.round_notation().split("\n"):
+	for line in RecordStore.notation(_played).split("\n"):
 		if line != "":
 			print("  %s" % line)
 
@@ -114,13 +132,21 @@ func _take_stroke() -> void:
 		await get_tree().physics_frame
 		ticks += 1
 
-	var record: StrokeRecord = _range._round[-1] if not _range._round.is_empty() else null
+	# The stroke that was just played is the last one the range holds -- or, if
+	# it was the third of a round, the last one it wrote, since it has started
+	# the next round with an empty list.
+	var record: StrokeRecord = null
+	if not _range._round.is_empty():
+		record = _range._round[-1]
+	elif not _range.last_round.is_empty():
+		record = _range.last_round[-1]
 	print("")
 	print("  %d. at the %s pin, %.0f m out" % [
 		number, club.id, Vector2(target.x, target.z).length()])
 	if record == null:
 		_failures.append("stroke %d wrote no record" % number)
 		return
+	_played.append(record)
 	var rest := record.after_pos
 	print("     intent     %s" % record.intent.to_notation())
 	print("     finished   %v on the %s   (%.1f m out, %.1f m from the pin)" % [
@@ -140,7 +166,7 @@ func _take_stroke() -> void:
 
 func _check_hashes() -> void:
 	var checked := 0
-	for record in _range._round:
+	for record in _played:
 		if not record.hash_matches():
 			_failures.append("stroke %d does not match its own hash" % record.stroke_no)
 		checked += 1
@@ -190,13 +216,13 @@ func _check_session_on_disk() -> void:
 	print("               %d strokes, %d bytes" % [
 		reloaded.size(), FileAccess.get_file_as_string(path).length()])
 
-	if reloaded.size() != _range._round.size():
-		_failures.append("the session on disk has %d strokes, the one played had %d"
-			% [reloaded.size(), _range._round.size()])
+	if reloaded.size() != _played.size():
+		_failures.append("the round on disk has %d strokes, the one played had %d"
+			% [reloaded.size(), _played.size()])
 		return
 	for i in reloaded.size():
 		var there: StrokeRecord = reloaded[i]
-		var here: StrokeRecord = _range._round[i]
+		var here: StrokeRecord = _played[i]
 		if there.after_hash != here.after_hash:
 			_failures.append("stroke %d changed hash on the way to disk" % here.stroke_no)
 		if not there.hash_matches():

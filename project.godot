@@ -11,16 +11,36 @@ config_version=5
 [application]
 
 config/name="golfVs"
-config/version="0.0.1-m0"
+config/version="0.0.3-prealpha"
 run/main_scene="res://ui/menu/main_menu.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 run/flush_stdout_on_print=true
 config/icon="res://icon.svg"
+; The loading screen. Ours, on the deck's own black (#05080c), scaled to fit
+; the window -- `fullsize` and `use_filter` are Godot's defaults and so are not
+; written here, because the editor strips defaults on save (ADR-025). PNG and
+; not SVG because Godot reads this file raw at startup and accepts nothing
+; else; tools/make_icons.gd renders it from icon.svg, and the header there says
+; why the result is committed.
+boot_splash/bg_color=Color(0.0196, 0.0314, 0.0471, 1)
+boot_splash/image="res://art/icon/boot_splash.png"
 
 [display]
 
+window/size/viewport_width=1152
+window/size/viewport_height=648
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+; Landscape, said out loud, and sensor-landscape rather than plain landscape so
+; the phone can be held either way up. ADR-007 makes the phone the reference
+; device; a golf shot is a horizontal thing and the range is wider than deep.
+;
+; It was already landscape, because that is Godot's default -- and Godot strips
+; settings equal to their default when the editor saves, so writing plain
+; landscape here would have silently vanished, the way
+; `physics/common/physics_ticks_per_second` was found to. 4 is sensor-landscape,
+; which is both the better behaviour and a value that survives.
+window/handheld/orientation=4
 
 [editor_plugins]
 
@@ -38,3 +58,7 @@ engine/pinned_godot_version="4.7.2.stable"
 
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="mobile"
+; Required for the Android export, which refuses to run without it, and correct
+; regardless: ETC2/ASTC is what mobile GPUs sample natively (ADR-007 makes a
+; phone the reference device). Desktop keeps S3TC/BPTC through the same import.
+textures/vram_compression/import_etc2_astc=true

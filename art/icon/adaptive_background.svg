@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 512 512">
+  <!--
+    golfVs — Android adaptive icon, background layer.
+
+    Full bleed and no rounded corners on purpose: the launcher owns the shape,
+    and it will mask this to a circle, a squircle or a teardrop depending on the
+    device. Anything drawn to an edge here is expected to be cut.
+
+    The deck and its boundary, and nothing else. The subject lives in the
+    foreground layer so that the launcher's parallax has two planes to move.
+  -->
+  <rect width="512" height="512" fill="#05080c"/>
+
+  <g fill="none" stroke="#2a8fb0" stroke-width="3" opacity=".3">
+    <path d="M256 214 -120 560M256 214 90 560M256 214 422 560M256 214 632 560"/>
+  </g>
+  <g fill="none" stroke="#2a8fb0" stroke-width="3" opacity=".22">
+    <path d="M0 250h512M0 310h512M0 396h512M0 508h512"/>
+  </g>
+
+  <path d="M0 214h512" stroke="#ff7a2f" stroke-width="9" opacity=".9"/>
+</svg>

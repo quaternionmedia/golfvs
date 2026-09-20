@@ -149,3 +149,122 @@ func test_a_tap_cancels_instead_of_firing() -> void:
 	gesture._start(Vector2(500.0, 300.0))
 	gesture._release()
 	assert_bool(cancelled[0]).is_true()
+
+
+# ----------------------------------------- the aim is what the drag looked like
+
+# The first pre-alpha feedback, and the reason these exist:
+#
+#   "From straight top down it works pretty straightforward, but with the camera
+#    at a lower angle, it starts to feel like it's not responding to the
+#    direction I'm choosing."
+#
+# It was not. The heading used to be built by mixing the camera's *flattened*
+# right and forward vectors, which is exact only when the camera looks straight
+# down. Everywhere else the ground is foreshortened, so a diagonal drag came out
+# far more "away from the camera" than it looked -- and the error grew as the
+# angle got shallower, which ADR-001's orbit made reachable.
+#
+# So the property worth pinning is not a formula, it is the player's experience
+# of one: **the shot should leave opposite the way the finger moved, on screen,
+# at every camera angle.** These check exactly that, by projecting the resulting
+# heading back onto the screen and comparing bearings.
+
+
+func _camera_at(pitch_degrees: float) -> Camera3D:
+	var camera := auto_free(Camera3D.new()) as Camera3D
+	add_child(camera)
+	# Looking at the origin from `pitch` above the horizon, from +Z.
+	var pitch := deg_to_rad(pitch_degrees)
+	var back := 24.0
+	camera.global_position = Vector3(0.0, sin(pitch) * back, cos(pitch) * back)
+	camera.look_at(Vector3.ZERO, Vector3.UP)
+	return camera
+
+
+## The heading, as the player sees it: where it points on screen, drawn from the
+## point they are aiming from.
+func _heading_on_screen(camera: Camera3D, heading: Vector3) -> Vector2:
+	var here := camera.unproject_position(Vector3.ZERO)
+	var there := camera.unproject_position(heading * 6.0)
+	return (there - here).normalized()
+
+
+func _aim_with(camera: Camera3D, drag: Vector2) -> Vector3:
+	var gesture := _gesture(camera)
+	var anchor := camera.get_viewport().get_visible_rect().size * 0.5
+	gesture._start(anchor)
+	gesture._track(anchor + drag)
+	return gesture._heading
+
+
+func test_the_shot_leaves_opposite_the_drag_at_every_camera_angle() -> void:
+	# Steep to shallow. 70 degrees is nearly the top-down view the player said
+	# worked; 12 is the low angle they said stopped responding.
+	for pitch in [70.0, 50.0, 30.0, 18.0, 12.0]:
+		var camera := _camera_at(pitch)
+		for bearing in [0.0, 45.0, 110.0, 200.0, 305.0]:
+			var drag := Vector2.RIGHT.rotated(deg_to_rad(bearing)) * 120.0
+			var heading := _aim_with(camera, drag)
+			var on_screen := _heading_on_screen(camera, heading)
+			# Slingshot: the shot goes the opposite way to the finger.
+			var want := -drag.normalized()
+			var off := rad_to_deg(absf(on_screen.angle_to(want)))
+			assert_float(off).override_failure_message(
+				"camera %.0f deg, drag bearing %.0f deg: the shot leaves %.0f deg "
+				% [pitch, bearing, off] + "away from the opposite of the drag"
+			).is_less(12.0)
+
+
+func test_a_shallow_camera_is_no_worse_than_a_steep_one() -> void:
+	# The specific complaint. Whatever error the mapping has, it must not grow
+	# as the camera comes down -- that is the part that felt like the control
+	# drifting rather than like the control being imprecise.
+	var drag := Vector2.RIGHT.rotated(deg_to_rad(50.0)) * 130.0
+	var worst := {}
+	for pitch in [65.0, 15.0]:
+		var camera := _camera_at(pitch)
+		var on_screen := _heading_on_screen(camera, _aim_with(camera, drag))
+		worst[pitch] = rad_to_deg(absf(on_screen.angle_to(-drag.normalized())))
+	assert_float(worst[15.0]).override_failure_message(
+		"steep camera is off by %.1f deg, shallow by %.1f" % [worst[65.0], worst[15.0]]
+	).is_less(maxf(worst[65.0], 1.0) + 8.0)
+
+
+func test_a_bow_can_be_re_aimed_without_letting_go() -> void:
+	# The other half of the same complaint. A stroke locks its line so that
+	# sliding across it bends the shot; a bow has nothing to bend, and locking
+	# it means the drag stops responding halfway through -- which is exactly
+	# what "not responding to the direction I'm choosing" describes.
+	var camera := _camera_at(35.0)
+	var gesture := _gesture(camera)
+	gesture.locks_line = false
+	var anchor := Vector2(560.0, 320.0)
+
+	gesture._start(anchor)
+	gesture._track(anchor + Vector2(0.0, 120.0))
+	var first := gesture._heading
+	gesture._track(anchor + Vector2(120.0, 120.0))
+	var second := gesture._heading
+
+	assert_float(first.angle_to(second)).override_failure_message(
+		"the aim did not move when the drag did"
+	).is_greater(deg_to_rad(15.0))
+	# And no curve is invented out of the sideways movement.
+	assert_float(gesture._curve).is_equal(0.0)
+
+
+func test_a_stroke_still_locks_its_line() -> void:
+	# The opposite guarantee, and the reason `locks_line` is a switch rather
+	# than a deletion: §2.1's two-phase gesture depends on the line committing.
+	var camera := _camera_at(35.0)
+	var gesture := _gesture(camera)
+	var anchor := Vector2(560.0, 320.0)
+
+	gesture._start(anchor)
+	gesture._track(anchor + Vector2(0.0, 120.0))
+	var first := gesture._heading
+	gesture._track(anchor + Vector2(120.0, 120.0))
+
+	assert_vector(gesture._heading).is_equal(first)
+	assert_float(gesture._curve).is_not_equal(0.0)

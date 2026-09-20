@@ -123,7 +123,8 @@ func reach(tier: DifficultyTier) -> float:
 
 ## Is this point still on the course? Bounds guards only.
 func in_bounds(point: Vector3) -> bool:
-	return absf(point.x - bounds_centre.x) <= bounds_extent.x 		and absf(point.z - bounds_centre.z) <= bounds_extent.y
+	return absf(point.x - bounds_centre.x) <= bounds_extent.x \
+		and absf(point.z - bounds_centre.z) <= bounds_extent.y
 
 
 ## True when `point` is somewhere this defender could act on at all. Position
@@ -140,21 +141,57 @@ func covers(point: Vector3, tier: DifficultyTier) -> bool:
 	return flat.length() <= reach(tier)
 
 
-## Chance of connecting at `point`: full in the middle of the zone, tailing to
-## nothing at the rim. The falloff is the blind spot §3 requires, and it is what
-## makes "curve so the lead is wrong" a real answer rather than a slogan.
-func accuracy_at(point: Vector3, tier: DifficultyTier) -> float:
+## How well placed `point` is within the zone, on its own: 1 straight through the
+## middle, tailing to 0 at the rim. This is the blind spot §3 requires, and it is
+## what makes "curve so the lead is wrong" a real answer rather than a slogan.
+##
+## Separated from `accuracy_at` because a defender played *by a person* is scored
+## on this and nothing else. The tier's accuracy is a stand-in for an opponent's
+## aim; a human supplied their own, and rolling dice on top of it would be
+## marking them down for a throw they did not make.
+func falloff_at(point: Vector3, tier: DifficultyTier) -> float:
 	if not covers(point, tier):
 		return 0.0
 	if guards_bounds:
 		# No rim to fall off: a boundary has no middle, so there is no
 		# geometric blind spot to model. A bounds guard is as good everywhere
 		# along the edge as its tier makes it.
-		return clampf(base_accuracy * tier.accuracy, 0.0, 1.0)
+		return 1.0
 	var flat := Vector2(point.x - zone_centre.x, point.z - zone_centre.z)
 	var edge := maxf(0.001, reach(tier))
-	var falloff := 1.0 - pow(flat.length() / edge, 2.0)
-	return clampf(base_accuracy * tier.accuracy * falloff, 0.0, 1.0)
+	return clampf(1.0 - pow(flat.length() / edge, 2.0), 0.0, 1.0)
+
+
+## Chance of connecting at `point`, for a defender the game is playing.
+func accuracy_at(point: Vector3, tier: DifficultyTier) -> float:
+	return clampf(
+		base_accuracy * tier.accuracy * falloff_at(point, tier), 0.0, 1.0)
+
+
+## The same sport as `archer()`, doing the other half of its §3 job: "air, near
+## green, arrow pins ball where hit". No boundary, a zone, and an apex trigger --
+## which `ArcherBrain._target_index` already falls back to when `guards_bounds`
+## is false, so an adversarial archer needed no new brain and never did.
+##
+## `zone_min_y` is the counter and the teacher at once. An archer that owns the
+## air above 2.5 m cannot touch a ball that stays under it, so "keep it low" is a
+## real answer -- and a putt, which never leaves the ground at all, is untouchable
+## by construction. On a range whose first pin is a putt, that means the defender
+## introduces itself exactly when the player starts flying the ball, and not one
+## stroke sooner. Nothing has to say so.
+static func contesting_archer(at: Vector3, zone := 11.0) -> DefenderProfile:
+	var profile := DefenderProfile.new()
+	profile.sport = "archery"
+	profile.action = Action.PIN
+	profile.stand = at
+	profile.zone_centre = at
+	profile.zone_radius = zone
+	profile.zone_min_y = 2.5
+	profile.zone_max_y = 45.0
+	profile.tell_lead = 0.45
+	profile.cooldown = 2.2
+	profile.base_accuracy = 0.7
+	return profile
 
 
 ## The 1.0 roster's first sport (§3): air, mid-fairway, fires at apex.

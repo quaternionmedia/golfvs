@@ -2,10 +2,23 @@
 .godot/
 /android/
 
-# Export artifacts and the presets file, which carries local keystore paths.
-export_presets.cfg
-/build/
+# Export artifacts. `export_presets.cfg` is tracked -- see the note at the top of
+# it: the keystore fields are empty and supplied by environment variables, so it
+# carries no secrets and no machine-local paths, and a build nobody else can
+# reproduce is not a build.
+# `/build/*` and not `/build/`, because git cannot re-include a file under an
+# excluded directory, and `build/.gdignore` has to be in the repository: it is
+# what stops the editor importing the icon renders build.sh writes there.
+/build/*
+!/build/.gdignore
 /exports/
+/dist/
+
+# The walkthrough's pictures are recorded by the test suite on every run with
+# a display, and CI's walkthrough job uploads the ones it took. They are not
+# in the repository: a picture is output, and the assertion beside it is the
+# evidence (ADR-031, revised). The pages that embed them are committed.
+/walkthrough/shots/
 
 # gdUnit4 writes run reports here.
 /reports/
