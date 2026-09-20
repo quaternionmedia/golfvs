@@ -39,6 +39,12 @@ reverse now and expensive later:
 3. **A skeet shooter on the intro hole, gentle tier, `defended` defaulting to true.** This moves the built
    hole *toward* §2.6, which asks it to teach "power, curve, **the defender**, putt"; the built hole taught
    power, curve, putt. The toggle also gives §4's Scottish Rules control group a switch.
+4. **DefensePlan authored through a rad ring** (`DESIGN.md` §11.4, branch `docs/rad-defence-ring`,
+   2026-09-19, no code behind it — a plan for M5). Placement and focus by long-press, the ring being
+   `rad-godot`'s `addons/rad/` copied at a version tag and locked by hash, this project's resolver, intents
+   applied by `DefensePlan`. Symbols by default and words when this project decides to show them; every item
+   carries its label from the start. It touches nothing a new player sees. The addon's side of this is
+   tracked in `rad-godot`'s `docs/integrations.md`; the branch is local until the human says to open it.
 
 The four proposals that block M1 design work are still unratified: **stroke gesture**, **three clubs +
 auto-putter**, **Stroke Record schema v1**, **GDScript + gdUnit4 + determinism**. Considerably more is now
