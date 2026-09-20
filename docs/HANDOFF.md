@@ -246,8 +246,14 @@ importing them in the first place with `build/.gdignore` (`.gitignore` becomes `
 a reviewer reads.
 
 **CI.** Pushed to PR #1 for a round with the new target and the rendered boot; the ratifier is running the
-Linux build on `minty` with `--rendering-method gl_compatibility` in parallel. Whether the advisory step
-reproduces the tester's crash on the runner's Mesa is the first thing to read in that run.
+Linux build on `minty` with `--rendering-method gl_compatibility` in parallel. **Both workflows green,
+and the advisory step did not reproduce the crash** -- which is itself the finding. The runner has the
+tester's exact lavapipe, `LLVM 20.1.2`, Mesa 25.2.8 on Ubuntu 24.04, and Forward Mobile ran its thirty
+frames; the one difference in the banner is `256 bits` against the tester's `128 bits`. So the abort is
+in LLVM's no-AVX code path, which a runner has no way to take, and the tester's box is confirmed as a
+VM or an AVX-less CPU rather than an exotic Mesa. Compatibility on llvmpipe passed too. The arm64 binary
+is `ELF 64-bit ARM aarch64` on the runner as well, `override.cfg` is beside it, and the two x86_64 packs
+are still byte-identical at 291,368 bytes.
 
 ### build-06, part eleven — CI triage, cleanup, plainer messaging, and a governance review
 
