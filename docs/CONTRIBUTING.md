@@ -52,7 +52,8 @@ and merge without conflicts. `docs/LANES.md` is the board.
   and a picture the walkthrough shows is taken by the test that asserts it -- `await Walkthrough.capture(
   self, "<page>", "<shot>")`, from the scene the assertion ran against, never from a separate harness.
   Run the suite with a display; if `git status` shows `walkthrough/` changed, that is your change's
-  documentation, and it goes in the same commit. Do not edit a generated page by hand: edit the suite.
+  documentation, and it goes in the same commit. The pictures themselves do not: `walkthrough/shots/`
+  is ignored, and CI records and uploads its own. Do not edit a generated page by hand: edit the suite.
 
 ## Changing the plan
 

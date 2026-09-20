@@ -14,6 +14,12 @@
 /exports/
 /dist/
 
+# The walkthrough's pictures are recorded by the test suite on every run with
+# a display, and CI's walkthrough job uploads the ones it took. They are not
+# in the repository: a picture is output, and the assertion beside it is the
+# evidence (ADR-031, revised). The pages that embed them are committed.
+/walkthrough/shots/
+
 # gdUnit4 writes run reports here.
 /reports/
 

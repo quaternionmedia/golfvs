@@ -40,8 +40,8 @@ behaviour does.
 - [Every suite under tests is a page and every page is a suite](../tests/walkthrough/test_walkthrough.gd#L58)
 - [The pages are written from the suites](../tests/walkthrough/test_walkthrough.gd#L83)
 - [Every declared shot is recorded and every recorded shot is declared](../tests/walkthrough/test_walkthrough.gd#L112)
-- [Every command the first page names exists](../tests/walkthrough/test_walkthrough.gd#L137)
-- [Every picture the documents embed is one the suite recorded](../tests/walkthrough/test_walkthrough.gd#L175)
+- [Every command the first page names exists](../tests/walkthrough/test_walkthrough.gd#L142)
+- [Every picture the documents embed is one the suite recorded](../tests/walkthrough/test_walkthrough.gd#L180)
 
 ---
 

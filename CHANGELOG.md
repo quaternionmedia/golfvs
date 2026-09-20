@@ -16,7 +16,8 @@ deciding whether to download a build.
   as prose, every test's name as a sentence linking to its assertion, and pictures taken by the tests
   that assert them. Page 01 is written by hand and every command on it is checked against the tree.
   CI fails if the pages the suite writes differ from the committed ones, and a new `walkthrough` job
-  runs the suite with a display so the pictures are actually recorded.
+  runs the suite with a display so the pictures are actually recorded. The pictures are not in the
+  repository: every run with a window records them beside the pages, and CI uploads its own.
 
 ### Known gaps
 - **The suite has only ever measured screen geometry on a square viewport.** Headless, Godot's

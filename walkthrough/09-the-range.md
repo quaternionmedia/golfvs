@@ -76,7 +76,7 @@ exactly that shape.
 
 ## As recorded
 
-*Taken by the tests above, from the scene they asserted against, on the last run with a display. Recorded, never compared (ADR-031).*
+*Taken by the tests above, from the scene they asserted against, by every run with a display. Not in the repository: run the suite with a window and they appear here, or take CI's `walkthrough-shots` artifact. Recorded, never compared (ADR-031).*
 
 ![The range on its own, as the suite instantiates it: the golfer at the ball on the mat, three pins, and the archer on the tower.](shots/the-range/the-range.png)
 

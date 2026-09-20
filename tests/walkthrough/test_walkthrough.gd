@@ -110,17 +110,22 @@ func test_the_pages_are_written_from_the_suites() -> void:
 
 
 func test_every_declared_shot_is_recorded_and_every_recorded_shot_is_declared() -> void:
+	# The pictures are not in the repository, so on a headless run there is
+	# nothing to find and nothing to conclude from not finding it. The run
+	# that can record is the run that is held to it: locally with a window,
+	# and CI's walkthrough job under xvfb, which deletes them all first.
+	var could_record := DisplayServer.get_name() != "headless"
 	var declared := {}
 	for page in Registry.PAGES:
 		for shot in page["shots"]:
 			var path := "%s/shots/%s/%s.png" % [ROOT, page["id"], shot]
 			declared[path] = true
-			assert_bool(FileAccess.file_exists(path)) \
-				.override_failure_message(
-					"%s is declared in the registry and was never recorded. " % path +
-					"A test in %s must `await Walkthrough.capture(self, \"%s\", \"%s\")`, " % [page["suite"], page["id"], shot] +
-					"and the suite must have run with a display -- headless draws nothing.") \
-				.is_true()
+			if could_record:
+				assert_bool(FileAccess.file_exists(path)) \
+					.override_failure_message(
+						"%s is declared in the registry and this run, which had a display, did not record it. " % path +
+						"A test in %s must `await Walkthrough.capture(self, \"%s\", \"%s\")`." % [page["suite"], page["id"], shot]) \
+					.is_true()
 	var shots_dir := "%s/shots" % ROOT
 	if not DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(shots_dir)):
 		return
@@ -185,10 +190,15 @@ func test_every_picture_the_documents_embed_is_one_the_suite_recorded() -> void:
 	for doc in docs:
 		for m in _embedded_shot.search_all(FileAccess.get_file_as_string(doc)):
 			var key := "%s/%s" % [m.get_string(1), m.get_string(2)]
+			var where := doc.trim_prefix("res://")
 			assert_bool(declared.has(key)) 				.override_failure_message(
-					"%s embeds walkthrough/shots/%s.png, which no registry row declares; " % [doc.trim_prefix("res://"), key] +
+					"%s embeds walkthrough/shots/%s.png, which no registry row declares; " % [where, key] +
 					"a picture the documents show has to be one a test records") 				.is_true()
-			assert_bool(FileAccess.file_exists("res://walkthrough/shots/%s.png" % key)) 				.override_failure_message("%s embeds walkthrough/shots/%s.png, which was never recorded" % [doc.trim_prefix("res://"), key]) 				.is_true()
+			# Not in the repository, so only a run that could have recorded it
+			# is held to its being there.
+			if DisplayServer.get_name() != "headless":
+				assert_bool(FileAccess.file_exists("res://walkthrough/shots/%s.png" % key)) 					.override_failure_message(
+						"%s embeds walkthrough/shots/%s.png, which this run did not record" % [where, key]) 					.is_true()
 
 
 # ----------------------------------------------------------- the rendering ---
@@ -219,7 +229,9 @@ func _render_page(ordinal: int, page: Dictionary) -> String:
 		out.append("## As recorded")
 		out.append("")
 		out.append("*Taken by the tests above, from the scene they asserted against, " +
-			"on the last run with a display. Recorded, never compared (ADR-031).*")
+			"by every run with a display. Not in the repository: run the suite with a " +
+			"window and they appear here, or take CI's `walkthrough-shots` artifact. " +
+			"Recorded, never compared (ADR-031).*")
 		for shot in shots:
 			out.append("")
 			out.append("![%s](shots/%s/%s.png)" % [shots[shot], page["id"], shot])
@@ -254,9 +266,12 @@ func _render_index() -> String:
 	out.append("")
 	out.append("## As recorded")
 	out.append("")
-	out.append("Every picture the walkthrough has, in page order. Each was taken by a test from " +
-		"the scene it had just asserted against, on the last run with a display; the " +
-		"caption links to the page and the page links to the test.")
+	out.append("Every picture the walkthrough has, in page order. Each is taken by a test from " +
+		"the scene it has just asserted against, by every run with a display; the " +
+		"caption links to the page and the page links to the test. **The pictures are " +
+		"not in the repository.** Run the suite with a window and they appear beside " +
+		"these pages; CI's walkthrough job records them under a virtual display and " +
+		"uploads them as the `walkthrough-shots` artifact.")
 	ordinal = 2
 	for page in Registry.PAGES:
 		var shots: Dictionary = page["shots"]
@@ -272,10 +287,11 @@ func _render_index() -> String:
 	out.append("- **Regenerating is running the tests.** `tests/walkthrough/test_walkthrough.gd` " +
 		"rewrites every generated page on every run of the suite; a page that changed " +
 		"is a diff in `git status`, and it is committed with the change that caused it.")
-	out.append("- **Pictures need a display.** A headless run draws nothing and leaves the " +
-		"committed pictures alone; a run with a window -- the ordinary local run -- " +
-		"records them again. CI's walkthrough job deletes them all, runs the suite under " +
-		"a virtual display, and fails if any declared picture was not recorded.")
+	out.append("- **Pictures need a display, and are never committed.** A headless run draws " +
+		"nothing; a run with a window -- the ordinary local run -- records every " +
+		"declared picture under `walkthrough/shots/`, which is ignored by git. CI's " +
+		"walkthrough job runs the suite under a virtual display, fails if any declared " +
+		"picture was not recorded, and uploads what it took.")
 	out.append("- **Drift is red.** CI runs the suite and then `git diff --exit-code -- walkthrough`: " +
 		"a generated page that differs from the committed one fails the build.")
 	out.append("- **The run that counts is on `main`.** A page that ran on a branch nobody merged " +

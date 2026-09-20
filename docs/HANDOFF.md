@@ -252,6 +252,15 @@ steps one frame by hand long enough for the ease to clamp; the selector picture 
 across runs and the other two differ only by pulsing glow. Captions were rewritten to what is actually
 in frame -- the first run is seen from behind the archer on the tower, with the golfer small and far.
 
+**And then out of the repository.** The ratifier's call: media is excluded. `walkthrough/shots/` is
+ignored and the three pictures untracked; every run with a window records them beside the pages, CI's
+walkthrough job records its own and uploads them, and the generator holds only a run that could have
+recorded to their being there -- proven three ways before committing: headless with no pictures on disk
+(196 green), windowed from an empty directory (all three recorded, the one known failure), headless again
+(pages unmoved). The README no longer embeds a picture, because on GitHub it would be a broken image;
+the index and the pages still do, for the reader who has run the suite. The boot splash and the `.ico`
+stay: Godot and the Windows export read them as inputs, and they are not what the suite records.
+
 **Not adopted, and said so.** The `governance/qm` submodule and the seed scripts are Lane 0's steps 1–3
 and still pend a push to `quaternionmedia/qm`. And one standard this project does not follow: `qm`'s
 `AGENTS.md` item 6, human-only contributorship -- no `Co-Authored-By:` trailer naming a vendor address,

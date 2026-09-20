@@ -24,7 +24,7 @@ One path through the game, in the order a newcomer meets it. The first page is w
 
 ## As recorded
 
-Every picture the walkthrough has, in page order. Each was taken by a test from the scene it had just asserted against, on the last run with a display; the caption links to the page and the page links to the test.
+Every picture the walkthrough has, in page order. Each is taken by a test from the scene it has just asserted against, by every run with a display; the caption links to the page and the page links to the test. **The pictures are not in the repository.** Run the suite with a window and they appear beside these pages; CI's walkthrough job records them under a virtual display and uploads them as the `walkthrough-shots` artifact.
 
 ![The first frame, from behind your archer on the tower: the game's golfer is at the ball down the range, and the switch in the corner hands you the club.](shots/the-first-thing-you-see/opens-on-defence.png)
 
@@ -41,7 +41,7 @@ Every picture the walkthrough has, in page order. Each was taken by a test from 
 ## How it is kept true
 
 - **Regenerating is running the tests.** `tests/walkthrough/test_walkthrough.gd` rewrites every generated page on every run of the suite; a page that changed is a diff in `git status`, and it is committed with the change that caused it.
-- **Pictures need a display.** A headless run draws nothing and leaves the committed pictures alone; a run with a window -- the ordinary local run -- records them again. CI's walkthrough job deletes them all, runs the suite under a virtual display, and fails if any declared picture was not recorded.
+- **Pictures need a display, and are never committed.** A headless run draws nothing; a run with a window -- the ordinary local run -- records every declared picture under `walkthrough/shots/`, which is ignored by git. CI's walkthrough job runs the suite under a virtual display, fails if any declared picture was not recorded, and uploads what it took.
 - **Drift is red.** CI runs the suite and then `git diff --exit-code -- walkthrough`: a generated page that differs from the committed one fails the build.
 - **The run that counts is on `main`.** A page that ran on a branch nobody merged has not run; [the CI history for `main`](https://github.com/quaternionmedia/golfvs/actions/workflows/ci.yml?query=branch%3Amain) is the evidence, not the presence of the workflow.
 - **One registry.** `tests/walkthrough/registry.gd` is the only list: page order, titles, which suite, which pictures. Every suite under `tests/` must have a row, and every declared picture must be recorded, or the suite fails.

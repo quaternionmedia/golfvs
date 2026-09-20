@@ -22,11 +22,6 @@
 # budget, so unset the filter for everything under addons/.
 addons/** !filter !diff !merge
 
-# The walkthrough's pictures are recorded by the test suite and read on
-# GitHub's rendering of the page beside them; small, regenerated, and plain
-# blobs so a clone without LFS still shows them (ADR-031).
-walkthrough/shots/** !filter !diff !merge -text
-
 # The boot splash is the one PNG that has to be a real file in the tree: Godot
 # reads it raw at startup and accepts nothing but PNG, and an LFS pointer there
 # is Godot's own logo on every fresh clone. Rendered from icon.svg by

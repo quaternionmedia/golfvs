@@ -23,7 +23,7 @@ menu and not the range.
 
 ## As recorded
 
-*Taken by the tests above, from the scene they asserted against, on the last run with a display. Recorded, never compared (ADR-031).*
+*Taken by the tests above, from the scene they asserted against, by every run with a display. Not in the repository: run the suite with a window and they appear here, or take CI's `walkthrough-shots` artifact. Recorded, never compared (ADR-031).*
 
 ![The first frame, from behind your archer on the tower: the game's golfer is at the ball down the range, and the switch in the corner hands you the club.](shots/the-first-thing-you-see/opens-on-defence.png)
 
