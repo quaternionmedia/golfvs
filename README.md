@@ -71,9 +71,10 @@ $GODOT_BIN --headless --fixed-fps 120 --path . res://tools/demo_round.tscn
 ### Building it
 
 ```sh
-tools/build.sh            # all four, into build/
+tools/build.sh            # all five, into build/
 tools/build.sh windows
 tools/build.sh linux
+tools/build.sh linux-arm64  # Raspberry Pi 5; ships with an override.cfg (Compatibility renderer)
 tools/build.sh macos
 tools/build.sh android
 ```
@@ -82,7 +83,8 @@ Debug builds, all of them. The script installs the export templates if they are
 missing, finds a JDK, makes an Android debug keystore if there isn't one, and
 tells Godot where all three are — so the only thing you need in advance is the
 engine. `.github/workflows/build.yml` runs the same script for Windows, Linux
-and Android on every pull request -- the APK is in the run's artifacts -- and on
+(x86_64 and arm64) and Android on every pull request -- the APK is in the run's
+artifacts -- and on
 a `v*` tag assembles a **draft** release for a person to check and publish
 (ADR-027). macOS builds locally only, unsigned; Gatekeeper will want
 `xattr -dr com.apple.quarantine golfVs.app` before it opens.

@@ -10,6 +10,25 @@ deciding whether to download a build.
 
 ## [Unreleased]
 
+### Added
+- **A Raspberry Pi 5 build.** `linux-arm64` is the fifth target of `tools/build.sh` and the fourth CI
+  builds on every pull request (ADR-027, revised again). One preset, no new tooling; its pack carries
+  ETC2/ASTC textures rather than BC because that is what the Pi's GPU samples. It ships with an
+  `override.cfg` beside the binary that starts the game on the Compatibility renderer -- provisional
+  until both renderers have been measured on a Pi; delete the file to try Forward Mobile.
+- **CI boots the Linux build with a renderer**, twice -- Forward Mobile on lavapipe and Compatibility
+  on llvmpipe, under a virtual X server. Advisory for now: the step goes red, the job stays green.
+
+### Fixed
+- **A crash before the first frame on machines whose only Vulkan device is `llvmpipe`** (a VM, or a
+  desktop without a Vulkan driver), reported by the first outside tester. Not ours to fix -- it is
+  Mesa's software driver aborting inside its own shader compiler on one of the engine's Mobile-renderer
+  shaders -- but ours to name: `./golfVs.x86_64 --rendering-method gl_compatibility` avoids it, and
+  the release notes now say so. The `propagate_notification` error printed just before the crash is
+  Godot's crash handler running on the driver's thread, not a second bug.
+- The launcher-icon renders under `build/` are no longer imported by the editor at all
+  (`build/.gdignore`); the export exclusion stays as the second line of defence.
+
 ## [0.0.2] — 2026-09-19
 
 **Pre-alpha.** The first build that came out of CI rather than off a desk, and the

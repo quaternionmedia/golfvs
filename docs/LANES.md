@@ -293,8 +293,8 @@ the action means the defender silently never acts, which looks exactly like one 
 ## Lane H — Infrastructure
 
 **Owns:** `.github/` · `tools/`
-**Status:** the docs check has six enforcement rules; the demo is a gate; all four targets build from one
-script and the suite is matrixed across three operating systems (ADR-027). None of the CI has run yet.
+**Status:** the docs check has six enforcement rules; the demo is a gate; all five targets build from one
+script and the suite is matrixed across three operating systems (ADR-027). CI has run, and is green.
 
 - [x] Documents-exist and proposals-agree checks
 - [x] The demo round as a CI job
@@ -312,6 +312,17 @@ script and the suite is matrixed across three operating systems (ADR-027). None 
       list of targets; macOS is local-only until somebody can open one
 - [x] `tools/check_version_consistency.py` -- the four places a version is stated, refused in CI if they
       disagree, and the tag with them on a tag build
+- [x] **Linux arm64, for the Raspberry Pi 5** (ADR-027 revised again). Fifth target, fourth in CI; one
+      preset, ETC2/ASTC textures, an `override.cfg` beside the binary for the Compatibility renderer.
+      Exported from a clean tree on Windows and confirmed aarch64; never booted, nobody has the chip
+- [x] **CI boots the Linux build with a renderer**, lavapipe and llvmpipe under xvfb, thirty frames each.
+      Advisory (`continue-on-error`) until it has been green long enough to be believed; the headless
+      boot had never created a renderer and so could not have seen the first outside tester's crash
+- [ ] **Measure both renderers on a Pi 5** and turn the arm64 `override.cfg` from a guess into a
+      decision: frame time on Forward Mobile and on Compatibility, at the Pi's display resolution, with
+      and without glow. The next knob if Compatibility is still slow is 3D resolution scale
+- [ ] **Promote the rendered boot to a gate** once it has passed on, say, ten consecutive runs -- drop
+      `continue-on-error` and add the step to nothing; the job is already required
 - [x] Publishing hygiene (ADR-025): own icon, `THIRDPARTY.md`, the workshop excluded from exports, community
       files, `CHANGELOG.md`, and `docs/RELEASE.md` as the checklist
 - [ ] **Make the matrix measure what it was built for.** Today each CI leg plays its own random round

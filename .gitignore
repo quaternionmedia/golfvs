@@ -6,7 +6,11 @@
 # it: the keystore fields are empty and supplied by environment variables, so it
 # carries no secrets and no machine-local paths, and a build nobody else can
 # reproduce is not a build.
-/build/
+# `/build/*` and not `/build/`, because git cannot re-include a file under an
+# excluded directory, and `build/.gdignore` has to be in the repository: it is
+# what stops the editor importing the icon renders build.sh writes there.
+/build/*
+!/build/.gdignore
 /exports/
 /dist/
 

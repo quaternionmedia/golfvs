@@ -1,6 +1,7 @@
 name: Build
 
-# Test builds for Windows, Linux and Android, on every pull request.
+# Test builds for Windows, Linux (x86_64 and arm64) and Android, on every pull
+# request.
 #
 # It used to run on tag and by hand only, to spare the 1.3 GB template download
 # and the artifacts. The ratifier turned it on for every change (ADR-027,
@@ -8,9 +9,11 @@ name: Build
 # somebody remembers to tag is an APK nobody installs. The templates are cached
 # by engine version, so the cost after the first run is the export itself.
 #
-# Three targets, not four. macOS exports fine from this runner and nobody on the
+# Four targets, not five. macOS exports fine from this runner and nobody on the
 # project has a machine to open the result on, so it stays a local target --
-# `tools/build.sh macos` -- rather than 64 MB of artifact for no one.
+# `tools/build.sh macos` -- rather than 64 MB of artifact for no one. Linux
+# arm64 is the Raspberry Pi 5 build; it cannot be booted on this runner either,
+# and ships with an override.cfg that starts it on the Compatibility renderer.
 #
 # ADR-002 makes GitHub releases the canonical distribution. On a `v*` tag this
 # assembles one -- as a **draft**. docs/RELEASE.md is explicit that the checks
@@ -38,7 +41,7 @@ concurrency:
 
 jobs:
   build:
-    name: "Build: Windows, Linux and Android (debug)"
+    name: "Build: Windows, Linux x86_64/arm64 and Android (debug)"
     runs-on: ubuntu-latest
     # The template download is the slow part, and it is cached after the first
     # run; a cold run is well inside this.
@@ -88,21 +91,62 @@ jobs:
 
       # Everything platform-specific lives in the script, so this job and a
       # person's laptop run the same build. The script boots the Linux build
-      # once at the end of its own export, and on this runner that check
-      # actually fires -- so the artifact nobody on this project can launch by
-      # hand is the one that gets proven.
-      - name: Export Windows, Linux and Android (debug, via tools/build.sh)
-        run: tools/build.sh windows linux android
+      # once, headless, at the end of its own export, and on this runner that
+      # check actually fires -- so the artifact nobody on this project can
+      # launch by hand is the one that gets checked. Headless means: the pack
+      # loads and the first scene builds. It says nothing about drawing; the
+      # step after next is for that.
+      - name: Export Windows, Linux x86_64/arm64 and Android (debug, via tools/build.sh)
+        run: tools/build.sh windows linux linux-arm64 android
 
-      - name: Inspect the outputs (pack sizes, APK manifest)
+      - name: Inspect the outputs (pack sizes, arm64 binary, APK manifest)
         run: |
           set -euo pipefail
-          ls -la build/windows build/linux build/android
+          ls -la build/windows build/linux build/linux-arm64 build/android
           echo "--- pack sizes must agree: same exclude_filter, same game ---"
           ls -l build/windows/golfVs.pck build/linux/golfVs.pck
           cmp build/windows/golfVs.pck build/linux/golfVs.pck && echo "packs are byte-identical"
+          echo "--- arm64: the pack differs on purpose (ETC2/ASTC, not BC); the binary must be aarch64 ---"
+          ls -l build/linux-arm64/golfVs.pck
+          file build/linux-arm64/golfVs.arm64 | tee /dev/stderr | grep -q 'aarch64' && echo "arm64 binary is aarch64"
+          test -f build/linux-arm64/override.cfg && echo "override.cfg is beside it"
           echo "--- APK ---"
           unzip -p build/android/golfVs.apk AndroidManifest.xml > /dev/null && echo "APK is readable"
+
+      # The headless boot proves the pack; this proves the pixels, or tries to.
+      # The first outside tester's report was a crash before the first frame,
+      # inside lavapipe's shader compiler (Mesa's software Vulkan, what a VM or
+      # a driverless desktop gets), and nothing in CI could have seen it: no
+      # step here had ever created a renderer. This one does, twice -- the
+      # project's own renderer on lavapipe, and the Compatibility renderer on
+      # llvmpipe, which is the workaround the release notes now name -- under a
+      # virtual X server, for thirty frames each.
+      #
+      # Advisory, not a gate: a software driver's crash is Mesa's bug as often
+      # as ours, and the runner's Mesa is not the tester's. It goes red on the
+      # step and green on the job, and becomes a gate once it has been green
+      # long enough to be believed.
+      - name: Boot the Linux build with a renderer (advisory; lavapipe and llvmpipe)
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb mesa-vulkan-drivers libgl1 libegl1 \
+            libxcursor1 libxinerama1 libxrandr2 libxi6 > /dev/null
+          status=0
+          boot() {
+            echo "=== $1 ==="
+            if ( cd build/linux && timeout 120 xvfb-run -a ./golfVs.x86_64 \
+                   --audio-driver Dummy --quit-after 30 "${@:2}" ); then
+              echo "PASS: $1"
+            else
+              echo "FAIL: $1 (exit $?)"; status=1
+            fi
+          }
+          boot "Forward Mobile on lavapipe (as exported)"
+          boot "Compatibility on llvmpipe (--rendering-method gl_compatibility)" \
+            --rendering-method gl_compatibility
+          exit $status
 
       # A tar for Linux rather than a zip: a zip forgets the executable bit,
       # and a Linux build that arrives without one is a file, not a game.
@@ -114,15 +158,16 @@ jobs:
           mkdir -p dist
           # The licence travels with every archive (ADR-025): Godot is
           # statically linked into each binary and MIT requires the notice.
-          for target in windows linux android; do
+          for target in windows linux linux-arm64 android; do
             cp THIRDPARTY.md CHANGELOG.md "build/$target/"
           done
-          ( cd build/windows && zip -qr "../../dist/golfVs-${version}-windows-x86_64.zip" . )
-          ( cd build/linux   && tar -czf "../../dist/golfVs-${version}-linux-x86_64.tar.gz" . )
+          ( cd build/windows     && zip -qr "../../dist/golfVs-${version}-windows-x86_64.zip" . )
+          ( cd build/linux       && tar -czf "../../dist/golfVs-${version}-linux-x86_64.tar.gz" . )
+          ( cd build/linux-arm64 && tar -czf "../../dist/golfVs-${version}-linux-arm64.tar.gz" . )
           cp build/android/golfVs.apk "dist/golfVs-${version}-android-arm64.apk"
           ls -la dist/
 
-      # One artifact with all three inside, named by version and the commit it
+      # One artifact with all four inside, named by version and the commit it
       # was built from, so that two PRs' builds cannot be mistaken for one
       # another in the list. On a pull request `github.sha` is the merge commit
       # nobody has in their log; the head SHA is the one `git log` shows.
@@ -173,7 +218,13 @@ jobs:
           print(body)
           print("\n---\nEach archive contains `THIRDPARTY.md` (licences for what is statically linked) and `CHANGELOG.md`. "
                 "Windows: unzip and run `golfVs.exe`. Linux: `tar xzf`, then `./golfVs.x86_64`. "
-                "Android: install the `.apk` (it asks for no permissions).")
+                "Raspberry Pi 5 (64-bit OS): the `linux-arm64` archive, `./golfVs.arm64`; it starts on the "
+                "Compatibility renderer because of the `override.cfg` beside it. "
+                "Android: install the `.apk` (it asks for no permissions).\n\n"
+                "If the Linux build crashes at start or runs slowly, run it as "
+                "`./golfVs.x86_64 --rendering-method gl_compatibility`: a machine whose only Vulkan device is "
+                "`llvmpipe` (a VM, or a desktop without a Vulkan driver) crashes inside that software driver's "
+                "shader compiler before the first frame, and the Compatibility renderer does not use it.")
           PY
           cat notes.md
 

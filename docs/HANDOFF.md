@@ -14,8 +14,9 @@
   `godot.windows.opt.tools.64.exe` under `Steam/steamapps/common/Godot Engine/`.
 - **Tests: 191 cases, 0 failures, 0 orphans** (was 22 at bootstrap, 66 at build-04, 169 at build-05),
   headless on the pinned engine. CI will run them on Linux, Windows and macOS (ADR-027) once there is a CI.
-- **Builds: four targets from one script** — Windows, Linux, macOS, Android, all debug (ADR-027). All four
-  exported from a clean tree on this machine at the end of build-06.
+- **Builds: five targets from one script** — Windows, Linux x86_64, Linux arm64 (Raspberry Pi 5), macOS,
+  Android, all debug (ADR-027). All exported from a clean tree on this machine during build-06; CI builds
+  four of them on every pull request and boots the Linux one twice, headless and with a renderer.
 - **The first run opens on defence** (ADR-028), the loading screen is ours, and **the range never ends**
   (ADR-029): the game's golfer keeps golfing, the pins follow π in ternary, and an idle player's camera
   tours — about the player, as every turn of the camera now is (ADR-030), and without ever cutting.
@@ -196,6 +197,57 @@ golfVs off the house pattern. Noted, not argued.
 
 Then a throwaway PR editing `DESIGN.md` alone, to watch the coupling check fail for the first time; then
 branch protection as above; then Lane 0's QM steps 1–3.
+
+### build-06, part twelve — the first outside crash report, and a build for the Pi 5
+
+**The report.** The first person outside the project to run the Linux build got, on a machine called
+`minty`, a crash before the first frame: `Vulkan 1.4.318 - Forward Mobile - Using Device #0: Unknown -
+llvmpipe (LLVM 20.1.2, 128 bits)`, then `ERROR: /root: The caller thread can't call the function
+propagate_notification() on this node`, then signal 4 with a backtrace that never leaves `libLLVM` and
+`libvulkan_lvp`. Read in order: that box has no hardware Vulkan, so Godot took Mesa's software device
+(`128 bits` is a CPU with no AVX, which is nearly always a VM); lavapipe hands each shader to LLVM on a
+worker thread; LLVM's optimiser hit an `llvm_unreachable`, which is `ud2` in a release build, which is
+SIGILL. The `propagate_notification` line is Godot's crash handler sending `NOTIFICATION_CRASH` to the
+tree *from the driver's thread* and the thread guard refusing it -- it prints before "Program crashed"
+because the handler notifies first. Not a bug in the game and not a second bug: one crash, in Mesa,
+reported twice.
+
+**What CI could have seen, and could not.** `build.sh` boots the Linux build `--headless --quit`, and
+`build.yml`'s comment called that the artifact "getting proven". Headless never creates a renderer. It
+proves the pack loads and the first scene builds -- which is real -- and says nothing about drawing, and
+this crash was entirely in the nothing. The comment now says "checked", with the gap named, and a new step
+boots the build under `xvfb-run` twice: Forward Mobile on lavapipe, exactly the tester's configuration,
+and Compatibility on llvmpipe, which is the workaround. Thirty frames each, `--audio-driver Dummy`,
+`timeout 120`. **Advisory** -- `continue-on-error: true`, red step, green job -- because a software
+driver's crash is Mesa's bug as often as ours and the runner's Mesa is not the tester's; Lane H has the
+item to promote it once it has been green long enough to be believed. The release notes now carry the one
+line that matters to the next person on a VM: `./golfVs.x86_64 --rendering-method gl_compatibility`.
+
+**The Pi 5.** The ratifier is taking a build to a Raspberry Pi 5. Everything it needs was one preset:
+`Linux arm64`, `binary_format/architecture="arm64"`, the templates package has carried it since 4.3.
+Exported from a clean tree on this machine and confirmed `ELF 64-bit LSB executable, ARM aarch64`, 66 MB.
+Two things differ from the x86_64 preset on purpose. Textures: `etc2_astc=true, s3tc_bptc=false`, because
+VideoCore VII samples ETC2/ASTC natively and has no BC support at all -- hand it BC and Godot decompresses
+on the CPU at load; the same reasoning `project.godot` already gives for Android. And an `override.cfg`
+beside the binary -- Godot reads one from the executable's directory in every exported build -- that
+starts the game on the **Compatibility renderer**. The Pi's V3DV driver is conformant and Forward Mobile
+will start on it, but the GPU is phone-class and glow is a blur chain at window resolution; the guess is
+that Compatibility is the playable one, and the environment uses nothing Compatibility lacks in 4.7
+(glow, depth fog, ACES). It is a guess. The file's header says so, says to delete it to try the other
+renderer, and Lane H has the measurement as an open item. Never booted: no machine that runs `build.sh`
+is arm64, the same gap as macOS, named the same way. The arm64 pack is 291,368 bytes like the x86_64 one
+and differs from it by content; CI's `cmp` stays x86_64-against-x86_64 and a `file | grep aarch64` checks
+the binary instead.
+
+**And the icon renders.** Part ten excluded `build/*` from the exports; this part stops the editor
+importing them in the first place with `build/.gdignore` (`.gitignore` becomes `/build/*` plus
+`!/build/.gdignore`, because git cannot re-include a file under an excluded directory). Nine stale
+`.import` sidecars under `build/icons/` from before were deleted locally. The exclusion stays, as the line
+a reviewer reads.
+
+**CI.** Pushed to PR #1 for a round with the new target and the rendered boot; the ratifier is running the
+Linux build on `minty` with `--rendering-method gl_compatibility` in parallel. Whether the advisory step
+reproduces the tester's crash on the runner's Mesa is the first thing to read in that run.
 
 ### build-06, part eleven — CI triage, cleanup, plainer messaging, and a governance review
 

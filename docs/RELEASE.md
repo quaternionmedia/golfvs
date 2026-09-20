@@ -21,24 +21,35 @@ python tools/check_docs_consistency.py
 python tools/check_version_consistency.py
 ```
 
-**Build from a clean tree.** All four locally; CI builds the three it can prove
-on every pull request and puts them in the run's artifacts, so the APK you put
-on a phone can be the one CI made rather than the one on your machine.
+**Build from a clean tree.** All five locally; CI builds the four it can on
+every pull request and puts them in the run's artifacts, so the APK you put on
+a phone can be the one CI made rather than the one on your machine.
 
 ```sh
-rm -rf build && tools/build.sh                        # all four
-rm -rf build && tools/build.sh windows linux android  # what CI builds
+rm -rf build && tools/build.sh                                    # all five
+rm -rf build && tools/build.sh windows linux linux-arm64 android  # what CI builds
 ```
 
 The script boots the Windows build once at the end of its own export, and the
-Linux build when it is running on Linux -- which it is, in CI. An export that
-produced a file is not the same as one that produced a game. The macOS build is
-the one nobody here can boot; that is a gap in the proof and it is named below.
+Linux build when it is running on Linux -- which it is, in CI. Headless, so it
+proves the pack loads and the first scene builds and nothing about drawing; CI
+boots the Linux build with a renderer as well, advisory, because the first crash
+an outside tester reported was in exactly that gap. An export that produced a
+file is not the same as one that produced a game. The macOS and Linux arm64
+builds are the ones nobody here can boot; that is a gap in the proof and it is
+named below.
 
 **Then look at what came out.** These are the ones a script cannot do:
 
 - [ ] **Run every binary you can.** Windowed, not headless, and the APK on a real
       phone. An unlaunched binary is not a release, it is a hypothesis.
+- [ ] **On a machine with no real GPU, expect the Linux build to crash and know
+      why.** If Godot's first line says `Using Device #0: ... llvmpipe`, the only
+      Vulkan device is Mesa's software one, and its shader compiler aborts on
+      the Mobile renderer before the first frame (signal 4, a backtrace full of
+      `libLLVM` and `libvulkan_lvp`). `--rendering-method gl_compatibility` is
+      the whole fix; it is in the release notes, and it belongs there until the
+      engine stops picking a CPU device over OpenGL by itself.
 - [ ] **On a mac, strip the quarantine first.** The bundle is unsigned and
       un-notarized (no Apple identity -- ADR-027), so Gatekeeper refuses it on
       sight. `unzip golfVs.zip && xattr -dr com.apple.quarantine golfVs.app`
@@ -122,14 +133,15 @@ These are the reasons builds before v0.1.0 are labelled test builds.
 what breaks: a debug build says so loudly, and there is nobody to protect from
 the noise yet.
 
-**Four targets, one host; three of them in CI.** Windows, Linux, macOS and
-Android, all exported by `tools/build.sh` from whichever machine runs it --
-Godot cross-exports every platform given the templates. Linux and macOS cost
-one preset each and no new tooling, exactly as this document predicted before
-they existed. CI builds the three somebody can run and leaves macOS local until
-somebody can. The desktop packs come out byte-identical, which is the exclusion
-filter proving that the same game is in each box -- and CI `cmp`s them to say
-so.
+**Five targets, one host; four of them in CI.** Windows, Linux x86_64, Linux
+arm64, macOS and Android, all exported by `tools/build.sh` from whichever
+machine runs it -- Godot cross-exports every platform given the templates.
+Linux, macOS and Linux arm64 cost one preset each and no new tooling, exactly
+as this document predicted before they existed. CI builds the four it can and
+leaves macOS local until somebody can open one. The x86_64 desktop packs come
+out byte-identical, which is the exclusion filter proving that the same game is
+in each box -- and CI `cmp`s them to say so. The arm64 pack differs by design:
+it carries ETC2/ASTC textures, because that is what the Pi's GPU samples.
 
 **macOS unsigned and un-notarized.** There is no Apple Developer identity, and
 buying one to ship a debug build would decide the release question sideways.
@@ -137,3 +149,11 @@ Gatekeeper's quarantine is documented rather than worked around.
 
 **arm64 only on Android.** Every phone worth testing on has been 64-bit for
 years, and a second architecture doubles the APK for nobody.
+
+**The Raspberry Pi 5 build starts on the Compatibility renderer, provisionally.**
+The Pi's Vulkan driver is conformant and Forward Mobile starts on it, but the
+GPU is a phone-class part and glow is a blur chain at window resolution. The
+`override.cfg` beside `golfVs.arm64` switches renderers; deleting it tries the
+other one. Nobody has measured either on a Pi yet, and until somebody has, the
+file is a guess with its reasoning in its header. Never booted in CI, for the
+same reason as macOS: the runner is the wrong chip.

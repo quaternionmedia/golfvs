@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# Build golfVs for Windows, Linux, macOS and Android.
+# Build golfVs for Windows, Linux (x86_64 and arm64), macOS and Android.
 #
-#   tools/build.sh                        # all four
-#   tools/build.sh windows                # one
-#   tools/build.sh windows linux android  # what CI builds; macOS is local-only
+#   tools/build.sh                                    # all five
+#   tools/build.sh windows                            # one
+#   tools/build.sh windows linux linux-arm64 android  # what CI builds; macOS is local-only
 #
 # What this exists for: M0's exit is "the APK launches on a phone", and that has
 # been recorded as "blocked on hardware" since the first handoff. Most of it was
@@ -24,9 +24,9 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 
-# Any number of targets, or none for all of them. CI asks for three by name --
-# Windows, Linux, Android -- and leaves macOS to whoever has a mac to open it
-# on, which nobody on this project does.
+# Any number of targets, or none for all of them. CI asks for four by name --
+# Windows, Linux, Linux arm64, Android -- and leaves macOS to whoever has a mac
+# to open it on, which nobody on this project does.
 targets=("${@:-all}")
 wants() {
   local t
@@ -226,10 +226,16 @@ if wants linux; then
   export_one "Linux" "build/linux/golfVs.x86_64"
   # The same boot check the Windows build gets, on the host that can run it.
   # This is the one that actually fires in CI, because the runner is Linux --
-  # so the artifact nobody here can launch is the artifact that gets proven.
+  # so the artifact nobody here can launch is the artifact that gets checked.
+  #
+  # Checked, not proven: `--headless` never initialises a renderer, so this says
+  # the pack loads and the first scene builds, and nothing about whether the
+  # game draws. The first outside tester's crash was in exactly that gap -- a
+  # software Vulkan driver's shader compiler, before the first frame -- and
+  # build.yml now boots the build with a renderer as well, advisory, under xvfb.
   case "$(uname -s)" in
     Linux)
-      say "Booting the Linux build once"
+      say "Booting the Linux build once (headless)"
       if ( cd build/linux && ./golfVs.x86_64 --headless --quit ); then
         printf '  it starts
 '
@@ -238,6 +244,22 @@ if wants linux; then
       fi
       ;;
   esac
+fi
+
+if wants linux-arm64; then
+  # The Raspberry Pi 5 build. One preset and no new tooling, like every other
+  # Linux target; the templates package has carried arm64 since 4.3.
+  export_one "Linux arm64" "build/linux-arm64/golfVs.arm64"
+  # No boot check: nothing that runs this script is an arm64 machine, and a
+  # binary that cannot execute here would fail the build for the one reason
+  # that is not a problem. Same gap as macOS, named the same way.
+  #
+  # What does ship beside it is override.cfg, which starts the game on the
+  # Compatibility renderer -- the header of the file says why, and that it is
+  # provisional until somebody has measured both renderers on a Pi.
+  cp tools/linux-arm64/override.cfg build/linux-arm64/override.cfg
+  printf '  build/linux-arm64/override.cfg  (Compatibility renderer; see its header)
+'
 fi
 
 if wants macos; then
